@@ -34,11 +34,11 @@ async function generateAgronomistReport(reading: Reading): Promise<string> {
       messages: [
         {
           role: "system",
-          content: "You are an expert digital agronomist helping small farmers. Provide a short, motivating, and actionable analysis based on satellite indices. Keep it under 50 words."
+          content: "Você é um agrônomo digital experiente ajudando pequenos produtores. Forneça uma análise curta, motivadora e acionável baseada nos índices de satélite. Mantenha menos de 50 palavras."
         },
         {
           role: "user",
-          content: `Analyze these indices: NDVI (Health): ${reading.ndvi.toFixed(2)}, NDWI (Water): ${reading.ndwi.toFixed(2)}, NDRE (Chlorophyll): ${reading.ndre.toFixed(2)}, RVI (Radar Biomass): ${reading.rvi.toFixed(2)}.`
+          content: `Analise estes índices: NDVI (Saúde): ${reading.ndvi.toFixed(2)}, NDWI (Água): ${reading.ndwi.toFixed(2)}, NDRE (Clorofila): ${reading.ndre.toFixed(2)}, RVI (Biomassa Radar): ${reading.rvi.toFixed(2)}.`
         }
       ],
       max_completion_tokens: 150,
@@ -145,11 +145,11 @@ export async function registerRoutes(
       if (existingFarms.length === 0) {
           console.log("Seeding Database...");
           const farm1 = await storage.createFarm({
-              name: "Green Valley Farm",
+              name: "Fazenda Vale Verde",
               latitude: -23.5505,
               longitude: -46.6333,
               sizeHa: 150.5,
-              cropType: "Soybeans",
+              cropType: "Soja",
               imageUrl: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80"
           });
           
@@ -157,11 +157,11 @@ export async function registerRoutes(
           for (const r of readings1) await storage.createReading(r);
 
           const farm2 = await storage.createFarm({
-            name: "Highland Coffee Estate",
+            name: "Fazenda de Café Planalto",
             latitude: -19.9167,
             longitude: -43.9345,
             sizeHa: 45.0,
-            cropType: "Coffee",
+            cropType: "Café",
              imageUrl: "https://images.unsplash.com/photo-1500964757637-c85e8a162699?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80"
         });
         const readings2 = generateMockReadings(farm2.id, 8);

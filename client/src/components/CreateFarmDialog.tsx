@@ -38,21 +38,21 @@ export function CreateFarmDialog() {
       <DialogTrigger asChild>
         <Button className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 rounded-xl">
           <Plus className="w-4 h-4 mr-2" />
-          Add New Farm
+          Adicionar Nova Fazenda
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px] bg-card rounded-2xl border-border shadow-2xl">
         <DialogHeader>
-          <DialogTitle className="text-xl font-display">Register New Farm</DialogTitle>
+          <DialogTitle className="text-xl font-display">Registrar Nova Fazenda</DialogTitle>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
           <div className="grid gap-2">
-            <Label htmlFor="name">Farm Name</Label>
+            <Label htmlFor="name">Nome da Fazenda</Label>
             <Input 
               id="name" 
               {...form.register("name")} 
               className="rounded-lg"
-              placeholder="e.g. Sunny Valley Plot A" 
+              placeholder="ex: Gleba A Vale do Sol" 
             />
             {form.formState.errors.name && (
               <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
@@ -61,16 +61,16 @@ export function CreateFarmDialog() {
           
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="cropType">Crop Type</Label>
+              <Label htmlFor="cropType">Tipo de Cultura</Label>
               <Input 
                 id="cropType" 
                 {...form.register("cropType")} 
                 className="rounded-lg"
-                placeholder="e.g. Corn" 
+                placeholder="ex: Milho" 
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="sizeHa">Size (Ha)</Label>
+              <Label htmlFor="sizeHa">Tamanho (Ha)</Label>
               <Input 
                 id="sizeHa" 
                 type="number" 
@@ -105,10 +105,10 @@ export function CreateFarmDialog() {
           </div>
           
           <div className="pt-4 flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="rounded-xl">Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="rounded-xl">Cancelar</Button>
             <Button type="submit" disabled={createFarm.isPending} className="rounded-xl bg-primary text-white">
               {createFarm.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Create Farm
+              Criar Fazenda
             </Button>
           </div>
         </form>

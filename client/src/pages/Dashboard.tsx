@@ -19,7 +19,7 @@ export default function Dashboard() {
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background pl-64">
-        <p className="text-destructive font-medium">Failed to load farms. Please try again.</p>
+        <p className="text-destructive font-medium">Falha ao carregar fazendas. Por favor, tente novamente.</p>
       </div>
     );
   }
@@ -30,8 +30,8 @@ export default function Dashboard() {
       <main className="flex-1 ml-64 p-8 lg:p-12 overflow-y-auto">
         <header className="flex justify-between items-end mb-12">
           <div>
-            <h1 className="text-4xl font-display font-bold text-foreground">Overview</h1>
-            <p className="text-muted-foreground mt-2 text-lg">Manage your fields and satellite data.</p>
+            <h1 className="text-4xl font-display font-bold text-foreground">Visão Geral</h1>
+            <p className="text-muted-foreground mt-2 text-lg">Gerencie seus campos e dados de satélite.</p>
           </div>
           <CreateFarmDialog />
         </header>
@@ -41,9 +41,9 @@ export default function Dashboard() {
             <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mb-6">
               <Sprout className="w-10 h-10 text-muted-foreground" />
             </div>
-            <h2 className="text-2xl font-bold font-display">No farms yet</h2>
+            <h2 className="text-2xl font-bold font-display">Nenhuma fazenda ainda</h2>
             <p className="text-muted-foreground mt-2 max-w-md">
-              Add your first farm to start monitoring crop health using satellite imagery.
+              Adicione sua primeira fazenda para começar a monitorar a saúde da cultura usando imagens de satélite.
             </p>
             <div className="mt-8">
               <CreateFarmDialog />
@@ -74,7 +74,7 @@ export default function Dashboard() {
                         </div>
                       )}
                       <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold text-primary shadow-sm">
-                        Active
+                        Ativa
                       </div>
                     </div>
                     
@@ -94,20 +94,20 @@ export default function Dashboard() {
                       <div className="grid grid-cols-2 gap-4 mt-auto">
                         <div className="bg-secondary/30 p-3 rounded-xl">
                           <div className="flex items-center gap-2 text-muted-foreground text-xs font-semibold uppercase tracking-wider mb-1">
-                            <Sprout className="w-3 h-3" /> Crop
+                            <Sprout className="w-3 h-3" /> Cultura
                           </div>
                           <p className="font-semibold text-foreground">{farm.cropType}</p>
                         </div>
                         <div className="bg-secondary/30 p-3 rounded-xl">
                           <div className="flex items-center gap-2 text-muted-foreground text-xs font-semibold uppercase tracking-wider mb-1">
-                            <Ruler className="w-3 h-3" /> Size
+                            <Ruler className="w-3 h-3" /> Tamanho
                           </div>
                           <p className="font-semibold text-foreground">{farm.sizeHa} ha</p>
                         </div>
                       </div>
 
                       <div className="mt-6 flex items-center text-primary font-medium text-sm group-hover:translate-x-1 transition-transform">
-                        View Dashboard <ArrowRight className="w-4 h-4 ml-2" />
+                        Ver Painel <ArrowRight className="w-4 h-4 ml-2" />
                       </div>
                     </div>
                   </div>

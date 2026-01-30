@@ -6,9 +6,9 @@ export function Sidebar() {
   const [location] = useLocation();
 
   const links = [
-    { href: "/", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/farms", label: "My Farms", icon: Sprout },
-    { href: "/settings", label: "Settings", icon: Settings },
+    { href: "/", label: "Painel", icon: LayoutDashboard },
+    { href: "/farms", label: "Minhas Fazendas", icon: Sprout },
+    { href: "/settings", label: "Configurações", icon: Settings },
   ];
 
   return (
@@ -20,7 +20,7 @@ export function Sidebar() {
           </div>
           <div>
             <h1 className="font-display font-bold text-xl leading-none">AgriSat</h1>
-            <p className="text-xs text-muted-foreground mt-1">Satellite Monitoring</p>
+            <p className="text-xs text-muted-foreground mt-1">Monitoramento via Satélite</p>
           </div>
         </div>
 
@@ -47,7 +47,7 @@ export function Sidebar() {
       <div className="mt-auto p-6 border-t border-border/40">
         <button className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors duration-200">
           <LogOut className="w-5 h-5" />
-          <span className="font-medium">Sign Out</span>
+          <span className="font-medium">Sair</span>
         </button>
       </div>
     </div>
