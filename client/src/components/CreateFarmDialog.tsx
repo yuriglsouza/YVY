@@ -1,0 +1,118 @@
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { insertFarmSchema, type InsertFarm } from "@shared/schema";
+import { useCreateFarm } from "@/hooks/use-farms";
+import { useState } from "react";
+import { Loader2, Plus } from "lucide-react";
+
+export function CreateFarmDialog() {
+  const [open, setOpen] = useState(false);
+  const createFarm = useCreateFarm();
+  
+  const form = useForm<InsertFarm>({
+    resolver: zodResolver(insertFarmSchema),
+    defaultValues: {
+      name: "",
+      cropType: "",
+      sizeHa: 0,
+      latitude: 0,
+      longitude: 0,
+    },
+  });
+
+  const onSubmit = (data: InsertFarm) => {
+    createFarm.mutate(data, {
+      onSuccess: () => {
+        setOpen(false);
+        form.reset();
+      },
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 rounded-xl">
+          <Plus className="w-4 h-4 mr-2" />
+          Add New Farm
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px] bg-card rounded-2xl border-border shadow-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-display">Register New Farm</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+          <div className="grid gap-2">
+            <Label htmlFor="name">Farm Name</Label>
+            <Input 
+              id="name" 
+              {...form.register("name")} 
+              className="rounded-lg"
+              placeholder="e.g. Sunny Valley Plot A" 
+            />
+            {form.formState.errors.name && (
+              <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="cropType">Crop Type</Label>
+              <Input 
+                id="cropType" 
+                {...form.register("cropType")} 
+                className="rounded-lg"
+                placeholder="e.g. Corn" 
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="sizeHa">Size (Ha)</Label>
+              <Input 
+                id="sizeHa" 
+                type="number" 
+                step="0.1"
+                {...form.register("sizeHa", { valueAsNumber: true })} 
+                className="rounded-lg"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="latitude">Latitude</Label>
+              <Input 
+                id="latitude" 
+                type="number" 
+                step="0.000001"
+                {...form.register("latitude", { valueAsNumber: true })} 
+                className="rounded-lg"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="longitude">Longitude</Label>
+              <Input 
+                id="longitude" 
+                type="number" 
+                step="0.000001"
+                {...form.register("longitude", { valueAsNumber: true })} 
+                className="rounded-lg"
+              />
+            </div>
+          </div>
+          
+          <div className="pt-4 flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="rounded-xl">Cancel</Button>
+            <Button type="submit" disabled={createFarm.isPending} className="rounded-xl bg-primary text-white">
+              {createFarm.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Create Farm
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
