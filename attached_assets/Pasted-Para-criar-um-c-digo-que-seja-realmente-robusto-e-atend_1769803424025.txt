@@ -1,0 +1,36 @@
+Para criar um código que seja realmente robusto e atenda aos critérios de "novidade técnica" e "viabilidade comercial" do desafio ActInSpace 2026, o prompt abaixo foi estruturado para ser usado em uma IA de programação (como Cursor, Claude 3.5 Sonnet ou GPT-4).
+
+
+Este prompt solicita a integração completa: Google Earth Engine para os dados, Awesome Spectral Indices para a ciência, OpenAI para a interpretação e Streamlit/Plotly para o dashboard visual.
+
+📝 O Prompt Mestre
+"Aja como um Desenvolvedor Full-Stack Senior e Especialista em Sensoriamento Remoto. Preciso que você escreva um código em Python para um sistema de monitoramento agrícola voltado a pequenos produtores, utilizando as seguintes tecnologias: Google Earth Engine (ee), awesome-spectral-indices, OpenAI API e Streamlit.
+
+Objetivo do Sistema: Criar um pipeline end-to-end que processe dados de satélite e apresente um dashboard simplificado com medidores de 'velocímetro' (Gauge Charts).
+
+Requisitos Técnicos Detalhados:
+
+Processamento Geoespacial (Sentinel-1 e 2): - Filtre a coleção Sentinel-2 (L2A) para o último ano, aplicando máscara de nuvens. - Filtre a coleção Sentinel-1 (GRD) para obter dados de radar (bandas VV e VH). - Utilize a biblioteca awesome-spectral-indices para calcular automaticamente: NDVI (saúde), NDWI (seca) e NDRE (pragas/clorofila). - Calcule o RVI (Radar Vegetation Index) usando o Sentinel-1 para garantir monitoramento em dias nublados.
+
+
+
+
+
+Interface Visual (Dashboard):
+
+Use o Streamlit para a interface e Plotly para os gráficos.
+
+Crie quatro medidores de 'velocímetro' (Gauge Charts) que mostrem o status de cada índice (NDVI, NDWI, NDRE, RVI) em uma escala de 'Ruim' (Vermelho), 'Atenção' (Amarelo) e 'Bom' (Verde).
+
+Defina os limites (thresholds) ideais para cada índice no contexto de plantações saudáveis.
+
+Relatório IA (GPT-4o):
+
+Crie uma função que extraia a média desses índices em uma geometria específica (ponto ou polígono da fazenda).
+
+Envie esses valores para a API da OpenAI com um system prompt que diga: 'Você é um agrônomo digital. Com base nos índices X, Y e Z, escreva um parágrafo curto, simples e motivador para um pequeno produtor rural, explicando o estado atual da terra dele e o que ele deve fazer'.
+
+
+Estrutura de Código:
+
+O código deve ser modular, limpo e incluir o tratamento de erros para chaves de API ausentes."
