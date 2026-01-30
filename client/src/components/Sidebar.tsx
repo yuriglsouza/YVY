@@ -42,6 +42,32 @@ export function Sidebar() {
             );
           })}
         </nav>
+
+        <div className="mt-8 px-4 py-4 rounded-2xl bg-secondary/30 border border-border/40">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="relative">
+              <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse" />
+              <div className="absolute inset-0 w-3 h-3 bg-emerald-500 rounded-full animate-ping opacity-75" />
+            </div>
+            <span className="text-xs font-semibold text-foreground uppercase tracking-wider">Satélites Ativos</span>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+              <span>Sentinel-2A</span>
+              <span className="text-emerald-600 font-bold">CONECTADO</span>
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+              <span>Landsat 8</span>
+              <span className="text-emerald-600 font-bold">CONECTADO</span>
+            </div>
+            <div className="mt-3 pt-3 border-t border-border/20">
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                <span>Sinal</span>
+                <span className="text-foreground font-medium">Forte (98%)</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="mt-auto p-6 border-t border-border/40">
