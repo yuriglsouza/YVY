@@ -1,0 +1,18 @@
+runtime: nodejs20
+instance_class: F1
+automatic_scaling:
+  max_instances: 1
+
+env_variables:
+  NODE_ENV: 'production'
+  # Você deve substituir isso pela sua chave real antes de deployar
+  # ou configurar via Secret Manager
+  OPENAI_API_KEY: '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'
+
+# Configuração de Handlers para servir arquivos estáticos de forma eficiente
+handlers:
+  - url: /assets
+    static_dir: dist/client/assets
+  - url: /.*
+    script: auto
+    secure: always

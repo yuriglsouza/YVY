@@ -30,6 +30,10 @@ export const readings = pgTable("readings", {
   ndwi: real("ndwi").notNull(), // Water
   ndre: real("ndre").notNull(), // Chlorophyll
   rvi: real("rvi").notNull(),   // Radar Vegetation Index
+  otci: real("otci"),           // Sentinel-3 Chlorophyll Index
+  temperature: real("temperature"), // Land Surface Temperature (Celsius)
+  satelliteImage: text("satellite_image"), // URL to RGB thumbnail
+  thermalImage: text("thermal_image"), // URL to Thermal map thumbnail (LST)
 });
 
 export const insertReadingSchema = createInsertSchema(readings).omit({ id: true });
@@ -48,6 +52,27 @@ export const reports = pgTable("reports", {
 export const insertReportSchema = createInsertSchema(reports).omit({ id: true, date: true });
 export type Report = typeof reports.$inferSelect;
 export type InsertReport = z.infer<typeof insertReportSchema>;
+
+// === USERS (Settings) ===
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull(),
+  receiveAlerts: boolean("receive_alerts").default(true).notNull(),
+});
+
+export const insertUserSchema = createInsertSchema(users).omit({ id: true });
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+
+// === ALERT LOGS ===
+export const alerts = pgTable("alerts", {
+  id: serial("id").primaryKey(),
+  farmId: integer("farm_id").notNull(),
+  date: timestamp("date").defaultNow(),
+  type: text("type").notNull(), // 'CRITICAL_NDVI', 'DROUGHT', 'HEAT_STRESS'
+  message: text("message").notNull(),
+  sentTo: text("sent_to"), // The email it was sent to
+});
 
 // === RELATIONS ===
 // (Optional but good for query helpers if we were using query builder extensively)

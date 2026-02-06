@@ -1,16 +1,18 @@
+import React from "react";
 import { useFarm, useRefreshReadings } from "@/hooks/use-farms";
 import { useReadings, useLatestReading } from "@/hooks/use-readings";
 import { useReports, useGenerateReport } from "@/hooks/use-reports";
 import { Sidebar } from "@/components/Sidebar";
 import { Gauge } from "@/components/Gauge";
 import { useRoute, Link } from "wouter";
-import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit } from "lucide-react";
+import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit, Sprout, Ruler, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 // Fix for leaflet marker icons
 import L from "leaflet";
@@ -26,16 +28,18 @@ let DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 export default function FarmDetails() {
+  const { toast } = useToast();
   const [match, params] = useRoute("/farms/:id");
   const farmId = parseInt(params?.id || "0");
-  
+
   const { data: farm, isLoading: isLoadingFarm } = useFarm(farmId);
   const { data: readings } = useReadings(farmId);
   const { data: latestReading } = useLatestReading(farmId);
   const { data: reports } = useReports(farmId);
-  
+
   const refreshReadings = useRefreshReadings();
   const generateReport = useGenerateReport();
+  const [showThermal, setShowThermal] = React.useState(false);
 
   if (isLoadingFarm) {
     return (
@@ -54,22 +58,53 @@ export default function FarmDetails() {
   }
 
   // Helpers for gauge colors
-  const getColor = (val: number, type: 'NDVI' | 'NDWI' | 'NDRE' | 'RVI') => {
-    if (type === 'NDVI') return val > 0.6 ? "#16a34a" : val > 0.3 ? "#ca8a04" : "#dc2626";
-    if (type === 'NDWI') return val < 0.2 ? "#0284c7" : "#0ea5e9";
-    return "#16a34a"; // Default
+  // Helpers for gauge status
+  const getGaugeStatus = (val: number, type: 'NDVI' | 'NDWI' | 'NDRE' | 'RVI' | 'TEMP' | 'OTCI') => {
+    if (type === 'NDVI') {
+      if (val > 0.6) return { status: "Ótimo", statusColor: "text-green-600 border-green-200 bg-green-50", gradientId: "gradient-ndvi" };
+      if (val > 0.3) return { status: "Atenção", statusColor: "text-yellow-600 border-yellow-200 bg-yellow-50", gradientId: "gradient-ndvi" };
+      return { status: "Crítico", statusColor: "text-red-600 border-red-200 bg-red-50", gradientId: "gradient-ndvi" };
+    }
+    if (type === 'NDWI') {
+      if (val > -0.1) return { status: "Bom", statusColor: "text-blue-600 border-blue-200 bg-blue-50", gradientId: "gradient-water" };
+      if (val > -0.3) return { status: "Moderado", statusColor: "text-yellow-600 border-yellow-200 bg-yellow-50", gradientId: "gradient-water" };
+      return { status: "Seco", statusColor: "text-red-600 border-red-200 bg-red-50", gradientId: "gradient-water" };
+    }
+    if (type === 'NDRE') {
+      if (val > 0.5) return { status: "Bom", statusColor: "text-green-600 border-green-200 bg-green-50", gradientId: "gradient-ndvi" };
+      if (val > 0.2) return { status: "Atenção", statusColor: "text-yellow-600 border-yellow-200 bg-yellow-50", gradientId: "gradient-ndvi" };
+      return { status: "Baixo", statusColor: "text-red-600 border-red-200 bg-red-50", gradientId: "gradient-ndvi" };
+    }
+    if (type === 'RVI') {
+      if (val > 0.5) return { status: "Vigoroso", statusColor: "text-purple-600 border-purple-200 bg-purple-50", color: "#8b5cf6" };
+      return { status: "Baixo", statusColor: "text-muted-foreground border-border", color: "#8b5cf6" };
+    }
+    // ESTRESSE TÉRMICO
+    if (type === 'TEMP') {
+      if (val > 35) return { status: "Estresse Térmico", statusColor: "text-red-600 border-red-200 bg-red-50", color: "#ef4444" };
+      if (val > 30) return { status: "Alerta", statusColor: "text-yellow-600 border-yellow-200 bg-yellow-50", color: "#f59e0b" };
+      if (val < 10) return { status: "Frio", statusColor: "text-blue-600 border-blue-200 bg-blue-50", color: "#3b82f6" };
+      return { status: "Ideal", statusColor: "text-green-600 border-green-200 bg-green-50", color: "#22c55e" };
+    }
+    // OTCI (CLOROFILA)
+    if (type === 'OTCI') {
+      if (val > 2.0) return { status: "Exuberante", statusColor: "text-green-700 border-green-300 bg-green-100", color: "#15803d" };
+      if (val > 1.0) return { status: "Bom", statusColor: "text-green-600 border-green-200 bg-green-50", color: "#22c55e" };
+      return { status: "Baixo", statusColor: "text-yellow-600 border-yellow-200 bg-yellow-50", color: "#eab308" };
+    }
+    return { status: "N/A", statusColor: "text-muted-foreground", color: "#000" };
   };
 
   const chartData = readings?.map(r => ({
     ...r,
     formattedDate: format(new Date(r.date), "d 'de' MMM")
-  })).reverse(); // Assuming API returns desc
+  })).reverse();
 
   return (
     <div className="min-h-screen bg-background flex">
       <Sidebar />
       <main className="flex-1 ml-64 p-8 lg:p-12 overflow-y-auto">
-        
+
         {/* Breadcrumb & Header */}
         <div className="mb-8">
           <Link href="/" className="inline-flex items-center text-muted-foreground hover:text-foreground mb-4 transition-colors">
@@ -87,48 +122,183 @@ export default function FarmDetails() {
                 </span>
               </div>
             </div>
-            <Button 
-              onClick={() => refreshReadings.mutate(farmId)}
-              disabled={refreshReadings.isPending}
-              variant="outline"
-              className="rounded-xl border-primary/20 hover:bg-primary/5 hover:text-primary"
-            >
-              <RefreshCw className={cn("w-4 h-4 mr-2", refreshReadings.isPending && "animate-spin")} />
-              Sincronizar Satélite
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={async () => {
+                  if (confirm("Tem certeza que deseja excluir esta fazenda? Esta ação não pode ser desfeita.")) {
+                    try {
+                      await fetch(`/api/farms/${farmId}`, { method: 'DELETE' });
+                      toast({ title: "Fazenda Excluída", description: "A fazenda foi removida com sucesso." });
+                      window.location.href = "/"; // Force navigation or useLocation
+                    } catch (error) {
+                      toast({ title: "Erro", description: "Falha ao excluir fazenda.", variant: "destructive" });
+                    }
+                  }
+                }}
+                variant="destructive"
+                className="rounded-xl"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Excluir
+              </Button>
+              <Button
+                onClick={() => {
+                  refreshReadings.mutate(farmId, {
+                    onSuccess: (data: any) => {
+                      if (data.isMock) {
+                        toast({
+                          title: "Simulação Ativada",
+                          description: data.message || "Dados simulados gerados devido à falha na conexão.",
+                          variant: "default",
+                          className: "border-l-4 border-yellow-500"
+                        });
+                      } else {
+                        toast({ title: "Dados Atualizados", description: "Sincronização com Sentinel concluída." });
+                      }
+                    },
+                    onError: () => toast({ title: "Erro na Sincronização", description: "Falha crítica ao conectar ao servidor.", variant: "destructive" })
+                  });
+                }}
+                disabled={refreshReadings.isPending}
+                variant="outline"
+                className="rounded-xl border-primary/20 hover:bg-primary/5 hover:text-primary"
+              >
+                <RefreshCw className={cn("w-4 h-4 mr-2", refreshReadings.isPending && "animate-spin")} />
+                Sincronizar Satélite
+              </Button>
+            </div>
           </div>
         </div>
 
         {/* Gauges Grid */}
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
           {latestReading ? (
             <>
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-                <Gauge value={latestReading.ndvi} label="NDVI (Saúde)" color={getColor(latestReading.ndvi, 'NDVI')} />
+                <Gauge
+                  value={latestReading.ndvi}
+                  label="NDVI"
+                  {...getGaugeStatus(latestReading.ndvi, 'NDVI')}
+                />
               </motion.div>
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-                <Gauge value={latestReading.ndwi} label="NDWI (Água)" color={getColor(latestReading.ndwi, 'NDWI')} min={-1} max={1} />
+                <Gauge
+                  value={latestReading.ndwi}
+                  label="NDWI (Água)"
+                  min={-1} max={1}
+                  {...getGaugeStatus(latestReading.ndwi, 'NDWI')}
+                />
               </motion.div>
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-                <Gauge value={latestReading.ndre} label="NDRE (Clorofila)" color={getColor(latestReading.ndre, 'NDRE')} />
+                <Gauge
+                  value={latestReading.ndre}
+                  label="NDRE"
+                  {...getGaugeStatus(latestReading.ndre, 'NDRE')}
+                />
               </motion.div>
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-                <Gauge value={latestReading.rvi} label="RVI (Veg. Radar)" color="#8b5cf6" max={3} />
+                <Gauge
+                  value={latestReading.otci || 0}
+                  label="OTCI (Clorofila)"
+                  max={4}
+                  {...getGaugeStatus(latestReading.otci || 0, 'OTCI')}
+                />
+              </motion.div>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="bg-card p-6 rounded-2xl border border-border shadow-sm">
+                <Gauge
+                  value={latestReading.rvi}
+                  label="RVI (Radar)"
+                  max={3}
+                  {...getGaugeStatus(latestReading.rvi, 'RVI')}
+                />
+              </motion.div>
+              {/* LST Last */}
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="bg-card p-6 rounded-2xl border border-border shadow-sm">
+                <Gauge
+                  value={latestReading.temperature || 0}
+                  label="Temp. (LST)"
+                  min={0} max={60}
+                  {...getGaugeStatus(latestReading.temperature || 0, 'TEMP')}
+                />
               </motion.div>
             </>
           ) : (
-             <div className="col-span-4 p-8 text-center text-muted-foreground bg-muted/20 rounded-2xl border border-dashed border-border">
-               Nenhuma leitura disponível. Clique em "Sincronizar Satélite".
-             </div>
+            <div className="col-span-6 p-8 text-center text-muted-foreground bg-muted/20 rounded-2xl border border-dashed border-border">
+              Nenhuma leitura disponível. Clique em "Sincronizar Satélite".
+            </div>
           )}
         </section>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
+
           {/* Main Chart Column */}
           <div className="lg:col-span-2 space-y-8">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.98 }} 
+            {latestReading?.satelliteImage && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-card p-6 rounded-2xl border border-border shadow-sm"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-display font-bold flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${showThermal ? 'bg-red-500' : 'bg-blue-500'}`}></span>
+                    {showThermal ? ' Mapa Térmico (LST)' : ' Captura do Satélite (RGB)'}
+                  </h2>
+                  <div className="flex bg-secondary/30 p-1 rounded-lg gap-1">
+                    <button
+                      onClick={() => setShowThermal(false)}
+                      className={cn(
+                        "px-3 py-1 text-xs font-medium rounded-md transition-all",
+                        !showThermal ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      RGB
+                    </button>
+                    <button
+                      onClick={() => setShowThermal(true)}
+                      className={cn(
+                        "px-3 py-1 text-xs font-medium rounded-md transition-all",
+                        showThermal ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Térmico
+                    </button>
+                  </div>
+                </div>
+                <div className="w-full h-[600px] overflow-hidden rounded-xl border border-border/50 relative group bg-black/95">
+                  <img
+                    src={showThermal ? (latestReading.thermalImage || latestReading.satelliteImage) : latestReading.satelliteImage}
+                    alt="Satellite View"
+                    className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent text-white">
+                    <div className="flex justify-between items-end">
+                      <div>
+                        <p className="text-sm font-medium">
+                          {showThermal ? 'Temperatura da Superfície (LST)' : 'Visualização Cor Verdadeira (TCI)'}
+                        </p>
+                        <p className="text-xs opacity-75">
+                          {showThermal ? 'Landsat 8/9 (100m)' : 'Sentinel-2 / MODIS Composite'}
+                        </p>
+                      </div>
+
+                      {showThermal && latestReading.temperature && (
+                        <div className="flex flex-col items-end gap-1">
+                          <div className="flex items-center gap-2 text-[10px] font-medium opacity-90">
+                            <span>{(latestReading.temperature - 3).toFixed(1)}°C</span>
+                            <div className="w-24 h-2 rounded-full bg-gradient-to-r from-[#0000ff] via-[#00ff00] to-[#ff0000] border border-white/20"></div>
+                            <span>{(latestReading.temperature + 3).toFixed(1)}°C</span>
+                          </div>
+                          <span className="text-[10px] opacity-75">Escala Dinâmica (Média ±3°C)</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               className="bg-card p-6 rounded-2xl border border-border shadow-sm"
             >
@@ -143,40 +313,43 @@ export default function FarmDetails() {
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                    <XAxis dataKey="formattedDate" axisLine={false} tickLine={false} tick={{fill: '#6b7280', fontSize: 12}} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#6b7280', fontSize: 12}} domain={[0, 1]} />
-                    <Tooltip 
+                    <XAxis dataKey="formattedDate" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} domain={[0, 'auto']} />
+                    <Tooltip
                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     />
                     <Legend />
                     <Line type="monotone" dataKey="ndvi" stroke="#16a34a" strokeWidth={3} dot={false} activeDot={{ r: 6 }} name="NDVI" />
                     <Line type="monotone" dataKey="ndwi" stroke="#0ea5e9" strokeWidth={3} dot={false} activeDot={{ r: 6 }} name="NDWI" />
+                    <Line type="monotone" dataKey="otci" stroke="#facc15" strokeWidth={2} dot={false} activeDot={{ r: 6 }} name="OTCI" />
+                    <Line type="monotone" dataKey="temperature" stroke="#ef4444" strokeDasharray="5 5" strokeWidth={2} dot={false} activeDot={{ r: 6 }} name="Temp. (LST)" />
+
                   </LineChart>
                 </ResponsiveContainer>
               </div>
             </motion.div>
 
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.2 }}
               className="bg-card p-6 rounded-2xl border border-border shadow-sm"
             >
               <div className="flex items-center justify-between mb-4">
-                 <h2 className="text-xl font-display font-bold flex items-center gap-2">
-                   <BrainCircuit className="w-5 h-5 text-accent" /> Agrônomo IA
-                 </h2>
-                 <Button 
-                   onClick={() => generateReport.mutate(farmId)}
-                   disabled={generateReport.isPending}
-                   size="sm" 
-                   className="bg-accent hover:bg-accent/90 text-accent-foreground rounded-lg"
-                 >
-                   {generateReport.isPending && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
-                   Analisar Dados
-                 </Button>
+                <h2 className="text-xl font-display font-bold flex items-center gap-2">
+                  <BrainCircuit className="w-5 h-5 text-accent" /> Agrônomo IA
+                </h2>
+                <Button
+                  onClick={() => generateReport.mutate(farmId)}
+                  disabled={generateReport.isPending}
+                  size="sm"
+                  className="bg-accent hover:bg-accent/90 text-accent-foreground rounded-lg"
+                >
+                  {generateReport.isPending && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
+                  Analisar Dados
+                </Button>
               </div>
-              
+
               <div className="space-y-4">
                 {reports && reports.length > 0 ? (
                   reports.slice(0, 3).map((report) => (
@@ -205,7 +378,7 @@ export default function FarmDetails() {
 
           {/* Sidebar Column (Map) */}
           <div className="lg:col-span-1">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3 }}
@@ -216,10 +389,10 @@ export default function FarmDetails() {
                   <MapIcon className="w-4 h-4 text-primary" /> Localização
                 </h3>
               </div>
-              
-              <MapContainer 
-                center={[farm.latitude, farm.longitude]} 
-                zoom={14} 
+
+              <MapContainer
+                center={[farm.latitude, farm.longitude]}
+                zoom={14}
                 scrollWheelZoom={false}
                 style={{ height: '100%', width: '100%' }}
               >
@@ -235,15 +408,18 @@ export default function FarmDetails() {
                     </div>
                   </Popup>
                 </Marker>
+                <Circle
+                  center={[farm.latitude, farm.longitude]}
+                  // 1 ha = 10,000 m². Radius = sqrt(Area / pi)
+                  radius={Math.sqrt((farm.sizeHa * 10000) / Math.PI)}
+                  pathOptions={{ color: '#10b981', fillColor: '#10b981', fillOpacity: 0.2 }}
+                />
               </MapContainer>
             </motion.div>
           </div>
 
         </div>
-      </main>
-    </div>
+      </main >
+    </div >
   );
 }
-
-// Icon for Sprout used in component
-import { Sprout, Ruler } from "lucide-react";

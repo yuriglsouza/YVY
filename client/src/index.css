@@ -1,70 +1,100 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
 @import 'leaflet/dist/leaflet.css';
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --font-display: 'Space Grotesk', sans-serif;
-  --font-body: 'Inter', sans-serif;
-
-  /* Earth & Agriculture Theme */
-  --background: 140 30% 98%;
-  --foreground: 160 40% 10%;
-  
-  --primary: 142 76% 36%;       /* Vibrant Crop Green */
-  --primary-foreground: 140 10% 98%;
-  
-  --secondary: 160 15% 90%;     /* Pale Sage */
-  --secondary-foreground: 160 40% 20%;
-  
-  --muted: 150 10% 94%;
-  --muted-foreground: 160 15% 40%;
-  
-  --accent: 38 92% 50%;         /* Golden Wheat Accent */
-  --accent-foreground: 38 40% 10%;
-  
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
-
-  --border: 160 15% 85%;
-  --input: 160 15% 85%;
-  --ring: 142 76% 36%;
-  
-  --card: 0 0% 100%;
-  --card-foreground: 160 40% 10%;
-
-  --radius: 0.75rem;
-}
-
 @layer base {
+  :root {
+    /* Base Colors - HSL conversion of Hex values */
+    /* BG-Main: #09090B -> 240 10% 3.9% */
+    --background: 240 10% 3.9%;
+    /* Text-Primary: #FAFAFA -> 240 4.8% 95.9% */
+    --foreground: 240 4.8% 95.9%;
+
+    /* BG-Surface: #18181B -> 240 5.9% 10% */
+    --card: 240 5.9% 10%;
+    --card-foreground: 240 4.8% 95.9%;
+
+    --popover: 240 5.9% 10%;
+    --popover-foreground: 240 4.8% 95.9%;
+
+    /* Brand-Primary: #354A35 -> 120 16% 25% */
+    --primary: 120 16% 25%;
+    --primary-foreground: 240 4.8% 95.9%;
+
+    /* Accent-Active: #22C55E -> 142 71% 45% */
+    --secondary: 240 5.9% 10%;
+    /* Using surface for generic secondary */
+    --secondary-foreground: 240 4.8% 95.9%;
+
+    --muted: 240 5.9% 10%;
+    --muted-foreground: 240 5% 64.9%;
+    /* Text-Secondary #A1A1AA */
+
+    /* Brand-Primary as accent base */
+    --accent: 120 16% 25%;
+    --accent-foreground: 240 4.8% 95.9%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 240 4.8% 95.9%;
+
+    /* Border-Subtle: #262626 -> 0 0% 14.9% */
+    --border: 0 0% 14.9%;
+    /* BG-Input: #27272A -> 240 3.7% 15.9% */
+    --input: 240 3.7% 15.9%;
+    /* Border-Focus: #354A35 -> 120 16% 25% */
+    --ring: 120 16% 25%;
+
+    --radius: 0.25rem;
+    /* 4px */
+
+    /* Custom Variables for Orbital Theme */
+    --accent-active: 142 71% 45%;
+    /* #22C55E */
+  }
+
   body {
-    @apply bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary;
-    font-family: var(--font-body);
+    @apply bg-background text-foreground antialiased selection:bg-primary/30 selection:text-white;
+    font-family: 'Inter', sans-serif;
   }
 
-  h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-display);
-    @apply font-bold tracking-tight text-foreground;
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: 'Inter', sans-serif;
+    @apply font-bold tracking-wider uppercase text-foreground;
+    letter-spacing: 0.05em;
+  }
+
+  /* Data and Numbers */
+  .font-mono,
+  [data-type="number"],
+  .tabular-nums {
+    font-family: 'JetBrains Mono', monospace;
   }
 }
 
-/* Custom Utilities */
 @layer utilities {
-  .glass-card {
-    @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl shadow-primary/5;
+  .orbital-border {
+    @apply border border-border;
   }
-  
-  .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70;
+
+  .orbital-card {
+    @apply bg-card border border-border shadow-none;
   }
 }
 
-/* Leaflet map z-index fix */
+/* Leaflet map z-index fix & Dark Mode Map Filter */
 .leaflet-container {
   z-index: 0;
   width: 100%;
   height: 100%;
   border-radius: var(--radius);
+  /* Removed inverted filter as it was causing issues with map visibility inside cards */
+  filter: grayscale(0.5) contrast(1.1) brightness(0.9);
 }

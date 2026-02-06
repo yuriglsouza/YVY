@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, buildUrl, type InsertFarm } from "@shared/routes";
-import { farms } from "@shared/schema";
+import { api, buildUrl } from "@shared/routes";
+import { farms, type InsertFarm } from "@shared/schema";
 import { z } from "zod";
 
 export function useFarms() {
@@ -51,16 +51,17 @@ export function useRefreshReadings() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.farms.refreshReadings.path, { id });
-      const res = await fetch(url, { 
+      const res = await fetch(url, {
         method: api.farms.refreshReadings.method,
-        credentials: "include" 
+        credentials: "include"
       });
       if (!res.ok) throw new Error("Failed to refresh readings");
       return res.json();
     },
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: [api.readings.list.path.replace(":id", String(id))] });
-      queryClient.invalidateQueries({ queryKey: [api.readings.latest.path.replace(":id", String(id))] });
+      queryClient.invalidateQueries({ queryKey: [api.readings.list.path, id] });
+      queryClient.invalidateQueries({ queryKey: [api.readings.latest.path, id] });
+      queryClient.invalidateQueries({ queryKey: [api.farms.list.path] });
     },
   });
 }

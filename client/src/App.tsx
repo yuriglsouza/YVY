@@ -6,13 +6,16 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/Dashboard";
 import FarmDetails from "@/pages/FarmDetails";
+import Settings from "@/pages/Settings";
+import FarmList from "@/pages/FarmList";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
-      <Route path="/farms" component={Dashboard} />
+      <Route path="/farms" component={FarmList} />
       <Route path="/farms/:id" component={FarmDetails} />
+      <Route path="/settings" component={Settings} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>

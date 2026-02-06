@@ -14,26 +14,21 @@ export function Sidebar() {
   return (
     <div className="w-64 h-screen bg-card border-r border-border/40 fixed left-0 top-0 flex flex-col z-50">
       <div className="p-6">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/25">
-            <Sprout className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="font-display font-bold text-xl leading-none">AgriSat</h1>
-            <p className="text-xs text-muted-foreground mt-1">Monitoramento via Satélite</p>
-          </div>
+        <div className="flex flex-col gap-2 mb-8 px-2">
+          <img src="/logo.jpg" alt="YVY Logo" className="h-16 w-auto object-contain self-start" />
+          <p className="text-xs text-muted-foreground ml-1">Monitoramento via Satélite</p>
         </div>
 
         <nav className="space-y-2">
           {links.map((link) => {
             const Icon = link.icon;
             const isActive = location === link.href || (link.href !== "/" && location.startsWith(link.href));
-            
+
             return (
               <Link key={link.href} href={link.href} className={cn(
                 "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group font-medium",
-                isActive 
-                  ? "bg-primary/10 text-primary shadow-sm" 
+                isActive
+                  ? "bg-primary/10 text-primary shadow-sm"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               )}>
                 <Icon className={cn("w-5 h-5", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
@@ -53,13 +48,26 @@ export function Sidebar() {
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-              <span>Sentinel-2A</span>
-              <span className="text-emerald-600 font-bold">CONECTADO</span>
+              <span>Sentinel-1 (Radar)</span>
+              <span className="text-emerald-600 font-bold">ONLINE</span>
             </div>
             <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-              <span>Landsat 8</span>
-              <span className="text-emerald-600 font-bold">CONECTADO</span>
+              <span>Sentinel-2 (Óptico)</span>
+              <span className="text-emerald-600 font-bold">ONLINE</span>
             </div>
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+              <span>Landsat 8/9 (Térmico)</span>
+              <span className="text-emerald-600 font-bold">ONLINE</span>
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+              <span>Sentinel-3 (Clorofila)</span>
+              <span className="text-emerald-600 font-bold">ONLINE</span>
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+              <span>MODIS (Contexto)</span>
+              <span className="text-emerald-600 font-bold">ONLINE</span>
+            </div>
+
             <div className="mt-3 pt-3 border-t border-border/20">
               <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                 <span>Sinal</span>
@@ -76,6 +84,6 @@ export function Sidebar() {
           <span className="font-medium">Sair</span>
         </button>
       </div>
-    </div>
+    </div >
   );
 }
