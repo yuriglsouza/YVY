@@ -116,3 +116,10 @@ export type InsertZone = z.infer<typeof insertZoneSchema>;
 // === RELATIONS ===
 // (Optional but good for query helpers if we were using query builder extensively)
 // For now, simple ID references are fine.
+
+// === SESSIONS (connect-pg-simple) ===
+export const session = pgTable("session", {
+  sid: text("sid").primaryKey(),
+  sess: jsonb("sess").notNull(),
+  expire: timestamp("expire", { precision: 6 }).notNull(),
+});

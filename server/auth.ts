@@ -5,17 +5,29 @@ import session from "express-session";
 import { storage } from "./storage.js";
 import { User } from "../shared/schema.js";
 
+import pgSession from "connect-pg-simple";
+import { pool } from "./db.js";
+
 export function setupAuth(app: Express) {
+    const PgSession = pgSession(session);
     const sessionSettings: session.SessionOptions = {
+        store: new PgSession({
+            pool,
+            tableName: 'session',
+            createTableIfMissing: true // Safety net, though we added to schema
+        }),
         secret: process.env.SESSION_SECRET || "yvy-orbital-secret-key",
         resave: false,
         saveUninitialized: false,
-        cookie: {}
+        cookie: {
+            maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+        }
     };
 
     if (app.get("env") === "production") {
         app.set("trust proxy", 1); // trust first proxy
         sessionSettings.cookie!.secure = true; // serve secure cookies
+        sessionSettings.cookie!.sameSite = 'none'; // Required for cross-origin if frontend/backend separated or behind proxy
     }
 
     app.use(session(sessionSettings));
