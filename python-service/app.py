@@ -13,6 +13,20 @@ import cluster
 
 app = FastAPI()
 
+@app.on_event("startup")
+async def startup_event():
+    import os
+    # Setup Google Credentials from Env Var (for Render)
+    creds_json = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+    if creds_json:
+        creds_path = os.path.abspath("yvy-service-account.json")
+        with open(creds_path, "w") as f:
+            f.write(creds_json)
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds_path
+        print(f"Auth: Service credentials loaded to {creds_path}")
+    else:
+        print("Auth: No JSON credentials found in env, strictly relying on local auth or default path.")
+
 class SatelliteRequest(BaseModel):
     lat: float
     lon: float
