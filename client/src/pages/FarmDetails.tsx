@@ -17,6 +17,8 @@ import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { ReportConfigDialog, ReportConfig } from "@/components/report-config-dialog";
+import { FinancialAnalysisDialog } from "@/components/financial-analysis-dialog";
 
 // Fix for leaflet marker icons
 import L from "leaflet";
@@ -56,6 +58,7 @@ export default function FarmDetails() {
     color: string;
     coordinates: Array<{ lat: number, lon: number }>;
     ndvi_avg: number;
+    area_percentage: number;
   }
 
   const [zones, setZones] = React.useState<Zone[]>([]);
@@ -135,23 +138,51 @@ export default function FarmDetails() {
   })).reverse();
 
   // PDF Generation Logic
-  const handleDownloadPDF = (reportContent: string, date: string) => {
+  const handleDownloadPDF = (reportContent: string, date: string, config?: ReportConfig) => {
     const doc = new jsPDF();
 
-    // Header
+    // Custom or Default Branding
+    const company = config?.companyName || "YVY ORBITAL";
+    const consultant = config?.consultantName ? `Consultor: ${config.consultantName}` : "";
+
+    // Header Color (Green default)
     doc.setFillColor(22, 163, 74); // Green
-    doc.rect(0, 0, 210, 20, 'F');
+    doc.rect(0, 0, 210, 25, 'F');
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(16);
+    doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
-    doc.text("YVY ORBITAL - Relatório Agronômico", 10, 13);
+    doc.text(company, 10, 15);
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Relatório Agronômico de Precisão", 10, 22);
+
+    if (consultant) {
+      doc.text(consultant, 200, 15, { align: "right" });
+    }
 
     // Farm Info
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(12);
-    doc.text(`Fazenda: ${farm?.name}`, 10, 30);
-    doc.text(`Data do Relatório: ${format(new Date(date), "dd/MM/yyyy")}`, 10, 36);
-    doc.text(`Cultura: ${farm?.cropType}`, 10, 42);
+    doc.text(`Fazenda: ${farm?.name}`, 10, 40);
+    doc.text(`Data do Relatório: ${format(new Date(date), "dd/MM/yyyy")}`, 10, 46);
+    doc.text(`Cultura: ${farm?.cropType}`, 10, 52);
+
+    // Custom Comments Section
+    let startY = 65;
+    if (config?.comments) {
+      doc.setFontSize(11);
+      doc.setTextColor(100);
+      doc.setFont("helvetica", "italic");
+      doc.text("Notas do Consultor:", 10, 60);
+
+      doc.setTextColor(0);
+      doc.setFont("helvetica", "normal");
+      const splitComments = doc.splitTextToSize(config.comments, 190);
+      doc.text(splitComments, 10, 66);
+
+      startY = 66 + (splitComments.length * 5) + 10;
+    }
 
     // Content Body
     doc.setFontSize(10);
@@ -164,12 +195,12 @@ export default function FarmDetails() {
       .replace(/__/g, "");
 
     const splitText = doc.splitTextToSize(cleanContent, 190);
-    doc.text(splitText, 10, 55);
+    doc.text(splitText, 10, startY);
 
     // Calculate Y position based on text height
     // 10 is the font size, 0.3527 converted points to mm (approx), 1.2 line height factor
     const textHeight = splitText.length * (10 * 0.3527 * 1.2);
-    const finalY = 55 + textHeight + 10;
+    const finalY = startY + textHeight + 10;
 
     // Add readings table if available
     if (latestReading) {
@@ -219,6 +250,7 @@ export default function FarmDetails() {
               </div>
             </div>
             <div className="flex gap-2">
+              <FinancialAnalysisDialog zones={zones} farmSizeHa={farm.sizeHa} />
               <Button
                 onClick={async () => {
                   if (confirm("Tem certeza que deseja excluir esta fazenda? Esta ação não pode ser desfeita.")) {
@@ -481,14 +513,18 @@ export default function FarmDetails() {
                       </p>
 
                       {report.formalContent && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full border-green-500/30 text-green-600 dark:text-green-400 hover:bg-green-500/10 hover:border-green-500/50 transition-all"
-                          onClick={() => handleDownloadPDF(report.formalContent!, report.date?.toString() || "")}
-                        >
-                          <FileText className="w-4 h-4 mr-2" /> Baixar PDF Técnico
-                        </Button>
+                        <ReportConfigDialog
+                          onGenerate={(config) => handleDownloadPDF(report.formalContent!, report.date?.toString() || "", config)}
+                          trigger={
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full border-green-500/30 text-green-600 dark:text-green-400 hover:bg-green-500/10 hover:border-green-500/50 transition-all"
+                            >
+                              <FileText className="w-4 h-4 mr-2" /> Baixar PDF Técnico
+                            </Button>
+                          }
+                        />
                       )}
                     </div>
                   ))
