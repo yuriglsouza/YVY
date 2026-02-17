@@ -58,7 +58,7 @@ export function BenchmarkChart({ farmId }: { farmId: number }) {
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="h-[250px] w-full">
+                <div className="h-[200px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={chartData} layout="vertical" margin={{ left: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
@@ -69,7 +69,7 @@ export function BenchmarkChart({ farmId }: { farmId: number }) {
                                 axisLine={false}
                                 tickLine={false}
                                 width={90}
-                                tick={{ fill: "#cbd5e1", fontSize: 11 }}
+                                tick={{ fill: "#e2e8f0", fontSize: 11 }}
                             />
                             <Tooltip
                                 cursor={{ fill: "hsl(var(--muted)/0.2)" }}
@@ -88,13 +88,13 @@ export function BenchmarkChart({ farmId }: { farmId: number }) {
                     </ResponsiveContainer>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-border/40 grid grid-cols-1 gap-2 text-center">
+                <div className="mt-2 pt-4 border-t border-border/40 grid grid-cols-1 gap-2 text-center">
                     <div className="flex justify-between items-center px-2">
-                        <span className="text-xs text-muted-foreground">NDVI Atual</span>
+                        <span className="text-xs text-slate-300/80">NDVI Atual</span>
                         <span className="text-xl font-bold text-emerald-500">{data.farmNdvi.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center px-2">
-                        <span className="text-xs text-muted-foreground">Média da Região</span>
+                        <span className="text-xs text-slate-300/80">Média da Região</span>
                         <span className="text-xl font-bold text-slate-500">{data.regionalNdvi.toFixed(2)}</span>
                     </div>
                 </div>
