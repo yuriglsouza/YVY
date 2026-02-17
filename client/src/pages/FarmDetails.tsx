@@ -5,7 +5,7 @@ import { useReadings, useLatestReading } from "@/hooks/use-readings";
 import { useReports, useGenerateReport } from "@/hooks/use-reports";
 import { Sidebar, MobileNav } from "@/components/Sidebar";
 import { Gauge } from "@/components/Gauge";
-import { Link, useRoute } from "wouter";
+import { Link, useRoute, useLocation } from "wouter";
 import { WeatherCard } from "@/components/weather-card";
 import { BenchmarkChart } from "@/components/benchmark-chart";
 import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit, Sprout, Ruler, Trash2 } from "lucide-react";
