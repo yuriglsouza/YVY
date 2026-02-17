@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import FarmList from "@/pages/FarmList";
 import ClientList from "@/pages/ClientList";
+import Dashboard from "@/pages/Dashboard"; // Import Dashboard
 import FarmDetails from "@/pages/FarmDetails";
 import LoginPage from "@/pages/LoginPage"; // Import Login Page
 import { TooltipProvider } from "@/components/ui/tooltip"; // Restored
@@ -46,9 +47,10 @@ function Router() {
     <Switch>
       <Route path="/login" component={LoginPage} />
       {/* Protect all other routes */}
-      <Route path="/" component={() => <ProtectedRoute component={FarmList} />} />
+      <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
+      <Route path="/farms" component={() => <ProtectedRoute component={FarmList} />} />
       <Route path="/clients" component={() => <ProtectedRoute component={ClientList} />} />
-      <Route path="/farm/:id" component={() => <ProtectedRoute component={FarmDetails} />} />
+      <Route path="/farms/:id" component={() => <ProtectedRoute component={FarmDetails} />} />
       <Route component={NotFound} />
     </Switch>
   );
