@@ -369,6 +369,9 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
+    # Ensure EE is initialized for CLI usage
+    init_earth_engine()
+    
     # Recriar lógica de ROI e Datas que foi apagada
     area_m2 = args.size * 10000
     radius_m = math.sqrt(area_m2 / math.pi)
@@ -380,3 +383,50 @@ if __name__ == "__main__":
     start_date = end_date - datetime.timedelta(days=30)
 
     analyze_farm(roi, start_date, end_date, args.size)
+
+def get_sentinel2_pixels(roi, start_date, end_date, scale=20):
+    """
+    Fetches raw Sentinel-2 pixels (NDVI, NDWI) for clustering.
+    Scale=20m is a good compromise between precision and performance (S2 is 10m).
+    """
+    try:
+        # Reuse existing logic to get images
+        ndvi_img, ndwi_img, ndre_img, composite = get_sentinel2_indices(roi, start_date, end_date)
+        
+        # Create a stack of bands we want to cluster on
+        stack = ndvi_img.addBands(ndwi_img).addBands(ee.Image.pixelLonLat())
+        
+        # Sample the region
+        # using sample() instead of reduceRegion allows us to get individual points
+        # sample() with geometry samples within the geometry
+        
+        # Limit precision to avoid massive payloads for large farms
+        # 100ha at 10m = 10,000 points. Manageable.
+        # But let's verify scale.
+        
+        pixels = stack.sample(
+            region=roi,
+            scale=scale,  # 20m resolution (4 pixels of 10m combined approx)
+            projection='EPSG:4326',
+            geometries=True # We need coordinates
+        )
+        
+        # Get data to client side
+        data = pixels.getInfo()
+        
+        # Transform to list of dicts
+        result = []
+        if 'features' in data:
+            for f in data['features']:
+                props = f['properties']
+                result.append({
+                    "lat": props.get('latitude'),
+                    "lon": props.get('longitude'),
+                    "ndvi": props.get('ndvi'),
+                    "ndwi": props.get('ndwi')
+                })
+        
+        return result
+    except Exception as e:
+        sys.stderr.write(f"Error fetching S2 pixels: {e}\n")
+        return []

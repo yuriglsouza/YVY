@@ -9,6 +9,40 @@ def generate_mock_pixels(lat, lon, size_ha):
     Generates a grid of mock pixels for the farm.
     In a real scenario, this would load the actual GeoTIFF/Matrix from Earth Engine.
     """
+    try:
+        # Try to import local satellite analysis to get REAL pixes
+        import satellite_analysis
+        import ee
+        import datetime
+        import math
+        
+        # Initialize EE if not already (safeguard)
+        try:
+            if not  ee.data._credentials:
+                ee.Initialize(project='yvyorbital')
+        except:
+            pass # Expect app.py to have initialized it
+
+        # ROI Logic
+        area_m2 = size_ha * 10000
+        radius_m = math.sqrt(area_m2 / math.pi)
+        point = ee.Geometry.Point([lon, lat])
+        roi = point.buffer(radius_m)
+        
+        end_date = datetime.datetime.now()
+        start_date = end_date - datetime.timedelta(days=30)
+        
+        # Fetch Real Pixels!
+        pixels = satellite_analysis.get_sentinel2_pixels(roi, start_date, end_date, scale=20)
+        
+        if pixels and len(pixels) > 10:
+             print(f"Using {len(pixels)} real Sentinel-2 pixels for clustering.")
+             return pixels
+             
+    except Exception as e:
+        print(f"Warning: Failed to get real satellite pixels ({e}), falling back to mock")
+
+    # Fallback to Mock if GEE fails or returns empty
     # 1 hectare approx 100x100m. 
     # Let's generate a 20x20 grid (400 points) to simulate the field
     lats = np.linspace(lat - 0.005, lat + 0.005, 20)
