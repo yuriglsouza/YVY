@@ -5,18 +5,20 @@ import datetime
 import math
 import argparse
 
-# Inicializa o Earth Engine
-try:
-    ee.Initialize(project='yvyorbital')
-except Exception as e:
+# Inicializa o Earth Engine (Lazy Loading)
+def init_earth_engine():
     try:
-        # Tenta autenticar se não estiver inicializado (pode exigir interação manual na primeira vez)
-        # Em ambiente de servidor, as credenciais devem estar configuradas via variável de ambiente
-        ee.Authenticate()
-        ee.Initialize(project='yvyorbital')
+        # Tenta usar as credenciais padrão (Environment Variable setada pelo app.py)
+        ee.Initialize()
+        print("Earth Engine initialized successfully.")
     except Exception as e:
-        print(json.dumps({"error": f"Falha na autenticação do Earth Engine: {str(e)}"}))
-        sys.exit(1)
+        print(f"Warning: Earth Engine init failed (will retry): {e}")
+        try:
+            ee.Authenticate()
+            ee.Initialize()
+        except Exception as e2:
+             print(json.dumps({"error": f"Falha na autenticação do Earth Engine (Fatal): {str(e2)}"}))
+
 
 def mask_s2_clouds(image):
     """Máscara de nuvens para Sentinel-2 usando a banda QA60."""

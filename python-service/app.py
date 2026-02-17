@@ -26,6 +26,9 @@ async def startup_event():
         print(f"Auth: Service credentials loaded to {creds_path}")
     else:
         print("Auth: No JSON credentials found in env, strictly relying on local auth or default path.")
+    
+    # Initialize Earth Engine AFTER setting credentials
+    satellite_analysis.init_earth_engine()
 
 class SatelliteRequest(BaseModel):
     lat: float
