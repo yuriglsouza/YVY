@@ -12,6 +12,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertClientSchema, type InsertClient } from "@shared/schema";
 import { Loader2, Plus, Users, Search, Phone, Mail, Building } from "lucide-react";
 
+import { Sidebar, MobileNav } from "@/components/Sidebar";
+
 export default function ClientList() {
     const { data: clients, isLoading } = useClients();
     const [searchTerm, setSearchTerm] = useState("");
@@ -22,67 +24,71 @@ export default function ClientList() {
     );
 
     return (
-        <div className="min-h-screen bg-neutral-50 p-6 md:p-8 space-y-8">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-display text-neutral-900 mb-2">Gestão de Clientes</h1>
-                    <p className="text-neutral-500">Gerencie produtores e empresas parceiras.</p>
+        <div className="flex min-h-screen bg-background">
+            <Sidebar />
+            <MobileNav />
+            <main className="flex-1 ml-0 lg:ml-64 p-4 lg:p-8 pt-16 lg:pt-8 overflow-y-auto">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                    <div>
+                        <h1 className="text-3xl font-display font-bold text-foreground mb-2">Gestão de Clientes</h1>
+                        <p className="text-muted-foreground">Gerencie produtores e empresas parceiras.</p>
+                    </div>
+                    <CreateClientDialog />
                 </div>
-                <CreateClientDialog />
-            </div>
 
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                    placeholder="Buscar clientes por nome ou empresa..."
-                    className="pl-10 max-w-md bg-white rounded-xl border-border/60"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
-            </div>
-
-            {isLoading ? (
-                <div className="flex justify-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <div className="relative mb-8">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Buscar clientes por nome ou empresa..."
+                        className="pl-10 max-w-md bg-card rounded-xl border-border"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                 </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredClients?.map(client => (
-                        <Card key={client.id} className="rounded-2xl border-border/60 shadow-sm hover:shadow-md transition-all duration-200">
-                            <CardHeader className="pb-3">
-                                <div className="flex items-start justify-between">
-                                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
-                                        <Users className="w-5 h-5" />
+
+                {isLoading ? (
+                    <div className="flex justify-center py-12">
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filteredClients?.map(client => (
+                            <Card key={client.id} className="rounded-2xl border-border shadow-sm hover:shadow-md transition-all duration-200 bg-card">
+                                <CardHeader className="pb-3">
+                                    <div className="flex items-start justify-between">
+                                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
+                                            <Users className="w-5 h-5" />
+                                        </div>
+                                        {client.company && (
+                                            <span className="text-xs font-medium px-2 py-1 rounded-full bg-secondary text-secondary-foreground">
+                                                {client.company}
+                                            </span>
+                                        )}
                                     </div>
-                                    {client.company && (
-                                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-secondary text-secondary-foreground">
-                                            {client.company}
-                                        </span>
-                                    )}
-                                </div>
-                                <CardTitle className="text-lg font-bold text-foreground">{client.name}</CardTitle>
-                                <CardDescription className="line-clamp-1">{client.notes || "Sem observações"}</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                                <div className="flex items-center text-sm text-neutral-600">
-                                    <Mail className="w-4 h-4 mr-2 text-neutral-400" />
-                                    {client.email || "—"}
-                                </div>
-                                <div className="flex items-center text-sm text-neutral-600">
-                                    <Phone className="w-4 h-4 mr-2 text-neutral-400" />
-                                    {client.phone || "—"}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                                    <CardTitle className="text-lg font-bold text-foreground">{client.name}</CardTitle>
+                                    <CardDescription className="line-clamp-1">{client.notes || "Sem observações"}</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    <div className="flex items-center text-sm text-muted-foreground">
+                                        <Mail className="w-4 h-4 mr-2 opacity-70" />
+                                        {client.email || "—"}
+                                    </div>
+                                    <div className="flex items-center text-sm text-muted-foreground">
+                                        <Phone className="w-4 h-4 mr-2 opacity-70" />
+                                        {client.phone || "—"}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
 
-                    {filteredClients?.length === 0 && (
-                        <div className="col-span-full py-12 text-center text-muted-foreground bg-white rounded-2xl border border-dashed border-border">
-                            <p>Nenhum cliente encontrado.</p>
-                        </div>
-                    )}
-                </div>
-            )}
+                        {filteredClients?.length === 0 && (
+                            <div className="col-span-full py-12 text-center text-muted-foreground bg-card rounded-2xl border border-dashed border-border">
+                                <p>Nenhum cliente encontrado.</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </main>
         </div>
     );
 }
