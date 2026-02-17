@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -296,6 +297,17 @@ export async function registerRoutes(
   app.get(api.reports.list.path, async (req, res) => {
     const reports = await storage.getReports(Number(req.params.id));
     res.json(reports);
+  });
+
+  // Debug Endpoint
+  app.get("/api/debug", (req, res) => {
+    res.json({
+      env: process.env.NODE_ENV,
+      db_url_set: !!process.env.DATABASE_URL,
+      db_url_prefix: process.env.DATABASE_URL?.substring(0, 15),
+      has_db_connection: !!db,
+      timestamp: new Date().toISOString()
+    });
   });
 
   app.post(api.reports.generate.path, async (req, res) => {
