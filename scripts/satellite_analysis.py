@@ -165,7 +165,7 @@ def analyze_farm(roi, start_date, end_date, size_ha):
     # Definir Contexto Visual (Zoom Out)
     
     # 1. ROI para RGB (O "Perfeito"): Baseado no tamanho da fazenda + margem
-    radius_farm = math.sqrt(size_ha * 10000) / math.sqrt(math.pi)
+    radius_farm = math.sqrt(size_ha * 10000) / math.pi
     rgb_radius = radius_farm * 2.0 # 100% de margem (contexto local)
     rgb_roi = roi.buffer(rgb_radius).bounds() # Quadrado local
     
@@ -209,8 +209,6 @@ def analyze_farm(roi, start_date, end_date, size_ha):
             maxPixels=1e9
         )
 
-
-
         # MODIS (LST)
         val_s3 = {'lst': None}
         lst_img = None
@@ -236,67 +234,55 @@ def analyze_farm(roi, start_date, end_date, size_ha):
         # val_s3 já está definido acima
         
         # Gerar URL da imagem (Visualização RGB)
-        # Estratégia Híbrida: Usar pixels limpos onde possível, preencher buracos com a mediana bruta (nuvens)
-        # Isso evita os "buracos pretos" na imagem.
-        
-        # 1. Recuperar a mediana bruta (sem máscara de nuvens) para preenchimento
-        # Precisamos da coleção original s2 (sem map mask). 
-        # Como s2 já foi mapeado, vamos reconstruir rapidinho a visualização bruta ou usar a s2 mascarada unmasked?
-        # A s2 original não está acessível aqui facilmente sem refazer a query.
-        # Melhor abordagem: Unmask com valor constante ou refazer query leve.
-        # Vamos passar 's2_raw' se possível? Não, vamos simplificar.
-        # Unmask com 0.3 (cinza claro) é melhor que preto? Ou tentar pegar pixels vizinhos?
-        # Vamos assumir que 'composite' tem buracos.
+        # Estratégia Híbrida: Usar pixels limpos onde possível, preencher fundo
         
         visual_rgb = composite.select(['B4', 'B3', 'B2']).visualize(min=0, max=0.3)
         
-        # Preencher fundo transparente (buracos) com cinza muito claro (nuvem/sem dados)
-        # background = ee.Image.constant(0.9).visualize(min=0, max=1) # Branco quase
-        # visual_filled = background.blend(visual_rgb) 
-        # O blend coloca o visual_rgb POR CIMA do background. Onde visual_rgb é mascarado, aparece o background.
-        
-        # Melhor: Tentar mostrar nuvens reais seria ideal, mas exige reutilizar a s2_collection.
-        # Vamos apenas garantir que não fique "quebrado" (preto/transparente).
-        
+        # Obter Bounds da Imagem para Overlay no Frontend
+        # O bounds() do ee.Geometry retorna um Polygon.
+        # Precisamos das coords min/max dele.
+        rgb_bounds_info = rgb_roi.getInfo()['coordinates'][0]
+        # rgb_bounds_info é [[lon, lat], ...]
+        lons = [p[0] for p in rgb_bounds_info]
+        lats = [p[1] for p in rgb_bounds_info]
+        # Leaflet espera [[lat1, lon1], [lat2, lon2]] (SouthWest, NorthEast)
+        # Vamos retornar: [[min_lat, min_lon], [max_lat, max_lon]]
+        bounds_overlay = [[min(lats), min(lons)], [max(lats), max(lons)]]
+
+        thumb_url = None
         try:
             # Usar rgb_roi (Contexto Local) para RGB - o "Perfeito"
             
             # Forçar a região exata (ROI expandida) evita distorções
             thumb_url = visual_rgb.getThumbURL({
                 'dimensions': 600, 
-                'format': 'jpg',   
+                'format': 'png',   
                 'region': rgb_roi      # CRÍTICO: Define o bounding box com contexto local
             })
-            # Gerar URL Térmica (LST)
-            # Paleta: Azul (Frio) -> Verde -> Amarelo -> Vermelho (Quente)
-            # Range: 20°C a 50°C (ajustável)
-            val_lst = val_s3.get('lst')
-            thermal_url = None
-            
-            if lst_img is not None and val_lst is not None:
-                # Ajuste Dinâmico de Contraste
-                # O LST costuma variar pouco numa região pequena.
-                # Se usarmos range fixo 10-50, tudo fica da mesma cor.
-                # Vamos focar no intervalo: Média +/- 3 graus (ou 5)
-                min_vis = val_lst - 3.0
-                max_vis = val_lst + 3.0
-                
-                palette = ['0000ff', '00ffff', '00ff00', 'ffff00', 'ff0000']
-                visual_thermal = lst_img.visualize(min=min_vis, max=max_vis, palette=palette)
-                
-                try:
-                    thermal_url = visual_thermal.getThumbURL({
-                        'dimensions': 600,
-                        'format': 'jpg',
-                        'region': thermal_roi # Usa a região GRANDE
-                    })
-                except Exception as e:
-                     sys.stderr.write(f"Warning: Failed to generate thermal thumb URL: {e}\n")
         except Exception as e:
             sys.stderr.write(f"Warning: Failed to generate thumb URL: {e}\n")
             thumb_url = None
-            thermal_url = None
+
+        # Gerar URL Térmica (LST)
+        val_lst = val_s3.get('lst')
+        thermal_url = None
         
+        if lst_img is not None and val_lst is not None:
+            # Ajuste Dinâmico de Contraste
+            min_vis = val_lst - 3.0
+            max_vis = val_lst + 3.0
+            
+            palette = ['0000ff', '00ffff', '00ff00', 'ffff00', 'ff0000']
+            visual_thermal = lst_img.visualize(min=min_vis, max=max_vis, palette=palette)
+            
+            try:
+                thermal_url = visual_thermal.getThumbURL({
+                    'dimensions': 600,
+                    'format': 'png',
+                    'region': thermal_roi # Usa a região GRANDE
+                })
+            except Exception as e:
+                 sys.stderr.write(f"Warning: Failed to generate thermal thumb URL: {e}\n")
 
         # Tratar casos onde não há imagem (valores None/Null)
         result = {
@@ -308,7 +294,8 @@ def analyze_farm(roi, start_date, end_date, size_ha):
             "temperature": val_s3.get('lst', 0) if val_s3.get('lst') is not None else 0,
             "otci": val_otci.get('otci', 0) if val_otci.get('otci') is not None else 0,
             "satellite_image": thumb_url,
-            "thermal_image": thermal_url
+            "thermal_image": thermal_url,
+            "bounds": bounds_overlay # Adicionando Bounds
         }
         
         print(json.dumps(result))

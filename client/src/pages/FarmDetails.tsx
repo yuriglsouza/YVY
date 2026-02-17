@@ -10,7 +10,11 @@ import { WeatherCard } from "@/components/weather-card";
 import { BenchmarkChart } from "@/components/benchmark-chart";
 import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit, Sprout, Ruler, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { MapContainer, TileLayer, Marker, Popup, Circle, LayersControl } from "react-leaflet";
+// ... imports ...
+import { MapContainer, TileLayer, Marker, Popup, Circle, LayersControl, ImageOverlay } from "react-leaflet";
+// ...
+
+
 
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
 import { PredictiveChart } from "@/components/predictive-chart";
@@ -753,6 +757,26 @@ export default function FarmDetails() {
                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
                   </LayersControl.BaseLayer>
+
+                  {latestReading?.satelliteImage && latestReading?.imageBounds && (
+                    <LayersControl.Overlay checked name="Análise Espectral (NDVI)">
+                      <ImageOverlay
+                        url={latestReading.satelliteImage}
+                        bounds={latestReading.imageBounds as [[number, number], [number, number]]}
+                        opacity={0.7}
+                      />
+                    </LayersControl.Overlay>
+                  )}
+
+                  {latestReading?.thermalImage && latestReading?.imageBounds && (
+                    <LayersControl.Overlay name="Mapa Térmico (LST)">
+                      <ImageOverlay
+                        url={latestReading.thermalImage}
+                        bounds={latestReading.imageBounds as [[number, number], [number, number]]}
+                        opacity={0.7}
+                      />
+                    </LayersControl.Overlay>
+                  )}
                 </LayersControl>
 
                 {/* Zones Visualization */}

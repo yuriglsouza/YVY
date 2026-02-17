@@ -466,7 +466,8 @@ export async function registerRoutes(
           otci: result.otci,
           temperature: result.temperature,
           satelliteImage: result.satellite_image,
-          thermalImage: result.thermal_image
+          thermalImage: result.thermal_image,
+          imageBounds: result.bounds // Add bounds from python script
         };
 
         await storage.createReading(newReading);

@@ -35,9 +35,14 @@ export const readings = pgTable("readings", {
   temperature: real("temperature"), // Land Surface Temperature (Celsius)
   satelliteImage: text("satellite_image"), // URL to RGB thumbnail
   thermalImage: text("thermal_image"), // URL to Thermal map thumbnail (LST)
+  imageBounds: jsonb("image_bounds"), // [[lat1, lon1], [lat2, lon2]]
 });
 
-export const insertReadingSchema = createInsertSchema(readings).omit({ id: true });
+export const insertReadingSchema = createInsertSchema(readings).omit({
+  id: true,
+  // @ts-ignore
+  createdAt: true
+});
 export type Reading = typeof readings.$inferSelect;
 export type InsertReading = z.infer<typeof insertReadingSchema>;
 
