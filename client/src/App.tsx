@@ -63,7 +63,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         {/* Global Watermark - Low Z-index to sit behind cards but on top of body bg */}
-        <div className="fixed inset-0 z-[0] pointer-events-none flex items-center justify-center opacity-[0.3] select-none">
+        <div className="fixed inset-0 z-[0] pointer-events-none flex items-center justify-center opacity-[0.15] select-none">
           <img src="/logo.png" alt="" className="w-[80vw] max-w-[800px] h-auto grayscale" />
         </div>
         <div className="relative z-0">

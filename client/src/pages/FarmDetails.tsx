@@ -269,7 +269,7 @@ export default function FarmDetails() {
       // Save graphics state
       doc.saveGraphicsState();
       // Set transparency (approx 5-10% opacity)
-      doc.setGState(new (doc as any).GState({ opacity: 0.3 }));
+      doc.setGState(new (doc as any).GState({ opacity: 0.15 }));
       doc.addImage(logoData, 'PNG', (pageWidth - logoWidth) / 2, (pageHeight - logoHeight) / 2, logoWidth, logoHeight);
       // Restore graphics state
       doc.restoreGraphicsState();
