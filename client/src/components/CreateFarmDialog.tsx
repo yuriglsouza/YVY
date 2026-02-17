@@ -31,6 +31,7 @@ function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmi
       latitude: 0,
       longitude: 0,
       clientId: null,
+      imageUrl: "",
       ...defaultValues
     },
   });
@@ -114,6 +115,16 @@ function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmi
             className="rounded-lg"
           />
         </div>
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="imageUrl">URL da Imagem (Opcional)</Label>
+        <Input
+          id="imageUrl"
+          {...form.register("imageUrl")}
+          className="rounded-lg"
+          placeholder="https://exemplo.com/foto-fazenda.jpg"
+        />
       </div>
 
       <div className="pt-4 flex justify-end gap-2">
@@ -215,7 +226,8 @@ export function EditFarmDialog({ farm, trigger }: { farm: Farm, trigger?: React.
             sizeHa: farm.sizeHa,
             latitude: farm.latitude,
             longitude: farm.longitude,
-            clientId: farm.clientId
+            clientId: farm.clientId,
+            imageUrl: farm.imageUrl
           }}
         />
       </DialogContent>
