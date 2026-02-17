@@ -15,5 +15,8 @@
         "api/index.ts": {
             "includeFiles": "server/**,shared/**"
         }
+    },
+    "env": {
+        "PYTHON_SERVICE_URL": "https://yvy.onrender.com"
     }
 }
