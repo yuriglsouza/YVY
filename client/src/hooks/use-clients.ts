@@ -24,7 +24,10 @@ export function useCreateClient() {
                 body: JSON.stringify(validated),
                 credentials: "include",
             });
-            if (!res.ok) throw new Error("Failed to create client");
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.message || "Failed to create client");
+            }
             return api.clients.create.responses[201].parse(await res.json());
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.clients.list.path] }),
