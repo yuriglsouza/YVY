@@ -184,9 +184,60 @@ export default function FarmDetails() {
       startY = 66 + (splitComments.length * 5) + 10;
     }
 
+    // Financial Analysis Section (New)
+    if (config?.includeFinancials && config.financials && zones.length > 0) {
+      // Calculate logic (same as FinancialDialog)
+      const { costPerHa, pricePerBag, yields } = config.financials;
+
+      const highZone = zones.find(z => z.name.includes("Alta"))?.area_percentage || 0;
+      const mediumZone = zones.find(z => z.name.includes("Média"))?.area_percentage || 0;
+      const lowZone = zones.find(z => z.name.includes("Baixa"))?.area_percentage || 0;
+
+      const production = (
+        (highZone * farm.sizeHa * yields.high) +
+        (mediumZone * farm.sizeHa * yields.medium) +
+        (lowZone * farm.sizeHa * yields.low)
+      );
+
+      const totalCost = farm.sizeHa * costPerHa;
+      const grossRevenue = production * pricePerBag;
+      const netProfit = grossRevenue - totalCost;
+      const roi = totalCost > 0 ? (netProfit / totalCost) * 100 : 0;
+      const avgYield = production / farm.sizeHa;
+
+      // Render Table
+      autoTable(doc, {
+        startY: startY,
+        head: [['Análise Financeira Estimada', 'Valores']],
+        body: [
+          ['Custo de Produção Base', `R$ ${costPerHa.toFixed(2)} / ha`],
+          ['Produtividade Média Estimada', `${avgYield.toFixed(1)} sc/ha`],
+          ['Receita Bruta Total', `R$ ${grossRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+          ['Lucro Líquido Projetado', `R$ ${netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+          ['Retorno sobre Investimento (ROI)', `${roi.toFixed(1)}%`]
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [22, 163, 74] }, // Green
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 100 },
+          1: { halign: 'right' }
+        }
+      });
+
+      // Update startY for next section
+      // @ts-ignore
+      startY = doc.lastAutoTable.finalY + 10;
+    }
+
     // Content Body
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
+
+    // Header for AI Analysis if we have space, otherwise add new page? 
+    // For now assuming it fits or autoTable handles paging for the next tables but text needs manual handling.
+    if (startY > 250) { doc.addPage(); startY = 20; }
+
+    doc.text("Análise de Inteligência Artificial:", 10, startY - 4);
 
     // Strip markdown characters (**, ##) for cleaner PDF text
     const cleanContent = reportContent
