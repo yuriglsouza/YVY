@@ -140,26 +140,43 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="grid grid-cols-1 lg:grid-cols-2 gap-8"
+          className="grid grid-cols-1 lg:grid-cols-4 gap-8"
         >
-          {/* Main Chart: Health by Farm */}
-          <div className="orbital-card p-6 rounded-lg col-span-1 lg:col-span-2 bg-card">
+          {/* Main Chart: Health by Farm (3/4 width) */}
+          <div className="orbital-card p-6 rounded-lg col-span-1 lg:col-span-3 bg-card">
             <h3 className="text-lg font-bold font-display uppercase tracking-wider mb-6 flex items-center gap-2">
               <Activity className="w-5 h-5 text-primary" /> Análise de Saúde (NDVI) por Unidade
             </h3>
-            <div className="h-[350px] w-full">
+            <div className="h-[280px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={ndviData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#262626" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#A1A1AA' }} axisLine={false} tickLine={false} />
+                  <defs>
+                    <linearGradient id="gradOptimal" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10B981" stopOpacity={1} />
+                      <stop offset="100%" stopColor="#10B981" stopOpacity={0.3} />
+                    </linearGradient>
+                    <linearGradient id="gradWarning" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#EAB308" stopOpacity={1} />
+                      <stop offset="100%" stopColor="#EAB308" stopOpacity={0.3} />
+                    </linearGradient>
+                    <linearGradient id="gradCritical" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#EF4444" stopOpacity={1} />
+                      <stop offset="100%" stopColor="#EF4444" stopOpacity={0.3} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#A1A1AA' }} axisLine={false} tickLine={false} dy={10} />
                   <YAxis domain={[0, 1]} tick={{ fontSize: 12, fill: '#A1A1AA' }} axisLine={false} tickLine={false} />
                   <Tooltip
                     cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                    contentStyle={{ backgroundColor: '#18181B', borderRadius: '4px', border: '1px solid #262626' }}
+                    contentStyle={{ backgroundColor: '#18181B', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}
                   />
                   <Bar dataKey="ndvi" radius={[4, 4, 0, 0]}>
                     {ndviData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.status === 'Ótimo' ? '#22C55E' : entry.status === 'Atenção' ? '#EAB308' : '#DC2626'} />
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={entry.status === 'Ótimo' ? 'url(#gradOptimal)' : entry.status === 'Atenção' ? 'url(#gradWarning)' : 'url(#gradCritical)'}
+                      />
                     ))}
                   </Bar>
                 </BarChart>
@@ -167,34 +184,33 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Secondary Chart: Priority Alerts (Replaces Pie Chart) */}
-          <div className="orbital-card p-6 rounded-lg bg-card">
-            <h3 className="text-lg font-bold font-display uppercase tracking-wider mb-6 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-yellow-500" /> Atenção Necessária
+          {/* Secondary Chart: Priority Alerts (1/4 width) */}
+          <div className="orbital-card p-6 rounded-lg col-span-1 lg:col-span-1 bg-card flex flex-col h-full">
+            <h3 className="text-lg font-bold font-display uppercase tracking-wider mb-6 flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" /> Alertas
             </h3>
-            <div className="h-[300px] w-full overflow-y-auto pr-2 space-y-3">
+            <div className="flex-1 overflow-y-auto pr-2 space-y-3 min-h-[200px]">
               {ndviData.filter(d => d.status !== 'Ótimo').length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center opacity-70">
-                  <div className="p-4 bg-green-500/10 rounded-full mb-3">
-                    <Sprout className="w-8 h-8 text-green-500" />
+                  <div className="p-4 bg-emerald-500/10 rounded-full mb-3">
+                    <Sprout className="w-8 h-8 text-emerald-500" />
                   </div>
-                  <p className="text-lg font-display font-semibold text-green-500">All Systems Nominal</p>
-                  <p className="text-sm text-muted-foreground">Todas as unidades operando com capacidade máxima.</p>
+                  <p className="text-sm font-display font-semibold text-emerald-500">Nominal</p>
                 </div>
               ) : (
                 ndviData.filter(d => d.status !== 'Ótimo').map((farm, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-4 rounded-md bg-secondary/30 border border-secondary/50 hover:border-primary/50 transition-colors">
+                  <div key={idx} className="flex items-center justify-between p-3 rounded-md bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
                     <div className="flex items-center gap-3">
-                      <div className={`w-2 h-12 rounded-full ${farm.status === 'Crítico' ? 'bg-destructive' : 'bg-yellow-500'}`} />
-                      <div>
-                        <p className="font-bold text-foreground text-sm uppercase tracking-wide">{farm.name}</p>
-                        <p className={`text-xs font-mono font-medium ${farm.status === 'Crítico' ? 'text-destructive' : 'text-yellow-500'}`}>
-                          {farm.status.toUpperCase()} (NDVI: {farm.ndvi.toFixed(2)})
+                      <div className={`w-1.5 h-8 rounded-full ${farm.status === 'Crítico' ? 'bg-destructive' : 'bg-yellow-500'}`} />
+                      <div className="overflow-hidden">
+                        <p className="font-bold text-foreground text-xs uppercase tracking-wide truncate max-w-[80px]">{farm.name}</p>
+                        <p className={`text-[10px] font-mono font-medium ${farm.status === 'Crítico' ? 'text-destructive' : 'text-yellow-500'}`}>
+                          NDVI: {farm.ndvi.toFixed(2)}
                         </p>
                       </div>
                     </div>
                     <Link href={`/farms/${farm.id}`}>
-                      <button className="text-xs bg-primary/20 hover:bg-primary/30 text-primary px-3 py-1.5 rounded uppercase font-bold tracking-wider transition-colors cursor-pointer">
+                      <button className="text-[10px] bg-white/5 hover:bg-white/10 text-foreground px-2 py-1 rounded uppercase font-bold tracking-wider transition-colors cursor-pointer">
                         Ver
                       </button>
                     </Link>
@@ -203,8 +219,8 @@ export default function Dashboard() {
               )}
             </div>
             {/* Footer summary */}
-            <div className="mt-4 pt-4 border-t border-border flex justify-between items-center text-xs text-muted-foreground uppercase tracking-wider font-mono">
-              <span>Total de Alertas:</span>
+            <div className="mt-auto pt-4 border-t border-white/10 flex justify-between items-center text-xs text-muted-foreground uppercase tracking-wider font-mono">
+              <span>Total:</span>
               <span className="text-foreground font-bold">{ndviData.filter(d => d.status !== 'Ótimo').length}</span>
             </div>
           </div>
