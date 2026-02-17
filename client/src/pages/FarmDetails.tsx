@@ -215,7 +215,7 @@ export default function FarmDetails() {
     const doc = new jsPDF();
 
     // Custom or Default Branding
-    const company = config?.companyName || "YVY ORBITAL";
+    const company = config?.companyName || "SYAZ ORBITAL";
     const consultant = config?.consultantName ? `Consultor: ${config.consultantName}` : "";
 
     // Header Color (Green default)
@@ -345,7 +345,7 @@ export default function FarmDetails() {
     // Legend / Footer
     doc.setFontSize(8);
     doc.setTextColor(150);
-    doc.text("Gerado automaticamente por Yvy Orbital AI System", 10, 290);
+    doc.text("Gerado automaticamente por SYAZ Orbital AI System", 10, 290);
 
     doc.save(`Relatorio_${farm?.name}_${date}.pdf`);
   };

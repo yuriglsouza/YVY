@@ -56,7 +56,7 @@ export async function sendEmail(options: MailOptions): Promise<boolean> {
         }
 
         const info = await transport.sendMail({
-            from: '"Yvy Orbtial Monitor" <alerts@yvyorbital.com>', // sender address
+            from: '"SYAZ Orbital Monitor" <alerts@syazorbital.com>', // sender address
             ...options,
         });
 

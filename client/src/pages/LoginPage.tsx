@@ -16,7 +16,7 @@ export default function LoginPage() {
                     <div className="mx-auto bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-4">
                         <span className="text-3xl">🌱</span>
                     </div>
-                    <CardTitle className="text-3xl font-bold text-green-900">YVY ORBITAL</CardTitle>
+                    <CardTitle className="text-3xl font-bold text-green-900">SYAZ ORBITAL</CardTitle>
                     <CardDescription className="text-green-700 font-medium">
                         Inteligência Artificial para Agricultura de Precisão
                     </CardDescription>

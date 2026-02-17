@@ -25,7 +25,7 @@ export function SidebarContent() {
       <div className="p-6">
         <div className="flex items-start justify-between mb-8 px-2">
           <div className="flex flex-col gap-2">
-            <img src="/logo.jpg" alt="YVY Logo" className="h-16 w-auto object-contain self-start mix-blend-screen" />
+            <img src="/logo.jpg" alt="SYAZ Logo" className="h-16 w-auto object-contain self-start mix-blend-screen" />
             <p className="text-[10px] font-mono uppercase tracking-widest text-emerald-500/80 ml-1">Satellite Intelligence</p>
           </div>
           <NotificationsPopover />
