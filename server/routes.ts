@@ -343,7 +343,8 @@ export async function registerRoutes(
     const predictionDate = new Date();
     predictionDate.setDate(predictionDate.getDate() + 30); // Predict 30 days out
     const dateStr = predictionDate.toISOString().split('T')[0];
-    const predValue = await getPrediction(farmId, dateStr);
+    const predOutput = await getPrediction(farmId, dateStr);
+    const predValue = predOutput.result !== undefined ? predOutput.result : null;
 
     const reportData = await generateAgronomistReport(reading, predValue !== null ? { date: dateStr, value: predValue } : null);
 
@@ -499,8 +500,63 @@ export async function registerRoutes(
 
 
   // Helper for Prediction
-  async function getPrediction(farmId: number, date: string): Promise<number | null> {
+  async function getPrediction(farmId: number, date: string): Promise<{ result?: number; error?: string }> {
+
+    // 1. Try External Python Service (Stateless)
+    if (process.env.PYTHON_SERVICE_URL) {
+      try {
+        // Fetch history for on-the-fly training
+        const readings = await storage.getReadings(farmId);
+        // Take last 50 readings to keep payload size reasonable
+        const history = readings.slice(0, 50).map(r => ({
+          date: r.date,
+          ndvi: r.ndvi,
+          temperature: r.temperature
+        }));
+
+        if (history.length < 5) {
+          return { error: "Histórico insuficiente para predição (mínimo 5 leituras)" };
+        }
+
+        console.log(`Sending prediction request to: ${process.env.PYTHON_SERVICE_URL}/predict`);
+
+        const response = await fetch(`${process.env.PYTHON_SERVICE_URL}/predict`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            history,
+            target_date: date
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.prediction !== undefined) {
+            return { result: data.prediction };
+          }
+          if (data.error) {
+            return { error: `Python Service Error: ${data.error}` };
+          }
+        } else {
+          const text = await response.text();
+          console.error(`Python Service /predict failed: ${response.status} ${text}`);
+          return { error: `Service Error ${response.status}: ${text.substring(0, 50)}` };
+        }
+      } catch (e: any) {
+        console.error("Python Service /predict error:", e);
+        return { error: `Connection Error: ${e.message}` };
+      }
+    } else {
+      console.warn("PYTHON_SERVICE_URL is not set.");
+    }
+
+    // 2. Fallback to Local Script (Dev environment only!)
+    // On Vercel, this will fail if Python is not present.
     try {
+      if (process.env.NODE_ENV === 'production') {
+        return { error: "Service URL not configured (prod)" };
+      }
+
       const { exec } = await import("child_process");
       const path = await import("path");
       const scriptPath = path.join(process.cwd(), "scripts", "predict.py");
@@ -510,17 +566,21 @@ export async function registerRoutes(
         exec(command, (error, stdout, stderr) => {
           if (error) {
             console.error(`Prediction Script Error: ${stderr}`);
-            resolve(null);
+            resolve({ error: "Local script failed (Python missing?)" });
             return;
           }
           const match = stdout.match(/([\d\.]+)\s*$/);
           const prediction = match ? parseFloat(match[1]) : null;
-          resolve(prediction);
+          if (prediction !== null) {
+            resolve({ result: prediction });
+          } else {
+            resolve({ error: "No prediction output" });
+          }
         });
       });
-    } catch (e) {
+    } catch (e: any) {
       console.error("getPrediction internal error:", e);
-      return null;
+      return { error: `Internal Error: ${e.message}` };
     }
   }
 
@@ -533,12 +593,13 @@ export async function registerRoutes(
       return res.status(400).json({ message: "Date query parameter is required (YYYY-MM-DD)" });
     }
 
-    const prediction = await getPrediction(farmId, date);
+    const output = await getPrediction(farmId, date);
 
-    if (prediction !== null) {
-      res.json({ farmId, date, prediction, unit: "NDVI" });
+    if (output.result !== undefined) {
+      res.json({ farmId, date, prediction: output.result, unit: "NDVI" });
     } else {
-      res.status(500).json({ message: "Failed to generate prediction" });
+      // Send the specific error message to the frontend
+      res.status(500).json({ message: output.error || "Failed to generate prediction" });
     }
   });
 
