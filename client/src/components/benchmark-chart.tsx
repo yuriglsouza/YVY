@@ -68,8 +68,8 @@ export function BenchmarkChart({ farmId }: { farmId: number }) {
                                 type="category"
                                 axisLine={false}
                                 tickLine={false}
-                                width={100}
-                                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                                width={90}
+                                tick={{ fill: "#cbd5e1", fontSize: 11 }}
                             />
                             <Tooltip
                                 cursor={{ fill: "hsl(var(--muted)/0.2)" }}
@@ -88,14 +88,14 @@ export function BenchmarkChart({ farmId }: { farmId: number }) {
                     </ResponsiveContainer>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-border/40 grid grid-cols-2 gap-4 text-center">
-                    <div>
-                        <p className="text-xs text-muted-foreground mb-1">NDVI Atual</p>
-                        <p className="text-2xl font-bold text-emerald-500">{data.farmNdvi.toFixed(2)}</p>
+                <div className="mt-4 pt-4 border-t border-border/40 grid grid-cols-1 gap-2 text-center">
+                    <div className="flex justify-between items-center px-2">
+                        <span className="text-xs text-muted-foreground">NDVI Atual</span>
+                        <span className="text-xl font-bold text-emerald-500">{data.farmNdvi.toFixed(2)}</span>
                     </div>
-                    <div>
-                        <p className="text-xs text-muted-foreground mb-1">Média da Região</p>
-                        <p className="text-2xl font-bold text-slate-500">{data.regionalNdvi.toFixed(2)}</p>
+                    <div className="flex justify-between items-center px-2">
+                        <span className="text-xs text-muted-foreground">Média da Região</span>
+                        <span className="text-xl font-bold text-slate-500">{data.regionalNdvi.toFixed(2)}</span>
                     </div>
                 </div>
             </CardContent>
