@@ -216,13 +216,35 @@ export async function registerRoutes(
 
     if (!farm) return res.status(404).json({ message: "Farm not found" });
 
-    // In a real app, we would pass the satellite image path
-    // For now, we generate mock data based on location
+    // 1. Try External Python Service
+    if (process.env.PYTHON_SERVICE_URL) {
+      try {
+        const response = await fetch(`${process.env.PYTHON_SERVICE_URL}/cluster`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lat: farm.latitude,
+            lon: farm.longitude,
+            size: farm.sizeHa,
+            k: 3
+          })
+        });
+
+        if (response.ok) {
+          const zonesData = await response.json();
+          return res.json(zonesData);
+        }
+      } catch (e) {
+        console.error("Python Service /cluster failed:", e);
+      }
+    }
+
+    // 2. Fallback to Local Script
     try {
       const { exec } = await import("child_process");
       const path = await import("path");
       const scriptPath = path.join(process.cwd(), "scripts", "cluster.py");
-      // Pass lat/lon/size to generate mock pixels
+
       const command = `python3 "${scriptPath}" --lat ${farm.latitude} --lon ${farm.longitude} --size ${farm.sizeHa}`;
 
       exec(command, (error, stdout, stderr) => {
@@ -344,47 +366,11 @@ export async function registerRoutes(
       return res.status(404).json({ message: "Fazenda não encontrada" });
     }
 
-    // Execute Python script
-    const { exec } = await import("child_process");
-    const path = await import("path");
-
-    const scriptPath = path.join(process.cwd(), "scripts", "satellite_analysis.py");
-    const command = `python3 "${scriptPath}" --lat ${farm.latitude} --lon ${farm.longitude} --size ${farm.sizeHa}`;
-
-    console.log(`Executing: ${command}`);
-
-    exec(command, async (error, stdout, stderr) => {
-      const fallbackToMock = async (reason: string) => {
-        console.warn(`[Satellite Fallback] Reason: ${reason}`);
-        const [mockReading] = generateMockReadings(farmId, 1);
-        mockReading.date = new Date().toISOString().split('T')[0];
-        // Mock image (placeholder or static map/satellite)
-        mockReading.satelliteImage = "https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80"; // Generic farm field
-        mockReading.thermalImage = "https://images.unsplash.com/photo-1577705998148-6da4f3963bc1?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80"; // Heatmap style
-
-        await storage.createReading(mockReading);
-
-        // Trigger Alert Check (Async) even for simulation
-        checkAndSendAlerts(mockReading as Reading, farmId).catch(console.error);
-
-        res.json({
-          message: "⚠️ Simulação: Satélite indisponível (Auth GEE pendente)",
-          reading: mockReading,
-          isMock: true,
-          details: reason
-        });
-      };
-
-      if (error) {
-        return fallbackToMock(stderr || error.message);
-      }
-
+    // Helper to handle success
+    const handleSuccess = async (result: any) => {
       try {
-        console.log(`Python Output: ${stdout}`);
-        const result = JSON.parse(stdout);
-
         if (result.error) {
-          return fallbackToMock(result.error);
+          throw new Error(result.error);
         }
 
         const newReading: InsertReading = {
@@ -401,17 +387,83 @@ export async function registerRoutes(
         };
 
         await storage.createReading(newReading);
-
-        // Trigger Alert Check (Async)
         checkAndSendAlerts(newReading as Reading, farmId).catch(console.error);
-
         res.json({ message: "Dados atualizados com sucesso", reading: newReading });
-
-      } catch (parseError) {
-        console.error("Failed to parse python output:", stdout);
-        return fallbackToMock("Valid JSON not returned by script");
+      } catch (e: any) {
+        await fallbackToMock(e.message || "Error processing result");
       }
-    });
+    };
+
+    // Helper to handle fallback
+    const fallbackToMock = async (reason: string) => {
+      console.warn(`[Satellite Fallback] Reason: ${reason}`);
+      const [mockReading] = generateMockReadings(farmId, 1);
+      mockReading.date = new Date().toISOString().split('T')[0];
+      mockReading.satelliteImage = "https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80";
+      mockReading.thermalImage = "https://images.unsplash.com/photo-1577705998148-6da4f3963bc1?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80";
+
+      await storage.createReading(mockReading);
+      checkAndSendAlerts(mockReading as Reading, farmId).catch(console.error);
+
+      res.json({
+        message: "⚠️ Simulação: Satélite indisponível (Auth GEE pendente)",
+        reading: mockReading,
+        isMock: true,
+        details: reason
+      });
+    };
+
+    // 1. Try External Python Service (if configured)
+    if (process.env.PYTHON_SERVICE_URL) {
+      try {
+        console.log(`Calling Python Service: ${process.env.PYTHON_SERVICE_URL}/satellite`);
+        const response = await fetch(`${process.env.PYTHON_SERVICE_URL}/satellite`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lat: farm.latitude,
+            lon: farm.longitude,
+            size: farm.sizeHa
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Service returned ${response.status}`);
+        }
+
+        const result = await response.json();
+        await handleSuccess(result);
+        return;
+      } catch (e: any) {
+        console.error("Python Service Failed:", e);
+        // Fallthrough to local script or mock
+      }
+    }
+
+    // 2. Try Local Script (Dev environment)
+    try {
+      const { exec } = await import("child_process");
+      const path = await import("path");
+      const scriptPath = path.join(process.cwd(), "scripts", "satellite_analysis.py");
+      const command = `python3 "${scriptPath}" --lat ${farm.latitude} --lon ${farm.longitude} --size ${farm.sizeHa}`;
+
+      console.log(`Executing Local Script: ${command}`);
+
+      exec(command, async (error, stdout, stderr) => {
+        if (error) {
+          await fallbackToMock(stderr || error.message);
+          return;
+        }
+        try {
+          const result = JSON.parse(stdout);
+          await handleSuccess(result);
+        } catch (parseError) {
+          await fallbackToMock("Valid JSON not returned by script");
+        }
+      });
+    } catch (e: any) {
+      await fallbackToMock("Local script execution failed");
+    }
   });
 
   // Seed Data
