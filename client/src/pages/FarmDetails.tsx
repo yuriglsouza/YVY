@@ -56,9 +56,39 @@ export default function FarmDetails() {
   const { data: farm, isLoading: isLoadingFarm, error: farmError } = useFarm(farmId);
   const { data: readings } = useReadings(farmId);
   const { data: latestReading } = useLatestReading(farmId);
+  /* ... hooks ... */
   const { data: reports } = useReports(farmId);
 
-  // ... (rest of hooks)
+  const refreshReadings = useRefreshReadings();
+  const generateReport = useGenerateReport();
+  const [showThermal, setShowThermal] = React.useState(false);
+
+  // Zones State
+  interface Zone {
+    id: number;
+    name: string;
+    color: string;
+    coordinates: Array<{ lat: number, lon: number }>;
+    ndvi_avg: number;
+    area_percentage: number;
+  }
+
+  const [zones, setZones] = React.useState<Zone[]>([]);
+
+  const generateZones = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/farms/${farmId}/zones/generate`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to generate zones");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setZones(data);
+      toast({ title: "Zonas Geradas", description: "O mapa de manejo foi atualizado." });
+    },
+    onError: () => {
+      toast({ title: "Erro", description: "Falha ao gerar zonas.", variant: "destructive" });
+    }
+  });
 
   if (isLoadingFarm) {
     return (
