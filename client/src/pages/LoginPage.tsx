@@ -13,8 +13,8 @@ export default function LoginPage() {
 
             <Card className="w-full max-w-md shadow-2xl bg-white/90 backdrop-blur-sm relative z-10 border-green-100">
                 <CardHeader className="text-center space-y-2">
-                    <div className="mx-auto bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-4">
-                        <span className="text-3xl">🌱</span>
+                    <div className="mx-auto mb-6 flex justify-center">
+                        <img src="/logo.png" alt="SYAZ Orbital" className="h-20 w-auto object-contain" />
                     </div>
                     <CardTitle className="text-3xl font-bold text-green-900">SYAZ ORBITAL</CardTitle>
                     <CardDescription className="text-green-700 font-medium">

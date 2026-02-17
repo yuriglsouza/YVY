@@ -31,6 +31,19 @@ import autoTable from "jspdf-autotable";
 
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+// Helper to load image for PDF
+const getBase64FromUrl = async (url: string): Promise<string> => {
+  const data = await fetch(url);
+  const blob = await data.blob();
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(blob);
+    reader.onloadend = () => {
+      resolve(reader.result as string);
+    }
+  });
+};
+
 let DefaultIcon = L.icon({
   iconUrl: icon,
   shadowUrl: iconShadow,
@@ -211,7 +224,7 @@ export default function FarmDetails() {
   })).reverse();
 
   // PDF Generation Logic
-  const handleDownloadPDF = (reportContent: string, date: string, config?: ReportConfig) => {
+  const handleDownloadPDF = async (reportContent: string, date: string, config?: ReportConfig) => {
     const doc = new jsPDF();
 
     // Custom or Default Branding
@@ -221,10 +234,21 @@ export default function FarmDetails() {
     // Header Color (Green default)
     doc.setFillColor(22, 163, 74); // Green
     doc.rect(0, 0, 210, 25, 'F');
+
+    // Add Logo if available
+    try {
+      const logoData = await getBase64FromUrl('/logo.png');
+      // x=10, y=2, w=30, h=20 (approx ratio)
+      doc.addImage(logoData, 'PNG', 10, 2, 35, 20);
+    } catch (e) {
+      console.error("Could not load logo for PDF", e);
+    }
+
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
-    doc.text(company, 10, 15);
+    // Offset text to right to account for logo
+    doc.text(company, 50, 15);
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
