@@ -303,6 +303,15 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/farms/:id", async (req, res) => {
+    const id = Number(req.params.id);
+    const farm = await storage.getFarm(id);
+    if (!farm) return res.status(404).json({ message: "Farm not found" });
+
+    await storage.deleteFarm(id);
+    res.status(204).end();
+  });
+
   // Readings
   app.get(api.readings.list.path, async (req, res) => {
     const readings = await storage.getReadings(Number(req.params.id));

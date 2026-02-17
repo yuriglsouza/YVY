@@ -466,7 +466,7 @@ export default function FarmDetails() {
 
               <div className="space-y-4">
                 {reports && reports.length > 0 ? (
-                  reports.slice(0, 3).map((report) => (
+                  reports.slice(0, 2).map((report) => (
                     <div key={report.id} className="p-4 bg-muted/30 rounded-xl border border-border/50">
                       <div className="flex justify-between items-center mb-2">
                         <span className="text-xs font-semibold text-primary uppercase tracking-wider">
