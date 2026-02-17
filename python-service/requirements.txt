@@ -4,3 +4,4 @@ earthengine-api
 numpy
 scikit-learn
 pydantic
+google-auth

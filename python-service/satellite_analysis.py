@@ -6,16 +6,21 @@ import math
 import argparse
 
 # Inicializa o Earth Engine (Lazy Loading)
-def init_earth_engine(project_id=None):
+def init_earth_engine(project_id=None, credentials=None):
     try:
         print(f"Earth Engine Init: Attempting to initialize (Project: {project_id})...")
         
-        # Se temos credenciais explicitas no environment, podemos tentar carregar diretamente
-        # Mas o comportamento padrão do ee.Initialize() deve pegar o GOOGLE_APPLICATION_CREDENTIALS
-        
-        if project_id:
+        # Priority 1: Explicit Credentials Object
+        if credentials:
+            print("Earth Engine Init: Using provided ServiceAccountCredentials object.")
+            ee.Initialize(credentials=credentials, project=project_id)
+        # Priority 2: Project ID only (relies on env var)
+        elif project_id:
+             print("Earth Engine Init: Using project_id and default credentials.")
              ee.Initialize(project=project_id)
+        # Priority 3: Default (local auth)
         else:
+             print("Earth Engine Init: Using default initialization.")
              ee.Initialize()
              
         print("Earth Engine initialized successfully.")
