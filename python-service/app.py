@@ -16,9 +16,18 @@ app = FastAPI()
 @app.on_event("startup")
 async def startup_event():
     import os
+    import json
     # Setup Google Credentials from Env Var (for Render)
     creds_json = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+    project_id = None
     if creds_json:
+        try:
+            creds_data = json.loads(creds_json)
+            project_id = creds_data.get("project_id")
+            print(f"Auth: Found project_id in JSON: {project_id}")
+        except Exception as e:
+            print(f"Auth: Error parsing JSON credentials: {e}")
+
         creds_path = os.path.abspath("yvy-service-account.json")
         with open(creds_path, "w") as f:
             f.write(creds_json)
@@ -28,7 +37,7 @@ async def startup_event():
         print("Auth: No JSON credentials found in env, strictly relying on local auth or default path.")
     
     # Initialize Earth Engine AFTER setting credentials
-    satellite_analysis.init_earth_engine()
+    satellite_analysis.init_earth_engine(project_id)
 
 class SatelliteRequest(BaseModel):
     lat: float

@@ -6,18 +6,24 @@ import math
 import argparse
 
 # Inicializa o Earth Engine (Lazy Loading)
-def init_earth_engine():
+def init_earth_engine(project_id=None):
     try:
-        # Tenta usar as credenciais padrão (Environment Variable setada pelo app.py)
-        ee.Initialize()
+        print(f"Earth Engine Init: Attempting to initialize (Project: {project_id})...")
+        
+        # Se temos credenciais explicitas no environment, podemos tentar carregar diretamente
+        # Mas o comportamento padrão do ee.Initialize() deve pegar o GOOGLE_APPLICATION_CREDENTIALS
+        
+        if project_id:
+             ee.Initialize(project=project_id)
+        else:
+             ee.Initialize()
+             
         print("Earth Engine initialized successfully.")
     except Exception as e:
-        print(f"Warning: Earth Engine init failed (will retry): {e}")
-        try:
-            ee.Authenticate()
-            ee.Initialize()
-        except Exception as e2:
-             print(json.dumps({"error": f"Falha na autenticação do Earth Engine (Fatal): {str(e2)}"}))
+        print(f"Error: Earth Engine init failed: {e}")
+        # Não tentamos mais ee.Authenticate() aqui porque no servidor (Render) não temos browser/gcloud
+        # Apenas logamos o erro fatal
+        print(json.dumps({"error": f"Falha crítica na inicialização do Earth Engine: {str(e)}"}))
 
 
 def mask_s2_clouds(image):
