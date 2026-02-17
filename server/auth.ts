@@ -2,8 +2,8 @@ import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { Express } from "express";
 import session from "express-session";
-import { storage } from "./storage";
-import { User } from "../shared/schema";
+import { storage } from "./storage.js";
+import { User } from "../shared/schema.js";
 
 export function setupAuth(app: Express) {
     const sessionSettings: session.SessionOptions = {
