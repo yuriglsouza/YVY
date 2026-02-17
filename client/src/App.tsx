@@ -62,7 +62,13 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Router />
+        {/* Global Watermark */}
+        <div className="fixed inset-0 z-0 pointer-events-none flex items-center justify-center opacity-[0.03] select-none">
+          <img src="/logo.png" alt="" className="w-[80vw] max-w-[800px] h-auto grayscale" />
+        </div>
+        <div className="relative z-10">
+          <Router />
+        </div>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

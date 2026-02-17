@@ -258,6 +258,25 @@ export default function FarmDetails() {
       doc.text(consultant, 200, 15, { align: "right" });
     }
 
+    // Add Watermark (Center of Page)
+    try {
+      const logoData = await getBase64FromUrl('/logo.png');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const logoWidth = 100;
+      const logoHeight = 60;
+
+      // Save graphics state
+      doc.saveGraphicsState();
+      // Set transparency (approx 5-10% opacity)
+      doc.setGState(new (doc as any).GState({ opacity: 0.05 }));
+      doc.addImage(logoData, 'PNG', (pageWidth - logoWidth) / 2, (pageHeight - logoHeight) / 2, logoWidth, logoHeight);
+      // Restore graphics state
+      doc.restoreGraphicsState();
+    } catch (e) {
+      console.error("Could not load watermark for PDF", e);
+    }
+
     // Farm Info
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(12);
