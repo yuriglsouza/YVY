@@ -45,48 +45,20 @@ export default function FarmDetails() {
   // Robust ID extraction: try params first, then fallback to parsing location path
   let farmId = parseInt(params?.id || "0");
   if (!farmId || isNaN(farmId)) {
-    const parts = location.split('/');
-    const idPart = parts[parts.length - 1]; // Last part should be ID
-    if (!isNaN(parseInt(idPart))) {
-      farmId = parseInt(idPart);
+    // Remove trailing slash and split
+    const parts = location.replace(/\/$/, '').split('/');
+    const lastPart = parts[parts.length - 1];
+    if (!isNaN(parseInt(lastPart))) {
+      farmId = parseInt(lastPart);
     }
   }
 
-  const { data: farm, isLoading: isLoadingFarm } = useFarm(farmId);
+  const { data: farm, isLoading: isLoadingFarm, error: farmError } = useFarm(farmId);
   const { data: readings } = useReadings(farmId);
   const { data: latestReading } = useLatestReading(farmId);
   const { data: reports } = useReports(farmId);
 
-  const refreshReadings = useRefreshReadings();
-  const generateReport = useGenerateReport();
-  const [showThermal, setShowThermal] = React.useState(false);
-
-  // Zones State
-  interface Zone {
-    id: number;
-    name: string;
-    color: string;
-    coordinates: Array<{ lat: number, lon: number }>;
-    ndvi_avg: number;
-    area_percentage: number;
-  }
-
-  const [zones, setZones] = React.useState<Zone[]>([]);
-
-  const generateZones = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/farms/${farmId}/zones/generate`, { method: "POST" });
-      if (!res.ok) throw new Error("Failed to generate zones");
-      return res.json();
-    },
-    onSuccess: (data) => {
-      setZones(data);
-      toast({ title: "Zonas Geradas", description: "O mapa de manejo foi atualizado." });
-    },
-    onError: () => {
-      toast({ title: "Erro", description: "Falha ao gerar zonas.", variant: "destructive" });
-    }
-  });
+  // ... (rest of hooks)
 
   if (isLoadingFarm) {
     return (
@@ -96,10 +68,28 @@ export default function FarmDetails() {
     );
   }
 
-  if (!farm) {
+  if (farmError) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background pl-64">
-        <p className="text-destructive font-medium">Fazenda não encontrada</p>
+        <div className="text-center space-y-2">
+          <p className="text-destructive font-medium">Erro ao carregar fazenda</p>
+          <p className="text-muted-foreground text-sm">{farmError.message}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!farm) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background pl-64 gap-2">
+        <p className="text-destructive font-medium text-lg">Fazenda não encontrada</p>
+        <div className="p-4 bg-muted/50 rounded-lg text-xs font-mono text-left space-y-1 border border-border">
+          <p><strong>Debug Info:</strong></p>
+          <p>URL: {location}</p>
+          <p>Params ID: {params?.id || 'null'}</p>
+          <p>Parsed ID: {farmId}</p>
+        </div>
+        <Button variant="outline" onClick={() => window.location.href = "/"}>Voltar ao Painel</Button>
       </div>
     );
   }
