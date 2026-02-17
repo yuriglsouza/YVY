@@ -715,13 +715,13 @@ export default function FarmDetails() {
               transition={{ delay: 0.3 }}
               className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden h-[400px] lg:h-[600px] relative"
             >
-              <div className="absolute top-4 left-4 z-[400] bg-white/90 backdrop-blur px-4 py-2 rounded-lg shadow-sm border border-border/50">
+              <div className="absolute top-4 left-14 z-[400] bg-white/90 backdrop-blur px-4 py-2 rounded-lg shadow-sm border border-border/50">
                 <h3 className="font-bold text-sm flex items-center gap-2">
                   <MapIcon className="w-4 h-4 text-primary" /> Localização
                 </h3>
               </div>
 
-              <div className="absolute top-4 right-4 z-[400]">
+              <div className="absolute top-4 right-14 z-[400]">
                 <Button
                   size="sm"
                   variant="secondary"
