@@ -171,7 +171,7 @@ export default function Dashboard() {
                     cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                     contentStyle={{ backgroundColor: '#18181B', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}
                   />
-                  <Bar dataKey="ndvi" radius={[4, 4, 0, 0]}>
+                  <Bar dataKey="ndvi" radius={[4, 4, 0, 0]} maxBarSize={50}>
                     {ndviData.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}

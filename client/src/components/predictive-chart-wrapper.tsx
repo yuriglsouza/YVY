@@ -21,7 +21,7 @@ export function PredictiveChartWrapper({ farms }: { farms: Farm[] }) {
     }, [farms, selectedFarmId]);
 
     return (
-        <div className="col-span-1 lg:col-span-2">
+        <div className="col-span-1 lg:col-span-4">
             {/* 
         We pass the selector as a 'headerSlot' prop to the child component 
         so it renders neatly inside the card header
