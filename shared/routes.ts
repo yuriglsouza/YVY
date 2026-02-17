@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertFarmSchema, insertReadingSchema, farms, readings, reports } from './schema';
+import { insertFarmSchema, insertReadingSchema, farms, readings, reports } from './schema.js';
 
 export const errorSchemas = {
   validation: z.object({
@@ -59,12 +59,12 @@ export const api = {
       },
     },
     latest: {
-        method: 'GET' as const,
-        path: '/api/farms/:id/readings/latest',
-        responses: {
-            200: z.custom<typeof readings.$inferSelect>(),
-            404: errorSchemas.notFound,
-        }
+      method: 'GET' as const,
+      path: '/api/farms/:id/readings/latest',
+      responses: {
+        200: z.custom<typeof readings.$inferSelect>(),
+        404: errorSchemas.notFound,
+      }
     }
   },
   reports: {
