@@ -1,4 +1,27 @@
-import { useState } from "react";
+import { useToast } from "@/hooks/use-toast"; // Import useToast
+
+// ... inside CreateClientDialog ...
+const { toast } = useToast(); // Initialize toast
+
+const onSubmit = (data: InsertClient) => {
+    createClient.mutate(data, {
+        onSuccess: () => {
+            setOpen(false);
+            form.reset();
+            toast({
+                title: "Cliente criado com sucesso!",
+                description: `${data.name} foi adicionado à sua lista.`,
+            });
+        },
+        onError: (error) => {
+            toast({
+                variant: "destructive",
+                title: "Erro ao criar cliente",
+                description: error.message || "Ocorreu um erro ao tentar salvar.",
+            });
+        }
+    });
+};
 import { useClients, useCreateClient } from "@/hooks/use-clients";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
