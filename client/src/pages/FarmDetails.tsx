@@ -590,13 +590,7 @@ export default function FarmDetails() {
               <PredictiveChart farmId={farmId} />
             </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.18 }}
-            >
-              <BenchmarkChart farmId={farmId} />
-            </motion.div>
+
 
 
 
@@ -741,6 +735,15 @@ export default function FarmDetails() {
                   pathOptions={{ color: '#10b981', fillColor: '#10b981', fillOpacity: 0.2 }}
                 />
               </MapContainer>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.35 }}
+              className="h-[400px]"
+            >
+              <BenchmarkChart farmId={farmId} />
             </motion.div>
           </div>
 

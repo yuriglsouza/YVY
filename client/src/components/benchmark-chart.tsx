@@ -50,7 +50,7 @@ export function BenchmarkChart({ farmId }: { farmId: number }) {
             <CardHeader>
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-lg font-display flex items-center gap-2">
-                        <TrendingUp className="w-5 h-5 text-primary" /> Análise Comparativa
+                        <TrendingUp className="w-5 h-5 text-primary" /> Análise Comparativa de Saúde
                     </CardTitle>
                     <div className="flex items-center gap-2 bg-yellow-500/10 text-yellow-500 px-3 py-1 rounded-full text-xs font-bold border border-yellow-500/20">
                         <Trophy className="w-3 h-3" /> {data.rank}
