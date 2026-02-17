@@ -29,6 +29,8 @@ import iconShadow from "leaflet/dist/images/marker-shadow.png";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 let DefaultIcon = L.icon({
   iconUrl: icon,
   shadowUrl: iconShadow,
@@ -36,6 +38,47 @@ let DefaultIcon = L.icon({
   iconAnchor: [12, 41]
 });
 L.Marker.prototype.options.icon = DefaultIcon;
+
+const indexExplanations: Record<string, string> = {
+  "NDVI": "Vigor da vegetação e saúde da planta.",
+  "NDWI": "Estresse hídrico e teor de água nas folhas.",
+  "NDRE": "Clorofila e nitrogênio (detecção precoce).",
+  "RVI": "Biomassa e estrutura física (Radar).",
+  "OTCI": "Conteúdo de clorofila em macro-escala.",
+  "TEMP. (LST)": "Temperatura da superfície (Calor/Estresse).",
+};
+
+const CustomLegend = (props: any) => {
+  const { payload } = props;
+
+  return (
+    <div className="flex justify-center gap-6 mt-4 flex-wrap">
+      {payload.map((entry: any, index: number) => {
+        const explanation = indexExplanations[entry.value.toUpperCase()] || "Índice de monitoramento.";
+        return (
+          <TooltipProvider key={`item-${index}`}>
+            <UITooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-2 cursor-help opacity-80 hover:opacity-100 transition-opacity">
+                  <span
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: entry.color }}
+                  ></span>
+                  <span className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                    {entry.value}
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="bg-card border-border text-foreground">
+                <p>{explanation}</p>
+              </TooltipContent>
+            </UITooltip>
+          </TooltipProvider>
+        );
+      })}
+    </div>
+  );
+};
 
 export default function FarmDetails() {
   const { toast } = useToast();
@@ -526,8 +569,9 @@ export default function FarmDetails() {
                     <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} domain={[0, 'auto']} />
                     <Tooltip
                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      labelStyle={{ color: '#1f2937' }}
                     />
-                    <Legend />
+                    <Legend content={<CustomLegend />} />
                     <Line type="monotone" dataKey="ndvi" stroke="#16a34a" strokeWidth={3} dot={false} activeDot={{ r: 6 }} name="NDVI" />
                     <Line type="monotone" dataKey="ndwi" stroke="#0ea5e9" strokeWidth={3} dot={false} activeDot={{ r: 6 }} name="NDWI" />
                     <Line type="monotone" dataKey="otci" stroke="#facc15" strokeWidth={2} dot={false} activeDot={{ r: 6 }} name="OTCI" />
