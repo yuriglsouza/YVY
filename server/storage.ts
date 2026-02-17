@@ -275,7 +275,8 @@ export class MemStorage implements IStorage {
       ...insertReport,
       id,
       date: new Date(),
-      readingsSnapshot: insertReport.readingsSnapshot || null
+      readingsSnapshot: insertReport.readingsSnapshot || null,
+      formalContent: insertReport.formalContent || null
     };
     this.reports.set(id, report);
     return report;
