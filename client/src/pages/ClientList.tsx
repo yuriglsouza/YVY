@@ -1,27 +1,5 @@
-import { useToast } from "@/hooks/use-toast"; // Import useToast
-
-// ... inside CreateClientDialog ...
-const { toast } = useToast(); // Initialize toast
-
-const onSubmit = (data: InsertClient) => {
-    createClient.mutate(data, {
-        onSuccess: () => {
-            setOpen(false);
-            form.reset();
-            toast({
-                title: "Cliente criado com sucesso!",
-                description: `${data.name} foi adicionado à sua lista.`,
-            });
-        },
-        onError: (error) => {
-            toast({
-                variant: "destructive",
-                title: "Erro ao criar cliente",
-                description: error.message || "Ocorreu um erro ao tentar salvar.",
-            });
-        }
-    });
-};
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import { useClients, useCreateClient } from "@/hooks/use-clients";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -111,6 +89,7 @@ export default function ClientList() {
 
 function CreateClientDialog() {
     const [open, setOpen] = useState(false);
+    const { toast } = useToast();
     const createClient = useCreateClient();
 
     const form = useForm<InsertClient>({
@@ -129,6 +108,17 @@ function CreateClientDialog() {
             onSuccess: () => {
                 setOpen(false);
                 form.reset();
+                toast({
+                    title: "Cliente criado com sucesso!",
+                    description: `${data.name} foi adicionado à sua lista.`,
+                });
+            },
+            onError: (error) => {
+                toast({
+                    variant: "destructive",
+                    title: "Erro ao criar cliente",
+                    description: error.message || "Ocorreu um erro ao tentar salvar.",
+                });
             }
         });
     };
