@@ -76,8 +76,11 @@ export function BenchmarkChart({ farmId }: { farmId: number }) {
                                 contentStyle={{
                                     backgroundColor: "hsl(var(--card))",
                                     borderColor: "hsl(var(--border))",
-                                    borderRadius: "8px"
+                                    borderRadius: "8px",
+                                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
                                 }}
+                                itemStyle={{ color: "hsl(var(--foreground))" }}
+                                labelStyle={{ color: "hsl(var(--muted-foreground))", marginBottom: "0.25rem" }}
                             />
                             <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={32}>
                                 {chartData.map((entry, index) => (
