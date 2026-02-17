@@ -8,8 +8,23 @@ if (!process.env.DATABASE_URL) {
   console.warn("DATABASE_URL not set. Falling back to memory storage.");
 }
 
-export const pool = process.env.DATABASE_URL ? new Pool({
+// Connection resiliency for Serverless
+const poolConfig = process.env.DATABASE_URL ? {
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined
-}) : null;
+  ssl: { rejectUnauthorized: false }, // Force SSL for Supabase
+  max: 1, // Limit connections in Serverless to prevent exhaustion
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+} : undefined;
+
+export const pool = poolConfig ? new Pool(poolConfig) : null;
+
+// Add error handler to prevent crashing on idle disconnects
+if (pool) {
+  pool.on('error', (err) => {
+    console.error('Unexpected error on idle client', err);
+    // Don't exit process, just log
+  });
+}
+
 export const db = pool ? drizzle(pool, { schema }) : null;
