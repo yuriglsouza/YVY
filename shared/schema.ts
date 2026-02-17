@@ -38,11 +38,7 @@ export const readings = pgTable("readings", {
   imageBounds: jsonb("image_bounds"), // [[lat1, lon1], [lat2, lon2]]
 });
 
-export const insertReadingSchema = createInsertSchema(readings).omit({
-  id: true,
-  // @ts-ignore
-  createdAt: true
-});
+export const insertReadingSchema = createInsertSchema(readings).omit({ id: true });
 export type Reading = typeof readings.$inferSelect;
 export type InsertReading = z.infer<typeof insertReadingSchema>;
 
