@@ -17,8 +17,11 @@ import {
 import { useState } from "react";
 import { Loader2, Plus } from "lucide-react";
 
+import { useToast } from "@/hooks/use-toast";
+
 export function CreateFarmDialog() {
   const [open, setOpen] = useState(false);
+  const { toast } = useToast();
   const createFarm = useCreateFarm();
   const { data: clients } = useClients();
 
@@ -39,7 +42,18 @@ export function CreateFarmDialog() {
       onSuccess: () => {
         setOpen(false);
         form.reset();
+        toast({
+          title: "Fazenda criada com sucesso!",
+          description: `${data.name} foi adicionada.`,
+        });
       },
+      onError: (error) => {
+        toast({
+          variant: "destructive",
+          title: "Erro ao criar fazenda",
+          description: "Verifique os dados e tente novamente."
+        });
+      }
     });
   };
 
