@@ -62,11 +62,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        {/* Global Watermark */}
-        <div className="fixed inset-0 z-0 pointer-events-none flex items-center justify-center opacity-[0.03] select-none">
+        {/* Global Watermark - High Z-index with pointer-events-none to overlay content */}
+        <div className="fixed inset-0 z-[50] pointer-events-none flex items-center justify-center opacity-[0.03] select-none mix-blend-overlay">
           <img src="/logo.png" alt="" className="w-[80vw] max-w-[800px] h-auto grayscale" />
         </div>
-        <div className="relative z-10">
+        <div className="relative z-0">
           <Router />
         </div>
         <Toaster />
