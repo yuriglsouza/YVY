@@ -40,7 +40,17 @@ L.Marker.prototype.options.icon = DefaultIcon;
 export default function FarmDetails() {
   const { toast } = useToast();
   const [match, params] = useRoute("/farms/:id");
-  const farmId = parseInt(params?.id || "0");
+  const [location] = useLocation();
+
+  // Robust ID extraction: try params first, then fallback to parsing location path
+  let farmId = parseInt(params?.id || "0");
+  if (!farmId || isNaN(farmId)) {
+    const parts = location.split('/');
+    const idPart = parts[parts.length - 1]; // Last part should be ID
+    if (!isNaN(parseInt(idPart))) {
+      farmId = parseInt(idPart);
+    }
+  }
 
   const { data: farm, isLoading: isLoadingFarm } = useFarm(farmId);
   const { data: readings } = useReadings(farmId);
