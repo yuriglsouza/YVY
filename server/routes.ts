@@ -1,12 +1,12 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
-import { db } from "./db";
+import { storage } from "./storage.js";
+import { db } from "./db.js";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { type Reading, type InsertReading, insertUserSchema } from "@shared/schema";
-import { sendEmail } from "./email";
+import { sendEmail } from "./email.js";
 
 // Mock Satellite Data Generator
 function generateMockReadings(farmId: number, count = 10) {

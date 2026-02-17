@@ -1,5 +1,5 @@
 
-import { createApp } from "../server/app";
+import { createApp } from "../server/app.js";
 
 let appPromise: Promise<any> | null = null;
 

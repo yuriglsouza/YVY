@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db } from "./db.js";
 import {
   farms, readings, reports, users, alerts,
   type Farm, type InsertFarm,
