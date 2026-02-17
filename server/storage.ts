@@ -5,7 +5,7 @@ import {
   type Reading, type InsertReading,
   type Report, type InsertReport,
   type User, type InsertUser
-} from "@shared/schema";
+} from "../shared/schema.js";
 import { eq, desc, sql } from "drizzle-orm";
 // Import chat storage to include it in the exported interface if needed, 
 // or just export it separately. The integration blueprint creates its own storage object.

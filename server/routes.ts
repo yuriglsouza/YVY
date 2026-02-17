@@ -2,10 +2,10 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
 import { db } from "./db.js";
-import { api } from "@shared/routes";
+import { api } from "../shared/routes.js";
 import { z } from "zod";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { type Reading, type InsertReading, insertUserSchema } from "@shared/schema";
+import { type Reading, type InsertReading, insertUserSchema } from "../shared/schema.js";
 import { sendEmail } from "./email.js";
 
 // Mock Satellite Data Generator
