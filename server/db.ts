@@ -1,18 +1,25 @@
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { Pool, neonConfig } from "@neondatabase/serverless";
-import ws from "ws";
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
 import * as schema from "../shared/schema.js";
 
-neonConfig.webSocketConstructor = ws;
+const { Pool } = pg;
 
 if (!process.env.DATABASE_URL) {
   console.warn("DATABASE_URL not set. Falling back to memory storage.");
 }
 
-// @neondatabase/serverless is designed for Vercel/Serverless environments
-// It handles connection pooling via HTTP/WebSocket and avoids timeout issues
-export const pool = process.env.DATABASE_URL ? new Pool({
-  connectionString: process.env.DATABASE_URL
-}) : null;
+// Config for Vercel/Supabase (SSL required for production)
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined,
+  max: 10, // Limit connections for serverless
+  connectionTimeoutMillis: 5000,
+});
 
-export const db = pool ? drizzle(pool, { schema }) : null;
+// Add error handler to prevent server crash on connection issues
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
+  process.exit(-1);
+});
+
+export const db = drizzle(pool, { schema });
