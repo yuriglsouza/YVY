@@ -48,7 +48,7 @@ async function generateAgronomistReport(reading: Reading, prediction?: { date: s
     });
 
     const prompt = `
-      Você é o 'YVY IA', um agrônomo digital.
+      Você é o 'SYAZ IA', um agrônomo digital.
       Analise os dados deste satélite e gere um relatório em formato JSON com dois campos:
       
       1. "content": Uma versão informal, direta e "parceira" para o produtor ler no celular. Use emojis, linguagem simples e acolhedora.
@@ -133,14 +133,14 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
 
     const subject = `🚨 Alerta Crítico: ${farmName}`;
     const html = `
-      <h2>⚠️ Alerta de Monitoramento - Yvy Orbital</h2>
+      <h2>⚠️ Alerta de Monitoramento - SYAZ Orbital</h2>
       <p>Detectamos condições críticas na <b>${farmName}</b> na leitura de ${reading.date}.</p>
       <ul>
         ${alerts.map(a => `<li><b>${a.type}:</b> ${a.msg}</li>`).join('')}
       </ul>
       <p>Acesse a plataforma para ver os mapas detalhados.</p>
       <hr>
-      <small>Você recebeu este email porque ativou os alertas na Yvy Orbital.</small>
+      <small>Você recebeu este email porque ativou os alertas na SYAZ Orbital.</small>
     `;
 
     const sent = await sendEmail({
