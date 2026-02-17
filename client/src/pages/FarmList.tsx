@@ -95,6 +95,7 @@ export default function FarmList() {
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.3, delay: idx * 0.1 }}
+                                className="group relative"
                             >
                                 <Link href={`/farms/${farm.id}`} className="block group h-full">
                                     <div className="orbital-card rounded-lg overflow-hidden transition-all duration-300 h-full flex flex-col hover:border-primary/50">
