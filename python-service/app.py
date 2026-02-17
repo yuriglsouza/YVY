@@ -31,8 +31,11 @@ async def startup_event():
             print(f"Auth: Found project_id in JSON: {project_id}")
             
             # Create explicit credentials object
-            credentials = service_account.Credentials.from_service_account_info(creds_data)
-            print("Auth: Created explicit ServiceAccountCredentials object.")
+            credentials = service_account.Credentials.from_service_account_info(
+                creds_data,
+                scopes=["https://www.googleapis.com/auth/earthengine"]
+            )
+            print("Auth: Created explicit ServiceAccountCredentials object with EE scope.")
             
         except Exception as e:
             print(f"Auth: Error parsing JSON credentials: {e}")
