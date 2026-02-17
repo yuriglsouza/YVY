@@ -1,9 +1,9 @@
 import { useFarms } from "@/hooks/use-farms";
 import { useClients } from "@/hooks/use-clients";
 import { Sidebar, MobileNav } from "@/components/Sidebar";
-import { CreateFarmDialog } from "@/components/CreateFarmDialog";
+import { CreateFarmDialog, EditFarmDialog } from "@/components/CreateFarmDialog";
 import { Link } from "wouter";
-import { Loader2, MapPin, Ruler, Sprout, ArrowRight, Filter } from "lucide-react";
+import { Loader2, MapPin, Ruler, Sprout, ArrowRight, Filter, Pencil } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import {
@@ -143,12 +143,24 @@ export default function FarmList() {
                                                 </div>
                                             </div>
 
-                                            <div className="mt-6 flex items-center text-primary font-medium text-sm group-hover:translate-x-1 transition-transform">
-                                                Ver Detalhes <ArrowRight className="w-4 h-4 ml-2" />
+                                            <div className="mt-6 flex items-center justify-between">
+                                                <div className="flex items-center text-primary font-medium text-sm group-hover:translate-x-1 transition-transform">
+                                                    Ver Detalhes <ArrowRight className="w-4 h-4 ml-2" />
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </Link>
+                                <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                    <EditFarmDialog
+                                        farm={farm}
+                                        trigger={
+                                            <Button variant="secondary" size="icon" className="h-8 w-8 bg-white/80 hover:bg-white backdrop-blur-sm shadow-sm">
+                                                <Pencil className="h-4 w-4 text-muted-foreground" />
+                                            </Button>
+                                        }
+                                    />
+                                </div>
                             </motion.div>
                         ))}
                     </div>

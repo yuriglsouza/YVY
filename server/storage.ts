@@ -45,6 +45,11 @@ export interface IStorage {
   getClients(): Promise<Client[]>;
   getClient(id: number): Promise<Client | undefined>;
   createClient(client: InsertClient): Promise<Client>;
+  updateClient(id: number, client: Partial<InsertClient>): Promise<Client>;
+  deleteClient(id: number): Promise<void>;
+
+  // Updates
+  updateFarm(id: number, farm: Partial<InsertFarm>): Promise<Farm>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -166,6 +171,30 @@ export class DatabaseStorage implements IStorage {
   async createClient(insertClient: InsertClient): Promise<Client> {
     const [client] = await db!.insert(clients).values(insertClient).returning();
     return client;
+  }
+
+  async updateClient(id: number, insertClient: Partial<InsertClient>): Promise<Client> {
+    const [updated] = await db!
+      .update(clients)
+      .set(insertClient)
+      .where(eq(clients.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteClient(id: number): Promise<void> {
+    // Unlink farms first
+    await db!.update(farms).set({ clientId: null }).where(eq(farms.clientId, id));
+    await db!.delete(clients).where(eq(clients.id, id));
+  }
+
+  async updateFarm(id: number, insertFarm: Partial<InsertFarm>): Promise<Farm> {
+    const [updated] = await db!
+      .update(farms)
+      .set(insertFarm)
+      .where(eq(farms.id, id))
+      .returning();
+    return updated;
   }
 }
 
@@ -357,6 +386,32 @@ export class MemStorage implements IStorage {
     };
     this.clients.set(id, client);
     return client;
+  }
+
+  async updateClient(id: number, updateClient: Partial<InsertClient>): Promise<Client> {
+    const client = this.clients.get(id);
+    if (!client) throw new Error("Client not found");
+    const updatedClient = { ...client, ...updateClient };
+    this.clients.set(id, updatedClient);
+    return updatedClient;
+  }
+
+  async deleteClient(id: number): Promise<void> {
+    this.clients.delete(id);
+    // Unlink farms
+    this.farms.forEach((farm) => {
+      if (farm.clientId === id) {
+        farm.clientId = null;
+      }
+    });
+  }
+
+  async updateFarm(id: number, updateFarm: Partial<InsertFarm>): Promise<Farm> {
+    const farm = this.farms.get(id);
+    if (!farm) throw new Error("Farm not found");
+    const updatedFarm = { ...farm, ...updateFarm };
+    this.farms.set(id, updatedFarm);
+    return updatedFarm;
   }
 }
 

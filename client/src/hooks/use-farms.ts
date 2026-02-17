@@ -52,6 +52,30 @@ export function useCreateFarm() {
   });
 }
 
+export function useUpdateFarm() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number, data: Partial<InsertFarm> }) => {
+      const url = buildUrl(api.farms.update.path, { id });
+      const res = await fetch(url, {
+        method: api.farms.update.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to update farm");
+      }
+      return api.farms.update.responses[200].parse(await res.json());
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [api.farms.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.farms.get.path, data.id] });
+    },
+  });
+}
+
 export function useRefreshReadings() {
   const queryClient = useQueryClient();
   return useMutation({

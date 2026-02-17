@@ -5,7 +5,7 @@ import { db } from "./db.js";
 import { api } from "../shared/routes.js";
 import { z } from "zod";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { type Reading, type InsertReading, insertUserSchema, insertClientSchema } from "../shared/schema.js"; // Added insertClientSchema
+import { type Reading, type InsertReading, insertFarmSchema, insertReadingSchema, insertReportSchema, insertUserSchema, insertClientSchema } from "../shared/schema.js"; // Added insertClientSchema
 import { sendEmail } from "./email.js";
 
 // Mock Satellite Data Generator
@@ -188,6 +188,33 @@ export async function registerRoutes(
     }
   });
 
+  app.put("/api/clients/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const input = insertClientSchema.partial().parse(req.body);
+
+      const existing = await storage.getClient(id);
+      if (!existing) return res.status(404).json({ message: "Client not found" });
+
+      const updated = await storage.updateClient(id, input);
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.delete("/api/clients/:id", isAuthenticated, async (req, res) => {
+    const id = Number(req.params.id);
+    const existing = await storage.getClient(id);
+    if (!existing) return res.status(404).json({ message: "Client not found" });
+
+    await storage.deleteClient(id);
+    res.status(204).end();
+  });
+
   // --- ALERTS ---
   app.get("/api/alerts", isAuthenticated, async (req, res) => {
     const alerts = await storage.getAlerts();
@@ -323,6 +350,24 @@ export async function registerRoutes(
       }
 
       res.status(201).json(farm);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.put("/api/farms/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const input = insertFarmSchema.partial().parse(req.body);
+
+      const existing = await storage.getFarm(id);
+      if (!existing) return res.status(404).json({ message: "Farm not found" });
+
+      const updated = await storage.updateFarm(id, input);
+      res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });

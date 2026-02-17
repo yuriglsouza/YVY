@@ -40,6 +40,24 @@ export const api = {
         400: errorSchemas.validation,
       },
     },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/farms/:id',
+      input: insertFarmSchema.partial(),
+      responses: {
+        200: z.custom<typeof farms.$inferSelect>(),
+        404: errorSchemas.notFound,
+        400: errorSchemas.validation,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/farms/:id',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
     // Mock endpoint to trigger satellite data fetch/generation
     refreshReadings: {
       method: 'POST' as const,
@@ -99,6 +117,24 @@ export const api = {
       responses: {
         201: z.custom<typeof clients.$inferSelect>(),
         400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/clients/:id',
+      input: insertClientSchema.partial(),
+      responses: {
+        200: z.custom<typeof clients.$inferSelect>(),
+        404: errorSchemas.notFound,
+        400: errorSchemas.validation,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/clients/:id',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
       },
     },
   },

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@shared/routes";
+import { api, buildUrl } from "@shared/routes";
 import { type InsertClient } from "@shared/schema";
 
 export function useClients() {
@@ -29,6 +29,45 @@ export function useCreateClient() {
                 throw new Error(errorData.message || "Failed to create client");
             }
             return api.clients.create.responses[201].parse(await res.json());
+        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.clients.list.path] }),
+    });
+}
+
+export function useUpdateClient() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ id, data }: { id: number, data: Partial<InsertClient> }) => {
+            const url = buildUrl(api.clients.update.path, { id });
+            const res = await fetch(url, {
+                method: api.clients.update.method,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data),
+                credentials: "include",
+            });
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.message || "Failed to update client");
+            }
+            return api.clients.update.responses[200].parse(await res.json());
+        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.clients.list.path] }),
+    });
+}
+
+export function useDeleteClient() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (id: number) => {
+            const url = buildUrl(api.clients.delete.path, { id });
+            const res = await fetch(url, {
+                method: api.clients.delete.method,
+                credentials: "include",
+            });
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.message || "Failed to delete client");
+            }
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.clients.list.path] }),
     });
