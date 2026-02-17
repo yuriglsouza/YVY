@@ -2,8 +2,11 @@ import os
 import json
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional
 import sys
+import pandas as pd
+from sklearn.ensemble import RandomForestRegressor
+from datetime import datetime
 
 # Import local scripts
 # Ensure the current directory is in sys.path
@@ -12,6 +15,75 @@ import satellite_analysis
 import cluster
 
 app = FastAPI()
+
+class PredictionRequest(BaseModel):
+    history: List[dict] # Expected keys: date, ndvi, temperature (optional)
+    target_date: str
+
+@app.post("/predict")
+async def predict_ndvi(req: PredictionRequest):
+    try:
+        if not req.history or len(req.history) < 5:
+             return {"error": "Insufficient history for prediction (need at least 5 points)"}
+
+        # Convert to DataFrame
+        df = pd.DataFrame(req.history)
+        
+        # Preprocessing
+        df['date'] = pd.to_datetime(df['date'])
+        df['month'] = df['date'].dt.month
+        df['day_of_year'] = df['date'].dt.dayofyear
+        
+        # Target Date Preprocessing
+        try:
+            target_dt = datetime.strptime(req.target_date, "%Y-%m-%d")
+        except ValueError:
+             return {"error": "Invalid target_date format. Use YYYY-MM-DD"}
+
+        # Handle Temperature in History (fill missing)
+        if 'temperature' not in df.columns:
+            df['temperature'] = 25.0
+        else:
+            df['temperature'] = df['temperature'].fillna(25.0)
+
+        # Features
+        features = ['month', 'day_of_year', 'temperature']
+        
+        # Check if we have all features in history
+        if not all(col in df.columns for col in features):
+             return {"error": f"Missing columns in history. Required: {features}"}
+
+        X = df[features]
+        y = df['ndvi']
+
+        # Train Model (Stateless - trained on request)
+        # Using a small n_estimators for speed since we train on every request
+        model = RandomForestRegressor(n_estimators=20, random_state=42)
+        model.fit(X, y)
+        
+        # Prepare Target Input
+        # For future temperature, we use the average of the history or a default
+        avg_temp = df['temperature'].mean()
+        
+        target_input = pd.DataFrame([{
+            'month': target_dt.month,
+            'day_of_year': target_dt.timetuple().tm_yday,
+            'temperature': avg_temp
+        }])
+
+        # Predict
+        prediction = model.predict(target_input[features])[0]
+        
+        return {
+            "prediction": float(prediction), 
+            "unit": "NDVI", 
+            "model": "RandomForest (Stateless)",
+            "target_date": req.target_date
+        }
+
+    except Exception as e:
+        print(f"Prediction Error: {e}")
+        return {"error": str(e)}
 
 @app.on_event("startup")
 async def startup_event():
