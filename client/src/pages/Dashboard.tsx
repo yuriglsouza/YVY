@@ -73,7 +73,7 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen flex">
       <Sidebar />
       <MobileNav />
       <main className="flex-1 ml-0 lg:ml-64 p-4 lg:p-12 overflow-y-auto pt-16 lg:pt-12">

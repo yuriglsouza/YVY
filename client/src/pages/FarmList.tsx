@@ -44,7 +44,7 @@ export default function FarmList() {
     }
 
     return (
-        <div className="flex min-h-screen bg-background">
+        <div className="flex min-h-screen">
             <Sidebar />
             <MobileNav />
             <main className="flex-1 ml-0 lg:ml-64 p-4 lg:p-8 pt-16 lg:pt-8 overflow-y-auto">
