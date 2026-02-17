@@ -21,7 +21,10 @@ export function useFarm(id: number) {
       const url = buildUrl(api.farms.get.path, { id });
       const res = await fetch(url, { credentials: "include" });
       if (res.status === 404) return null;
-      if (!res.ok) throw new Error("Failed to fetch farm");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(`Error ${res.status}: ${errorData.message || "Failed to fetch farm"}`);
+      }
       return api.farms.get.responses[200].parse(await res.json());
     },
     enabled: !isNaN(id),
