@@ -131,6 +131,8 @@ export function PredictiveChart({ farmId, headerSlot }: PredictiveChartProps) {
                                 <YAxis domain={[0, 1]} tick={{ fontSize: 12, fill: '#A1A1AA' }} axisLine={false} tickLine={false} label={{ value: 'NDVI', angle: -90, position: 'insideLeft', fill: '#666' }} />
                                 <Tooltip
                                     contentStyle={{ backgroundColor: '#18181B', borderRadius: '4px', border: '1px solid #262626' }}
+                                    itemStyle={{ color: '#F8FAFC' }}
+                                    labelStyle={{ color: '#94A3B8' }}
                                     labelFormatter={(label) => {
                                         try { return format(new Date(label), "dd MMM yyyy"); } catch { return label; }
                                     }}
