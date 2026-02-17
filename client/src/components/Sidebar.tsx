@@ -1,8 +1,16 @@
 import { Link, useLocation } from "wouter";
-import { Sprout, LayoutDashboard, Settings, LogOut } from "lucide-react";
+import { Sprout, LayoutDashboard, Settings, LogOut, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NotificationsPopover } from "@/components/notifications-popover";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
-export function Sidebar() {
+interface SidebarProps {
+  className?: string;
+}
+
+export function SidebarContent() {
   const [location] = useLocation();
 
   const links = [
@@ -12,11 +20,14 @@ export function Sidebar() {
   ];
 
   return (
-    <div className="w-64 h-screen bg-card border-r border-border/40 fixed left-0 top-0 flex flex-col z-50">
+    <div className="flex flex-col h-full">
       <div className="p-6">
-        <div className="flex flex-col gap-2 mb-8 px-2">
-          <img src="/logo.jpg" alt="YVY Logo" className="h-16 w-auto object-contain self-start" />
-          <p className="text-xs text-muted-foreground ml-1">Monitoramento via Satélite</p>
+        <div className="flex items-start justify-between mb-8 px-2">
+          <div className="flex flex-col gap-2">
+            <img src="/logo.jpg" alt="YVY Logo" className="h-16 w-auto object-contain self-start" />
+            <p className="text-xs text-muted-foreground ml-1">Monitoramento via Satélite</p>
+          </div>
+          <NotificationsPopover />
         </div>
 
         <nav className="space-y-2">
@@ -84,6 +95,33 @@ export function Sidebar() {
           <span className="font-medium">Sair</span>
         </button>
       </div>
-    </div >
+    </div>
+  );
+}
+
+export function Sidebar({ className }: SidebarProps) {
+  return (
+    <div className={cn("w-64 h-screen bg-card border-r border-border/40 fixed left-0 top-0 hidden lg:flex flex-col z-50", className)}>
+      <SidebarContent />
+    </div>
+  );
+}
+
+export function MobileNav() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="lg:hidden fixed top-4 left-4 z-50">
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetTrigger asChild>
+          <Button variant="outline" size="icon" className="bg-background/80 backdrop-blur-sm border-border">
+            <Menu className="h-6 w-6" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="p-0 border-r border-border/40 w-72 bg-card">
+          <SidebarContent />
+        </SheetContent>
+      </Sheet>
+    </div>
   );
 }

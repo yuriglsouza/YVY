@@ -31,62 +31,62 @@ function generateMockReadings(farmId: number, count = 10) {
 }
 
 // AI Analysis Service
-async function generateAgronomistReport(reading: Reading): Promise<string> {
+// AI Analysis Service
+async function generateAgronomistReport(reading: Reading, prediction?: { date: string, value: number } | null): Promise<{ content: string, formalContent: string }> {
   if (!process.env.GEMINI_API_KEY) {
-    return "Assistente de IA não configurado. Por favor, configure a chave da API do Gemini para receber análises.";
+    return {
+      content: "Assistente de IA não configurado. Por favor, configure a chave da API do Gemini para receber análises.",
+      formalContent: "Relatório técnico indisponível (API Key missing)."
+    };
   }
 
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      systemInstruction: `Você é o 'YVY IA', um agrônomo digital experiente e parceiro do produtor rural. 
-      Sua comunicação deve ser:
-      1. Simples e Direta: Evite termos técnicos complexos sem explicação. Use analogias do campo.
-      2. Acolhedora: Trate o produtor como amigo. Use frases como "Vamos cuidar disso juntos".
-      3. Orientada à Ação: Não diga apenas o problema, diga exatamente como resolver (ex: irrigação, adubação).
-      
-      Estruture sua resposta sempre nestes 3 tópicos claros:
-      ## 🧐 O que o satélite viu (Diagnóstico)
-      ## 🛠️ O que fazer agora (Ação Prática)
-      ## 💡 Dica do Parceiro`
+      model: "gemma-3-27b-it"
     });
 
-    const prompt = `Analise a situação da lavoura com estes dados de hoje:
-          - NDVI (Saúde/Vigor): ${reading.ndvi.toFixed(2)} (Meta: > 0.6)
-          - NDWI (Água no solo): ${reading.ndwi.toFixed(2)} (Meta: > -0.1)
-          - NDRE (Nutrição/Nitrogênio): ${reading.ndre.toFixed(2)}
-          - OTCI (Clorofila S3): ${reading.otci ? reading.otci.toFixed(2) : 'N/A'} (Meta: > 1.0)
-          - RVI (Biomassa): ${reading.rvi.toFixed(2)}
-          - Temperatura (Superfície): ${reading.temperature ? reading.temperature.toFixed(1) + '°C' : 'N/A'}
-          
-          Se o NDVI estiver baixo (<0.4), alerte sobre possível estresse.
-          Se o NDWI estiver muito negativo, alerte sobre seca.
-          Se a temperatura estiver muito alta (>35°C), alerte sobre estresse térmico.
-          
-          Gere um relatório completo, educativo e que ajude o produtor a salvar a lavoura ou aumentar a produtividade.`;
+    const prompt = `
+      Você é o 'YVY IA', um agrônomo digital.
+      Analise os dados deste satélite e gere um relatório em formato JSON com dois campos:
+      
+      1. "content": Uma versão informal, direta e "parceira" para o produtor ler no celular. Use emojis, linguagem simples e acolhedora.
+         Estruture com: ## 🧐 O que vi, ## 🚜 O que fazer.
+      
+      2. "formalContent": Uma versão técnica, formal e estruturada para exportação em PDF (bancos/auditoria).
+         Sem emojis. Use termos técnicos (ex: "Índice de Vegetação", "Estresse Hídrico").
+         Estruture com: 1. Diagnóstico Técnico, 2. Análise de Índices, 3. Recomendações Agronômicas.
+
+      Dados Atuais:
+      - Data: ${reading.date}
+      - NDVI (Vigor): ${reading.ndvi}
+      - NDWI (Água): ${reading.ndwi}
+      - NDRE (Clorofila): ${reading.ndre}
+      - Temperatura: ${reading.temperature}°C
+      
+      ${prediction ? `Previsão Futura (${prediction.date}): NDVI ${prediction.value.toFixed(2)}` : ''}
+    `;
 
     const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return response.text();
+    const responseText = result.response.text();
+
+    // Clean markdown code blocks if present
+    const cleanJson = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
+
+    return JSON.parse(cleanJson);
+
   } catch (err) {
-    console.error("AI Error Details:", JSON.stringify(err, null, 2));
+    console.error("AI Generation Error:", err);
+    // Log error to file
+    const fs = await import("fs");
+    fs.appendFileSync("debug_errors.log", `\n\n--- ${new Date().toISOString()} ---\n`);
+    fs.appendFileSync("debug_errors.log", `ERROR: ${JSON.stringify(err, Object.getOwnPropertyNames(err))}\n`);
 
-    // Fallback Mock for Demo/Dev purposes
-    return `## ⚠️ Aviso do Sistema
-    
-     A IA está indisponível momentaneamente.
-    
-    ## 🧐 O que o satélite viu (Simulação)
-    Identificamos um vigor vegetativo muito bom neta área (NDVI alto). As plantas estão trabalhando bem.
-    
-    ## 🛠️ O que fazer agora
-    Mantenha o cronograma de irrigação atual. Se não chover nos próximos 3 dias, faça uma rega leve nas bordas.
-    
-    ## 💡 Dica do Parceiro
-    Time que está ganhando não se mexe! Aproveite para revisar o maquinário para a próxima etapa.`;
+    return {
+      content: "Erro ao gerar análise. Tente novamente em instantes.",
+      formalContent: "Erro na geração do relatório técnico."
+    };
   }
-
 }
 
 async function checkAndSendAlerts(reading: Reading, farmId: number) {
@@ -124,6 +124,11 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
   if (alerts.length > 0) {
     console.log(`⚠️ Detected ${alerts.length} critical issues for ${farmName}`);
 
+    // Persist alerts to DB
+    for (const alert of alerts) {
+      await storage.logAlert(farmId, alert.type, alert.msg, user.email);
+    }
+
     const subject = `🚨 Alerta Crítico: ${farmName}`;
     const html = `
       <h2>⚠️ Alerta de Monitoramento - Yvy Orbital</h2>
@@ -144,7 +149,7 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
     });
 
     if (sent) {
-      await storage.logAlert(farmId, "EMAIL_SENT", `Sent ${alerts.length} alerts to ${user.email}`, user.email);
+      console.log(`Email sent to ${user.email}`);
     }
   }
 }
@@ -153,6 +158,90 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  // Alerts
+  app.get("/api/alerts", async (req, res) => {
+    const alerts = await storage.getAlerts();
+    res.json(alerts);
+  });
+
+  app.post("/api/alerts/:id/read", async (req, res) => {
+    const id = Number(req.params.id);
+    await storage.markAlertRead(id);
+    res.json({ success: true });
+  });
+
+  // Benchmark
+  app.get("/api/farms/:id/benchmark", async (req, res) => {
+    const farmId = Number(req.params.id);
+    const reading = await storage.getLatestReading(farmId);
+
+    if (!reading) {
+      return res.status(404).json({ message: "No data available for benchmark" });
+    }
+
+    // Mocked Regional Data (in a real app, this would query DB for same crop/region)
+    // Randomize slightly around a "regional average" to make it look realistic
+    const baseRegionalNdvi = 0.65;
+    const regionalNdvi = baseRegionalNdvi + (Math.random() * 0.1 - 0.05);
+
+    // Calculate Percentile
+    const diff = reading.ndvi - regionalNdvi;
+    let percentile = 50;
+    let rank = "Na Média";
+
+    if (diff > 0.1) { percentile = 90; rank = "Top 10% 🏆"; }
+    else if (diff > 0.05) { percentile = 75; rank = "Acima da Média"; }
+    else if (diff < -0.1) { percentile = 10; rank = "Abaixo da Média ⚠️"; }
+    else if (diff < -0.05) { percentile = 25; rank = "Abaixo da Média"; }
+
+    res.json({
+      farmNdvi: reading.ndvi,
+      regionalNdvi,
+      percentile,
+      rank,
+      history: [
+        { year: "2023", ndvi: reading.ndvi - 0.05 }, // Mock last year
+        { year: "2024", ndvi: reading.ndvi + 0.02 }, // Mock this year
+        { year: "2025", ndvi: reading.ndvi }         // Current
+      ]
+    });
+  });
+
+  // Management Zones
+  app.post("/api/farms/:id/zones/generate", async (req, res) => {
+    const farmId = Number(req.params.id);
+    const farm = await storage.getFarm(farmId);
+
+    if (!farm) return res.status(404).json({ message: "Farm not found" });
+
+    // In a real app, we would pass the satellite image path
+    // For now, we generate mock data based on location
+    try {
+      const { exec } = await import("child_process");
+      const path = await import("path");
+      const scriptPath = path.join(process.cwd(), "scripts", "cluster.py");
+      // Pass lat/lon/size to generate mock pixels
+      const command = `python3 "${scriptPath}" --lat ${farm.latitude} --lon ${farm.longitude} --size ${farm.sizeHa}`;
+
+      exec(command, (error, stdout, stderr) => {
+        if (error) {
+          console.error(`Clustering Script Error: ${stderr}`);
+          return res.status(500).json({ message: "Clustering failed" });
+        }
+        try {
+          const zonesData = JSON.parse(stdout);
+          res.json(zonesData);
+        } catch (e) {
+          console.error("Failed to parse clustering output", e);
+          res.status(500).json({ message: "Invalid output from clustering script" });
+        }
+      });
+    } catch (e) {
+      console.error("generateZones internal error:", e);
+      res.status(500).json({ message: "Internal Server Error" });
+    }
+  });
 
   // Farms
   app.get(api.farms.list.path, async (req, res) => {
@@ -217,11 +306,17 @@ export async function registerRoutes(
       return res.status(404).json({ message: "No readings available to analyze" });
     }
 
-    const content = await generateAgronomistReport(reading);
+    const predictionDate = new Date();
+    predictionDate.setDate(predictionDate.getDate() + 30); // Predict 30 days out
+    const dateStr = predictionDate.toISOString().split('T')[0];
+    const predValue = await getPrediction(farmId, dateStr);
+
+    const reportData = await generateAgronomistReport(reading, predValue !== null ? { date: dateStr, value: predValue } : null);
 
     const report = await storage.createReport({
       farmId,
-      content,
+      content: reportData.content,
+      formalContent: reportData.formalContent,
       readingsSnapshot: reading
     });
 
@@ -337,6 +432,51 @@ export async function registerRoutes(
       for (const r of readings2) await storage.createReading(r);
     }
   }
+
+
+  // Helper for Prediction
+  async function getPrediction(farmId: number, date: string): Promise<number | null> {
+    try {
+      const { exec } = await import("child_process");
+      const path = await import("path");
+      const scriptPath = path.join(process.cwd(), "scripts", "predict.py");
+      const command = `python3 "${scriptPath}" --farm-id ${farmId} --date ${date}`;
+
+      return new Promise((resolve) => {
+        exec(command, (error, stdout, stderr) => {
+          if (error) {
+            console.error(`Prediction Script Error: ${stderr}`);
+            resolve(null);
+            return;
+          }
+          const match = stdout.match(/([\d\.]+)\s*$/);
+          const prediction = match ? parseFloat(match[1]) : null;
+          resolve(prediction);
+        });
+      });
+    } catch (e) {
+      console.error("getPrediction internal error:", e);
+      return null;
+    }
+  }
+
+  // Predictive Model Endpoint
+  app.get("/api/farms/:id/prediction", async (req, res) => {
+    const farmId = Number(req.params.id);
+    const date = req.query.date as string;
+
+    if (!date) {
+      return res.status(400).json({ message: "Date query parameter is required (YYYY-MM-DD)" });
+    }
+
+    const prediction = await getPrediction(farmId, date);
+
+    if (prediction !== null) {
+      res.json({ farmId, date, prediction, unit: "NDVI" });
+    } else {
+      res.status(500).json({ message: "Failed to generate prediction" });
+    }
+  });
 
   // Settings
   app.get("/api/settings", async (req, res) => {

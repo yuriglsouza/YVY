@@ -35,6 +35,8 @@ export interface IStorage {
 
   // Alerts
   logAlert(farmId: number, type: string, message: string, sentTo: string): Promise<void>;
+  getAlerts(limit?: number): Promise<{ id: number; farmId: number; date: Date | null; type: string; message: string; sentTo: string | null; read: boolean }[]>;
+  markAlertRead(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -120,8 +122,24 @@ export class DatabaseStorage implements IStorage {
       farmId,
       type,
       message,
-      sentTo
+      sentTo,
+      read: false
     });
+  }
+
+  async getAlerts(limit = 50): Promise<{ id: number; farmId: number; date: Date | null; type: string; message: string; sentTo: string | null; read: boolean }[]> {
+    return await db!
+      .select()
+      .from(alerts)
+      .orderBy(desc(alerts.date))
+      .limit(limit);
+  }
+
+  async markAlertRead(id: number): Promise<void> {
+    await db!
+      .update(alerts)
+      .set({ read: true })
+      .where(eq(alerts.id, id));
   }
 }
 
@@ -187,8 +205,34 @@ export class MemStorage implements IStorage {
   }
 
   // Alerts (Mem)
+  private alertsLog: { id: number; farmId: number; date: Date | null; type: string; message: string; sentTo: string | null; read: boolean }[] = [];
+  private alertIdCounter = 1;
+
   async logAlert(farmId: number, type: string, message: string, sentTo: string): Promise<void> {
+    const id = this.alertIdCounter++;
+    this.alertsLog.push({
+      id,
+      farmId,
+      date: new Date(),
+      type,
+      message,
+      sentTo,
+      read: false
+    });
     console.log(`[MemStorage Alert] To: ${sentTo} | Type: ${type} | Msg: ${message}`);
+  }
+
+  async getAlerts(limit = 50): Promise<{ id: number; farmId: number; date: Date | null; type: string; message: string; sentTo: string | null; read: boolean }[]> {
+    return this.alertsLog
+      .sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0))
+      .slice(0, limit);
+  }
+
+  async markAlertRead(id: number): Promise<void> {
+    const alert = this.alertsLog.find(a => a.id === id);
+    if (alert) {
+      alert.read = true;
+    }
   }
 
   async getReadings(farmId: number): Promise<Reading[]> {
@@ -207,7 +251,14 @@ export class MemStorage implements IStorage {
 
   async createReading(insertReading: InsertReading): Promise<Reading> {
     const id = this.readingIdCounter++;
-    const reading: Reading = { ...insertReading, id, temperature: insertReading.temperature ?? null };
+    const reading: Reading = {
+      ...insertReading,
+      id,
+      temperature: insertReading.temperature ?? null,
+      otci: insertReading.otci ?? null,
+      satelliteImage: insertReading.satelliteImage ?? null,
+      thermalImage: insertReading.thermalImage ?? null
+    };
     this.readings.set(id, reading);
     return reading;
   }

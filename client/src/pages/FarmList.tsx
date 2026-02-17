@@ -1,5 +1,5 @@
 import { useFarms } from "@/hooks/use-farms";
-import { Sidebar } from "@/components/Sidebar";
+import { Sidebar, MobileNav } from "@/components/Sidebar";
 import { CreateFarmDialog } from "@/components/CreateFarmDialog";
 import { Link } from "wouter";
 import { Loader2, MapPin, Ruler, Sprout, ArrowRight } from "lucide-react";
@@ -25,10 +25,11 @@ export default function FarmList() {
     }
 
     return (
-        <div className="min-h-screen bg-background flex">
+        <div className="flex min-h-screen bg-background">
             <Sidebar />
-            <main className="flex-1 ml-64 p-8 lg:p-12 overflow-y-auto">
-                <header className="flex justify-between items-end mb-12">
+            <MobileNav />
+            <main className="flex-1 ml-0 lg:ml-64 p-4 lg:p-8 pt-16 lg:pt-8 overflow-y-auto">
+                <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-12">
                     <div>
                         <h1 className="text-4xl font-display font-bold text-foreground">Minhas Fazendas</h1>
                         <p className="text-muted-foreground mt-2 text-lg">Gerencie seus campos cadastrados.</p>

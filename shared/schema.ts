@@ -45,7 +45,8 @@ export const reports = pgTable("reports", {
   id: serial("id").primaryKey(),
   farmId: integer("farm_id").notNull(),
   date: timestamp("date").defaultNow(),
-  content: text("content").notNull(), // The AI analysis text
+  content: text("content").notNull(), // The AI analysis text (informal)
+  formalContent: text("formal_content"), // The technical report for PDF
   readingsSnapshot: jsonb("readings_snapshot"), // Store the readings used for this report
 });
 
@@ -72,7 +73,26 @@ export const alerts = pgTable("alerts", {
   type: text("type").notNull(), // 'CRITICAL_NDVI', 'DROUGHT', 'HEAT_STRESS'
   message: text("message").notNull(),
   sentTo: text("sent_to"), // The email it was sent to
+  read: boolean("read").default(false).notNull(),
 });
+
+export const insertAlertSchema = createInsertSchema(alerts).omit({ id: true });
+export type Alert = typeof alerts.$inferSelect;
+export type InsertAlert = z.infer<typeof insertAlertSchema>;
+
+// === MANAGEMENT ZONES ===
+export const zones = pgTable("zones", {
+  id: serial("id").primaryKey(),
+  farmId: integer("farm_id").notNull(),
+  name: text("name").notNull(),
+  color: text("color").notNull(),
+  coordinates: jsonb("coordinates").notNull(),
+  areaHa: real("area_ha").notNull().default(0),
+});
+
+export const insertZoneSchema = createInsertSchema(zones).omit({ id: true });
+export type Zone = typeof zones.$inferSelect;
+export type InsertZone = z.infer<typeof insertZoneSchema>;
 
 // === RELATIONS ===
 // (Optional but good for query helpers if we were using query builder extensively)

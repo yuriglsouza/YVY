@@ -1,6 +1,7 @@
 import { useFarms } from "@/hooks/use-farms";
-import { Sidebar } from "@/components/Sidebar";
+import { Sidebar, MobileNav } from "@/components/Sidebar";
 import { CreateFarmDialog } from "@/components/CreateFarmDialog";
+import { PredictiveChartWrapper } from "@/components/predictive-chart-wrapper";
 import { Link } from "wouter";
 import { Loader2, Sprout, AlertTriangle, Droplets, Activity } from "lucide-react";
 import { motion } from "framer-motion";
@@ -74,8 +75,9 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background flex">
       <Sidebar />
-      <main className="flex-1 ml-64 p-8 lg:p-12 overflow-y-auto">
-        <header className="flex justify-between items-end mb-8">
+      <MobileNav />
+      <main className="flex-1 ml-0 lg:ml-64 p-4 lg:p-12 overflow-y-auto pt-16 lg:pt-12">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8">
           <div>
             <h1 className="text-4xl font-display font-bold text-foreground">CENTRO DE COMANDO</h1>
             <p className="text-muted-foreground mt-2 text-lg font-light tracking-wide">
@@ -207,29 +209,12 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Tertiary Chart: Historical Trend */}
-          <div className="orbital-card p-6 rounded-lg bg-card">
-            <h3 className="text-lg font-bold font-display uppercase tracking-wider mb-6 flex items-center gap-2">
-              <Sprout className="w-5 h-5 text-blue-500" /> Tendência de Evolução (Semestral)
-            </h3>
-            <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={healthTrendData}>
-                  <defs>
-                    <linearGradient id="colorAvg" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#22C55E" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#22C55E" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#262626" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#A1A1AA' }} axisLine={false} tickLine={false} />
-                  <YAxis hide domain={[0, 1]} />
-                  <Tooltip contentStyle={{ backgroundColor: '#18181B', borderRadius: '4px', border: '1px solid #262626' }} />
-                  <Area type="monotone" dataKey="avg" stroke="#22C55E" fillOpacity={1} fill="url(#colorAvg)" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          {/* Predictive Model Chart */}
+
+          {/* Predictive Model Chart */}
+          {farms && farms.length > 0 && (
+            <PredictiveChartWrapper farms={farms} />
+          )}
 
         </motion.div>
       </main>

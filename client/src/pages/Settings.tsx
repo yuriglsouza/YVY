@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Sidebar } from "@/components/Sidebar";
+import { Sidebar, MobileNav } from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,9 +77,10 @@ export default function Settings() {
     }
 
     return (
-        <div className="min-h-screen bg-background flex">
+        <div className="flex min-h-screen bg-background">
             <Sidebar />
-            <main className="flex-1 ml-64 p-8 lg:p-12 overflow-y-auto">
+            <MobileNav />
+            <main className="flex-1 ml-0 lg:ml-64 p-4 lg:p-8 pt-16 lg:pt-8 overflow-y-auto">
                 <div className="max-w-4xl mx-auto">
                     <h1 className="text-3xl font-display font-bold text-foreground mb-2">Configurações</h1>
                     <p className="text-muted-foreground mb-8">Gerencie suas preferências e alertas.</p>

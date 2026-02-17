@@ -8,15 +8,15 @@ export default defineConfig({
     react(),
     runtimeErrorOverlay(),
     ...(process.env.NODE_ENV !== "production" &&
-    process.env.REPL_ID !== undefined
+      process.env.REPL_ID !== undefined
       ? [
-          await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer(),
-          ),
-          await import("@replit/vite-plugin-dev-banner").then((m) =>
-            m.devBanner(),
-          ),
-        ]
+        await import("@replit/vite-plugin-cartographer").then((m) =>
+          m.cartographer(),
+        ),
+        await import("@replit/vite-plugin-dev-banner").then((m) =>
+          m.devBanner(),
+        ),
+      ]
       : []),
   ],
   resolve: {
@@ -36,5 +36,11 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
+    host: "0.0.0.0",
+    port: 5001,
+    strictPort: true,
+    hmr: {
+      clientPort: 443 // Force client to use 443 for HMR if behind a reverse proxy, otherwise standard
+    }
   },
 });

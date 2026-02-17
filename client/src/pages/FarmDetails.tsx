@@ -1,14 +1,18 @@
 import React from "react";
 import { useFarm, useRefreshReadings } from "@/hooks/use-farms";
+import { useMutation } from "@tanstack/react-query";
 import { useReadings, useLatestReading } from "@/hooks/use-readings";
 import { useReports, useGenerateReport } from "@/hooks/use-reports";
-import { Sidebar } from "@/components/Sidebar";
+import { Sidebar, MobileNav } from "@/components/Sidebar";
 import { Gauge } from "@/components/Gauge";
-import { useRoute, Link } from "wouter";
+import { Link, useRoute } from "wouter";
+import { WeatherCard } from "@/components/weather-card";
+import { BenchmarkChart } from "@/components/benchmark-chart";
 import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit, Sprout, Ruler, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
+import { PredictiveChart } from "@/components/predictive-chart";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -18,6 +22,10 @@ import { useToast } from "@/hooks/use-toast";
 import L from "leaflet";
 import icon from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
+
+// PDF Generation
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 let DefaultIcon = L.icon({
   iconUrl: icon,
@@ -40,6 +48,32 @@ export default function FarmDetails() {
   const refreshReadings = useRefreshReadings();
   const generateReport = useGenerateReport();
   const [showThermal, setShowThermal] = React.useState(false);
+
+  // Zones State
+  interface Zone {
+    id: number;
+    name: string;
+    color: string;
+    coordinates: Array<{ lat: number, lon: number }>;
+    ndvi_avg: number;
+  }
+
+  const [zones, setZones] = React.useState<Zone[]>([]);
+
+  const generateZones = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/farms/${farmId}/zones/generate`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to generate zones");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setZones(data);
+      toast({ title: "Zonas Geradas", description: "O mapa de manejo foi atualizado." });
+    },
+    onError: () => {
+      toast({ title: "Erro", description: "Falha ao gerar zonas.", variant: "destructive" });
+    }
+  });
 
   if (isLoadingFarm) {
     return (
@@ -100,17 +134,79 @@ export default function FarmDetails() {
     formattedDate: format(new Date(r.date), "d 'de' MMM")
   })).reverse();
 
+  // PDF Generation Logic
+  const handleDownloadPDF = (reportContent: string, date: string) => {
+    const doc = new jsPDF();
+
+    // Header
+    doc.setFillColor(22, 163, 74); // Green
+    doc.rect(0, 0, 210, 20, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("YVY ORBITAL - Relatório Agronômico", 10, 13);
+
+    // Farm Info
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.text(`Fazenda: ${farm?.name}`, 10, 30);
+    doc.text(`Data do Relatório: ${format(new Date(date), "dd/MM/yyyy")}`, 10, 36);
+    doc.text(`Cultura: ${farm?.cropType}`, 10, 42);
+
+    // Content Body
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+
+    // Strip markdown characters (**, ##) for cleaner PDF text
+    const cleanContent = reportContent
+      .replace(/\*\*/g, "")
+      .replace(/##/g, "")
+      .replace(/__/g, "");
+
+    const splitText = doc.splitTextToSize(cleanContent, 190);
+    doc.text(splitText, 10, 55);
+
+    // Calculate Y position based on text height
+    // 10 is the font size, 0.3527 converted points to mm (approx), 1.2 line height factor
+    const textHeight = splitText.length * (10 * 0.3527 * 1.2);
+    const finalY = 55 + textHeight + 10;
+
+    // Add readings table if available
+    if (latestReading) {
+      autoTable(doc, {
+        startY: finalY,
+        head: [['Índice', 'Valor', 'Status']],
+        body: [
+          ['NDVI (Vigor)', latestReading.ndvi.toFixed(2), latestReading.ndvi > 0.6 ? 'Ótimo' : 'Atenção'],
+          ['NDWI (Água)', latestReading.ndwi.toFixed(2), latestReading.ndwi > -0.1 ? 'Bom' : 'Seco'],
+          ['NDRE (Clorofila)', latestReading.ndre.toFixed(2), 'Normal'],
+          ['Temp. Superfície', latestReading.temperature ? latestReading.temperature.toFixed(1) + '°C' : 'N/A', '-']
+        ],
+        theme: 'striped',
+        headStyles: { fillColor: [22, 163, 74] }
+      });
+    }
+
+    // Legend / Footer
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text("Gerado automaticamente por Yvy Orbital AI System", 10, 290);
+
+    doc.save(`Relatorio_${farm?.name}_${date}.pdf`);
+  };
+
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="flex min-h-screen bg-background">
       <Sidebar />
-      <main className="flex-1 ml-64 p-8 lg:p-12 overflow-y-auto">
+      <MobileNav />
+      <main className="flex-1 ml-0 lg:ml-64 p-4 lg:p-8 pt-16 lg:pt-8 overflow-x-hidden">
 
         {/* Breadcrumb & Header */}
         <div className="mb-8">
           <Link href="/" className="inline-flex items-center text-muted-foreground hover:text-foreground mb-4 transition-colors">
             <ChevronLeft className="w-4 h-4 mr-1" /> Voltar ao Painel
           </Link>
-          <div className="flex justify-between items-start">
+          <div className="flex flex-col md:flex-row justify-between items-start gap-4">
             <div>
               <h1 className="text-4xl font-display font-bold text-foreground">{farm.name}</h1>
               <div className="flex gap-4 mt-2 text-muted-foreground">
@@ -332,6 +428,24 @@ export default function FarmDetails() {
             <motion.div
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.15 }}
+            >
+              <PredictiveChart farmId={farmId} />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.18 }}
+            >
+              <BenchmarkChart farmId={farmId} />
+            </motion.div>
+
+
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.2 }}
               className="bg-card p-6 rounded-2xl border border-border shadow-sm"
             >
@@ -362,9 +476,20 @@ export default function FarmDetails() {
                           {format(new Date(report.date || new Date()), "PPP")}
                         </span>
                       </div>
-                      <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+                      <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap mb-4">
                         {report.content}
                       </p>
+
+                      {report.formalContent && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full border-green-500/30 text-green-600 dark:text-green-400 hover:bg-green-500/10 hover:border-green-500/50 transition-all"
+                          onClick={() => handleDownloadPDF(report.formalContent!, report.date?.toString() || "")}
+                        >
+                          <FileText className="w-4 h-4 mr-2" /> Baixar PDF Técnico
+                        </Button>
+                      )}
                     </div>
                   ))
                 ) : (
@@ -376,8 +501,15 @@ export default function FarmDetails() {
             </motion.div>
           </div>
 
-          {/* Sidebar Column (Map) */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-6">
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.25 }}
+            >
+              <WeatherCard latitude={farm.latitude} longitude={farm.longitude} />
+            </motion.div>
+
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -390,6 +522,19 @@ export default function FarmDetails() {
                 </h3>
               </div>
 
+              <div className="absolute top-4 right-4 z-[400]">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="shadow-sm border border-border/50 text-xs h-8"
+                  onClick={() => generateZones.mutate()}
+                  disabled={generateZones.isPending}
+                >
+                  {generateZones.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <MapIcon className="w-3 h-3 mr-1" />}
+                  Gerar Zonas
+                </Button>
+              </div>
+
               <MapContainer
                 center={[farm.latitude, farm.longitude]}
                 zoom={14}
@@ -400,6 +545,27 @@ export default function FarmDetails() {
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
+
+                {/* Zones Visualization */}
+                {zones?.map((zone) => (
+                  zone.coordinates.map((point, index) => (
+                    <Circle
+                      key={`${zone.id}-${index}`}
+                      center={[point.lat, point.lon]}
+                      radius={8}
+                      pathOptions={{ color: zone.color, fillColor: zone.color, fillOpacity: 0.5, stroke: false }}
+                    >
+                      <Popup>
+                        <div className="text-xs">
+                          <strong>{zone.name}</strong><br />
+                          Lat: {point.lat.toFixed(6)}<br />
+                          Lon: {point.lon.toFixed(6)}
+                        </div>
+                      </Popup>
+                    </Circle>
+                  ))
+                ))}
+
                 <Marker position={[farm.latitude, farm.longitude]}>
                   <Popup>
                     <div className="text-center">
@@ -410,7 +576,6 @@ export default function FarmDetails() {
                 </Marker>
                 <Circle
                   center={[farm.latitude, farm.longitude]}
-                  // 1 ha = 10,000 m². Radius = sqrt(Area / pi)
                   radius={Math.sqrt((farm.sizeHa * 10000) / Math.PI)}
                   pathOptions={{ color: '#10b981', fillColor: '#10b981', fillOpacity: 0.2 }}
                 />
@@ -418,7 +583,7 @@ export default function FarmDetails() {
             </motion.div>
           </div>
 
-        </div>
+        </div >
       </main >
     </div >
   );
