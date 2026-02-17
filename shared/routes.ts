@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertFarmSchema, insertReadingSchema, farms, readings, reports } from './schema.js';
+import { insertFarmSchema, insertReadingSchema, insertClientSchema, farms, readings, reports, clients } from './schema.js';
 
 export const errorSchemas = {
   validation: z.object({
@@ -81,6 +81,24 @@ export const api = {
       responses: {
         201: z.custom<typeof reports.$inferSelect>(),
         500: errorSchemas.internal,
+      },
+    },
+  },
+  clients: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/clients',
+      responses: {
+        200: z.array(z.custom<typeof clients.$inferSelect>()),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/clients',
+      input: insertClientSchema,
+      responses: {
+        201: z.custom<typeof clients.$inferSelect>(),
+        400: errorSchemas.validation,
       },
     },
   },

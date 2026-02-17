@@ -1,10 +1,11 @@
 import { db } from "./db.js";
 import {
-  farms, readings, reports, users, alerts,
+  farms, readings, reports, users, alerts, clients,
   type Farm, type InsertFarm,
   type Reading, type InsertReading,
   type Report, type InsertReport,
-  type User, type InsertUser
+  type User, type InsertUser,
+  type Client, type InsertClient
 } from "../shared/schema.js";
 import { eq, desc, sql } from "drizzle-orm";
 // Import chat storage to include it in the exported interface if needed, 
@@ -29,14 +30,21 @@ export interface IStorage {
   // Delete
   deleteFarm(id: number): Promise<void>;
 
-  // Settings
-  getUser(): Promise<User | undefined>;
-  updateUser(user: InsertUser): Promise<User>;
+  // Users (Auth)
+  getUser(id: number): Promise<User | undefined>;
+  getUserByGoogleId(googleId: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, user: Partial<InsertUser>): Promise<User>;
 
   // Alerts
   logAlert(farmId: number, type: string, message: string, sentTo: string): Promise<void>;
   getAlerts(limit?: number): Promise<{ id: number; farmId: number; date: Date | null; type: string; message: string; sentTo: string | null; read: boolean }[]>;
   markAlertRead(id: number): Promise<void>;
+
+  // Clients
+  getClients(): Promise<Client[]>;
+  getClient(id: number): Promise<Client | undefined>;
+  createClient(client: InsertClient): Promise<Client>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -97,24 +105,28 @@ export class DatabaseStorage implements IStorage {
     await db!.delete(farms).where(eq(farms.id, id));
   }
 
-  async getUser(): Promise<User | undefined> {
-    const [user] = await db!.select().from(users).limit(1);
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db!.select().from(users).where(eq(users.id, id));
     return user;
   }
 
-  async updateUser(insertUser: InsertUser): Promise<User> {
-    const [existing] = await db!.select().from(users).limit(1);
-    if (existing) {
-      const [updated] = await db!
-        .update(users)
-        .set(insertUser)
-        .where(eq(users.id, existing.id))
-        .returning();
-      return updated;
-    } else {
-      const [newUser] = await db!.insert(users).values(insertUser).returning();
-      return newUser;
-    }
+  async getUserByGoogleId(googleId: string): Promise<User | undefined> {
+    const [user] = await db!.select().from(users).where(eq(users.googleId, googleId));
+    return user;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db!.insert(users).values(insertUser).returning();
+    return user;
+  }
+
+  async updateUser(id: number, insertUser: Partial<InsertUser>): Promise<User> {
+    const [updated] = await db!
+      .update(users)
+      .set(insertUser)
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
   }
 
   async logAlert(farmId: number, type: string, message: string, sentTo: string): Promise<void> {
@@ -141,20 +153,40 @@ export class DatabaseStorage implements IStorage {
       .set({ read: true })
       .where(eq(alerts.id, id));
   }
+
+  async getClients(): Promise<Client[]> {
+    return await db!.select().from(clients).orderBy(desc(clients.createdAt));
+  }
+
+  async getClient(id: number): Promise<Client | undefined> {
+    const [client] = await db!.select().from(clients).where(eq(clients.id, id));
+    return client;
+  }
+
+  async createClient(insertClient: InsertClient): Promise<Client> {
+    const [client] = await db!.insert(clients).values(insertClient).returning();
+    return client;
+  }
 }
 
 export class MemStorage implements IStorage {
   private farms: Map<number, Farm>;
   private readings: Map<number, Reading>;
   private reports: Map<number, Report>;
+  private users: Map<number, User>;
+  private clients: Map<number, Client>;
   private farmIdCounter = 1;
   private readingIdCounter = 1;
   private reportIdCounter = 1;
+  private userIdCounter = 1;
+  private clientIdCounter = 1;
 
   constructor() {
     this.farms = new Map();
     this.readings = new Map();
     this.reports = new Map();
+    this.users = new Map();
+    this.clients = new Map();
     // Seed initial data? Handled in routes.ts if empty.
   }
 
@@ -168,7 +200,12 @@ export class MemStorage implements IStorage {
 
   async createFarm(insertFarm: InsertFarm): Promise<Farm> {
     const id = this.farmIdCounter++;
-    const farm: Farm = { ...insertFarm, id, imageUrl: insertFarm.imageUrl || null };
+    const farm: Farm = {
+      ...insertFarm,
+      id,
+      imageUrl: insertFarm.imageUrl || null,
+      clientId: insertFarm.clientId || null
+    };
     this.farms.set(id, farm);
     return farm;
   }
@@ -191,17 +228,34 @@ export class MemStorage implements IStorage {
     reportsToDelete.forEach(key => this.reports.delete(key));
   }
 
-  // Settings (Mem)
-  private user: User | undefined;
-
-  async getUser(): Promise<User | undefined> {
-    return this.user;
+  async getUser(id: number): Promise<User | undefined> {
+    return this.users.get(id);
   }
 
-  async updateUser(insertUser: InsertUser): Promise<User> {
-    const user: User = { ...insertUser, id: 1, receiveAlerts: insertUser.receiveAlerts ?? true };
-    this.user = user;
+  async getUserByGoogleId(googleId: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(u => u.googleId === googleId);
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const id = this.userIdCounter++;
+    const user: User = {
+      ...insertUser,
+      id,
+      googleId: insertUser.googleId || null,
+      name: insertUser.name || null,
+      avatarUrl: insertUser.avatarUrl || null,
+      receiveAlerts: insertUser.receiveAlerts ?? true
+    };
+    this.users.set(id, user);
     return user;
+  }
+
+  async updateUser(id: number, updateUser: Partial<InsertUser>): Promise<User> {
+    const user = this.users.get(id);
+    if (!user) throw new Error("User not found");
+    const updatedUser = { ...user, ...updateUser };
+    this.users.set(id, updatedUser);
+    return updatedUser;
   }
 
   // Alerts (Mem)
@@ -280,6 +334,29 @@ export class MemStorage implements IStorage {
     };
     this.reports.set(id, report);
     return report;
+  }
+
+  async getClients(): Promise<Client[]> {
+    return Array.from(this.clients.values()).sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+
+  async getClient(id: number): Promise<Client | undefined> {
+    return this.clients.get(id);
+  }
+
+  async createClient(insertClient: InsertClient): Promise<Client> {
+    const id = this.clientIdCounter++;
+    const client: Client = {
+      ...insertClient,
+      id,
+      createdAt: new Date(),
+      email: insertClient.email || null,
+      phone: insertClient.phone || null,
+      company: insertClient.company || null,
+      notes: insertClient.notes || null,
+    };
+    this.clients.set(id, client);
+    return client;
   }
 }
 

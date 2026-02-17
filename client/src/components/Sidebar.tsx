@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Sprout, LayoutDashboard, Settings, LogOut, Menu } from "lucide-react";
+import { Sprout, LayoutDashboard, Settings, LogOut, Menu, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationsPopover } from "@/components/notifications-popover";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -16,6 +16,7 @@ export function SidebarContent() {
   const links = [
     { href: "/", label: "Painel", icon: LayoutDashboard },
     { href: "/farms", label: "Minhas Fazendas", icon: Sprout },
+    { href: "/clients", label: "Clientes", icon: Users },
     { href: "/settings", label: "Configurações", icon: Settings },
   ];
 

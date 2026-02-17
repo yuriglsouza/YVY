@@ -15,6 +15,7 @@ export const farms = pgTable("farms", {
   sizeHa: real("size_ha").notNull(),
   cropType: text("crop_type").notNull(),
   imageUrl: text("image_url"), // Placeholder for satellite image
+  clientId: integer("client_id"), // Link to Client (CRM)
 });
 
 export const insertFarmSchema = createInsertSchema(farms).omit({ id: true });
@@ -57,13 +58,31 @@ export type InsertReport = z.infer<typeof insertReportSchema>;
 // === USERS (Settings) ===
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  email: text("email").notNull(),
+  email: text("email").unique().notNull(), // Made unique
+  googleId: text("google_id").unique(), // For OAuth
+  name: text("name"), // Display name from Google
+  avatarUrl: text("avatar_url"), // Profile picture
   receiveAlerts: boolean("receive_alerts").default(true).notNull(),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+
+// === CLIENTS (CRM) ===
+export const clients = pgTable("clients", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  company: text("company"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertClientSchema = createInsertSchema(clients).omit({ id: true, createdAt: true });
+export type Client = typeof clients.$inferSelect;
+export type InsertClient = z.infer<typeof insertClientSchema>;
 
 // === ALERT LOGS ===
 export const alerts = pgTable("alerts", {

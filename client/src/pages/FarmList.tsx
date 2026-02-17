@@ -1,12 +1,31 @@
 import { useFarms } from "@/hooks/use-farms";
+import { useClients } from "@/hooks/use-clients";
 import { Sidebar, MobileNav } from "@/components/Sidebar";
 import { CreateFarmDialog } from "@/components/CreateFarmDialog";
 import { Link } from "wouter";
-import { Loader2, MapPin, Ruler, Sprout, ArrowRight } from "lucide-react";
+import { Loader2, MapPin, Ruler, Sprout, ArrowRight, Filter } from "lucide-react";
 import { motion } from "framer-motion";
+import { useState } from "react";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
 export default function FarmList() {
-    const { data: farms, isLoading, error } = useFarms();
+    const { data: farms, isLoading: isLoadingFarms, error } = useFarms();
+    const { data: clients } = useClients();
+    const [selectedClientId, setSelectedClientId] = useState<string>("all");
+
+    const filteredFarms = farms?.filter(farm => {
+        if (selectedClientId === "all") return true;
+        return farm.clientId === Number(selectedClientId);
+    });
+
+    const isLoading = isLoadingFarms;
 
     if (isLoading) {
         return (
@@ -29,15 +48,33 @@ export default function FarmList() {
             <Sidebar />
             <MobileNav />
             <main className="flex-1 ml-0 lg:ml-64 p-4 lg:p-8 pt-16 lg:pt-8 overflow-y-auto">
-                <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-12">
+                <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8">
                     <div>
                         <h1 className="text-4xl font-display font-bold text-foreground">Minhas Fazendas</h1>
                         <p className="text-muted-foreground mt-2 text-lg">Gerencie seus campos cadastrados.</p>
                     </div>
-                    <CreateFarmDialog />
+                    <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                        <div className="w-full sm:w-[200px]">
+                            <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+                                <SelectTrigger className="w-full bg-white">
+                                    <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
+                                    <SelectValue placeholder="Filtrar por Cliente" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos os Clientes</SelectItem>
+                                    {clients?.map(client => (
+                                        <SelectItem key={client.id} value={String(client.id)}>
+                                            {client.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <CreateFarmDialog />
+                    </div>
                 </header>
 
-                {farms?.length === 0 ? (
+                {filteredFarms?.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-[60vh] text-center orbital-border rounded-xl bg-card/50">
                         <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mb-6">
                             <Sprout className="w-10 h-10 text-muted-foreground" />
@@ -52,7 +89,7 @@ export default function FarmList() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                        {farms?.map((farm, idx) => (
+                        {filteredFarms?.map((farm, idx) => (
                             <motion.div
                                 key={farm.id}
                                 initial={{ opacity: 0, y: 20 }}

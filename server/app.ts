@@ -2,6 +2,7 @@ import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { registerRoutes } from "./routes.js";
+import { setupAuth } from "./auth.js";
 
 declare module "http" {
     interface IncomingMessage {
@@ -65,6 +66,9 @@ export async function createApp() {
 
         next();
     });
+
+    // Auth Middleware
+    setupAuth(app);
 
     await registerRoutes(httpServer, app);
 

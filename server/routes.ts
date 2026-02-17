@@ -5,7 +5,7 @@ import { db } from "./db.js";
 import { api } from "../shared/routes.js";
 import { z } from "zod";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { type Reading, type InsertReading, insertUserSchema } from "../shared/schema.js";
+import { type Reading, type InsertReading, insertUserSchema, insertClientSchema } from "../shared/schema.js"; // Added insertClientSchema
 import { sendEmail } from "./email.js";
 
 // Mock Satellite Data Generator
@@ -91,7 +91,8 @@ async function generateAgronomistReport(reading: Reading, prediction?: { date: s
 }
 
 async function checkAndSendAlerts(reading: Reading, farmId: number) {
-  const user = await storage.getUser();
+  // TODO: Alert the specific client/user owning the farm
+  const user = await storage.getUser(1);
   if (!user || !user.receiveAlerts) return;
 
   const alerts = [];
@@ -160,13 +161,40 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
-  // Alerts
-  app.get("/api/alerts", async (req, res) => {
+  // Middleware to check if user is authenticated
+  const isAuthenticated = (req: any, res: any, next: any) => {
+    if (req.isAuthenticated()) {
+      return next();
+    }
+    res.status(401).json({ message: "Not authenticated" });
+  };
+
+  // --- CLIENTS (CRM) ---
+  app.get("/api/clients", isAuthenticated, async (req, res) => {
+    const clients = await storage.getClients();
+    res.json(clients);
+  });
+
+  app.post("/api/clients", isAuthenticated, async (req, res) => {
+    try {
+      const input = insertClientSchema.parse(req.body);
+      const client = await storage.createClient(input);
+      res.status(201).json(client);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  // --- ALERTS ---
+  app.get("/api/alerts", isAuthenticated, async (req, res) => {
     const alerts = await storage.getAlerts();
     res.json(alerts);
   });
 
-  app.post("/api/alerts/:id/read", async (req, res) => {
+  app.post("/api/alerts/:id/read", isAuthenticated, async (req, res) => {
     const id = Number(req.params.id);
     await storage.markAlertRead(id);
     res.json({ success: true });
@@ -267,7 +295,7 @@ export async function registerRoutes(
   });
 
   // Farms
-  app.get(api.farms.list.path, async (req, res) => {
+  app.get(api.farms.list.path, isAuthenticated, async (req, res) => {
     const farms = await storage.getFarms();
     // Enrich with latest reading for dashboard comparison
     const farmsWithReadings = await Promise.all(farms.map(async (farm) => {
@@ -277,13 +305,13 @@ export async function registerRoutes(
     res.json(farmsWithReadings);
   });
 
-  app.get(api.farms.get.path, async (req, res) => {
+  app.get(api.farms.get.path, isAuthenticated, async (req, res) => {
     const farm = await storage.getFarm(Number(req.params.id));
     if (!farm) return res.status(404).json({ message: "Farm not found" });
     res.json(farm);
   });
 
-  app.post(api.farms.create.path, async (req, res) => {
+  app.post(api.farms.create.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.farms.create.input.parse(req.body);
       const farm = await storage.createFarm(input);
@@ -613,15 +641,16 @@ export async function registerRoutes(
   });
 
   // Settings
-  app.get("/api/settings", async (req, res) => {
-    const user = await storage.getUser();
+  app.get("/api/settings", isAuthenticated, async (req, res) => {
+    const user = await storage.getUser((req.user as any).id);
     res.json(user || null);
   });
 
-  app.put("/api/settings", async (req, res) => {
+  app.put("/api/settings", isAuthenticated, async (req, res) => {
     try {
       const input = insertUserSchema.parse(req.body);
-      const user = await storage.updateUser(input);
+      // Ensure we only update the logged-in user
+      const user = await storage.updateUser((req.user as any).id, input);
       res.json(user);
     } catch (err) {
       if (err instanceof z.ZodError) {
