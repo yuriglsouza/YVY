@@ -22,51 +22,51 @@ export function setupAuth(app: Express) {
     app.use(passport.initialize());
     app.use(passport.session());
 
-    passport.use(
-        new GoogleStrategy(
-            {
-                clientID: process.env.GOOGLE_CLIENT_ID || "",
-                clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-                callbackURL: "/auth/google/callback",
-            },
-            async (accessToken, refreshToken, profile, done) => {
-                try {
-                    const googleId = profile.id;
-                    const email = profile.emails?.[0].value;
-                    const name = profile.displayName;
-                    const avatarUrl = profile.photos?.[0].value;
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+        console.warn("GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing. Google Login will not work.");
+    } else {
+        passport.use(
+            new GoogleStrategy(
+                {
+                    clientID: process.env.GOOGLE_CLIENT_ID,
+                    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+                    callbackURL: "/auth/google/callback",
+                },
+                async (accessToken, refreshToken, profile, done) => {
+                    try {
+                        const googleId = profile.id;
+                        const email = profile.emails?.[0].value;
+                        const name = profile.displayName;
+                        const avatarUrl = profile.photos?.[0].value;
 
-                    if (!email) {
-                        return done(new Error("No email found in Google profile"));
-                    }
-
-                    let user = await storage.getUserByGoogleId(googleId);
-
-                    if (!user) {
-                        // Check if user exists by email (to merge or just fallback)
-                        // Ideally we'd have getUserByEmail too, but for now we rely on googleId
-                        // Or we just create a new one.
-                        user = await storage.createUser({
-                            email,
-                            googleId,
-                            name,
-                            avatarUrl,
-                            receiveAlerts: true,
-                        });
-                    } else {
-                        // Update profile info if changed
-                        if (user.avatarUrl !== avatarUrl || user.name !== name) {
-                            user = await storage.updateUser(user.id, { name, avatarUrl });
+                        if (!email) {
+                            return done(new Error("No email found in Google profile"));
                         }
-                    }
 
-                    return done(null, user);
-                } catch (err) {
-                    return done(err as Error);
+                        let user = await storage.getUserByGoogleId(googleId);
+
+                        if (!user) {
+                            user = await storage.createUser({
+                                email,
+                                googleId,
+                                name,
+                                avatarUrl,
+                                receiveAlerts: true,
+                            });
+                        } else {
+                            if (user.avatarUrl !== avatarUrl || user.name !== name) {
+                                user = await storage.updateUser(user.id, { name, avatarUrl });
+                            }
+                        }
+
+                        return done(null, user);
+                    } catch (err) {
+                        return done(err as Error);
+                    }
                 }
-            }
-        )
-    );
+            )
+        );
+    }
 
     passport.serializeUser((user, done) => {
         done(null, (user as User).id);
