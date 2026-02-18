@@ -257,7 +257,61 @@ export default function FarmDetails() {
     try {
       const headerBgUrl = '/header_bg.png';
       const headerBgData = await getBase64FromUrl(headerBgUrl);
-      doc.addImage(headerBgData, 'PNG', 0, 0, 210, 30);
+
+      const bgImg = new Image();
+      bgImg.src = headerBgUrl;
+      await new Promise(r => bgImg.onload = r);
+
+      // Object-Fit: Cover Logic
+      const targetW = 210;
+      const targetH = 30;
+      const aspectTarget = targetW / targetH;
+      const aspectImg = bgImg.width / bgImg.height;
+
+      let drawW, drawH, cropX = 0, cropY = 0;
+
+      // Logic: Draw image larger than box and crop (emulated by drawing outside and clipping? No, jsPDF addImage supports simple scaling.
+      // Better: Calculate the slice of the image to draw. but jsPDF addImage doesn't support source cropping easily in all versions.
+      // Alternative: Calculate dimensions to FILL the box (at least cover it), and center it.
+
+      if (aspectImg > aspectTarget) {
+        // Image is wider: Height matches, Width is cropped
+        drawH = targetH;
+        drawW = targetH * aspectImg;
+        // Center horizontally
+        // x = (targetW - drawW) / 2
+      } else {
+        // Image is taller: Width matches, Height is cropped
+        drawW = targetW;
+        drawH = targetW / aspectImg;
+        // Center vertically (typically top or center)
+        // y = (targetH - drawH) / 2
+      }
+
+      // Simple Clip trick: existing rectangle masks it? No.
+      // Just drawing it "centered" might fail if it bleeds out. 
+      // Correct approach for 'cover' without clipping mask complexity:
+      // Since header is at (0,0), we can just draw it. If it bleeds right or bottom, it's fine?
+      // Wait, A4 is 210mm wide. If we draw 300mm wide, it goes off page. That's fine.
+      // But if we draw 100mm high, it overlaps the body. That's BAD.
+      // We MUST use a clipping rect or simple check.
+
+      // Let's use a clipping rect for safety.
+      doc.saveGraphicsState();
+      doc.rect(0, 0, 210, 30, 'clip');
+
+      if (aspectImg > aspectTarget) {
+        const newW = targetH * aspectImg;
+        const x = (targetW - newW) / 2;
+        doc.addImage(headerBgData, 'PNG', x, 0, newW, targetH);
+      } else {
+        const newH = targetW / aspectImg;
+        const y = (targetH - newH) / 2;
+        doc.addImage(headerBgData, 'PNG', 0, y, targetW, newH);
+      }
+
+      doc.restoreGraphicsState();
+
     } catch (e) {
       // Fallback if image not found
       doc.setFillColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
