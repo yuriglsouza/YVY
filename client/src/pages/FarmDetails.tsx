@@ -254,8 +254,15 @@ export default function FarmDetails() {
     const consultant = config?.consultantName ? `Consultor: ${config.consultantName}` : "";
 
     // --- HEADER ---
-    doc.setFillColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
-    doc.rect(0, 0, 210, 30, 'F'); // Darker, taller header
+    try {
+      const headerBgUrl = '/header_bg.png';
+      const headerBgData = await getBase64FromUrl(headerBgUrl);
+      doc.addImage(headerBgData, 'PNG', 0, 0, 210, 30);
+    } catch (e) {
+      // Fallback if image not found
+      doc.setFillColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
+      doc.rect(0, 0, 210, 30, 'F'); // Darker, taller header
+    }
 
     // Add Logo & Header Text
     try {
