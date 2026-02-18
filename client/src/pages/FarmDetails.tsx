@@ -232,170 +232,215 @@ export default function FarmDetails() {
   const handleDownloadPDF = async (reportContent: string, date: string, config?: ReportConfig) => {
     const doc = new jsPDF();
 
+    // Brand Colors
+    const BRAND_PRIMARY: [number, number, number] = [16, 185, 129]; // #10B981 Emerald
+    const BRAND_SECONDARY: [number, number, number] = [59, 130, 246]; // #3B82F6 Blue
+    const BRAND_DARK: [number, number, number] = [26, 28, 35]; // #1A1C23 Midnight Navy
+    const BRAND_TEXT: [number, number, number] = [18, 20, 29]; // #12141D Deep Charcoal
+
+    // Helper: Parse AI Content
+    let structuredAnalysis: any = null;
+    let simpleContent = reportContent;
+    try {
+      // Try to parse if it's the new structured format
+      if (reportContent.trim().startsWith("{")) {
+        structuredAnalysis = JSON.parse(reportContent);
+      }
+    } catch (e) {
+      console.log("Legacy text content detected");
+    }
+
     // Custom or Default Branding
     const company = config?.companyName || "SYAZ ORBITAL";
     const consultant = config?.consultantName ? `Consultor: ${config.consultantName}` : "";
 
-    // Header Color (Green default)
-    doc.setFillColor(22, 163, 74); // Green
-    doc.rect(0, 0, 210, 25, 'F');
+    // --- HEADER ---
+    doc.setFillColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
+    doc.rect(0, 0, 210, 35, 'F'); // Darker, taller header
 
-    // Add Logo if available
+    // Add Logo
     try {
       const logoData = await getBase64FromUrl('/logo.png');
-      // x=10, y=2, w=30, h=20 (approx ratio)
-      doc.addImage(logoData, 'PNG', 10, 2, 35, 20);
+      doc.addImage(logoData, 'PNG', 10, 5, 25, 25);
     } catch (e) {
-      console.error("Could not load logo for PDF", e);
+      // Fallback text if logo fails
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(14);
+      doc.text("SYAZ", 15, 20);
     }
 
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
-    // Offset text to right to account for logo
-    doc.text(company, 50, 15);
+    doc.setFontSize(22);
+    doc.text(company, 45, 18);
 
-    doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text("Relatório Agronômico de Precisão", 10, 22);
+    doc.setFontSize(10);
+    doc.setTextColor(16, 185, 129); // Emerald Text
+    doc.text("RELATÓRIO AGRONÔMICO DE PRECISÃO", 45, 26);
 
+    // Consultant Info
     if (consultant) {
-      doc.text(consultant, 200, 15, { align: "right" });
+      doc.setTextColor(200, 200, 200);
+      doc.setFontSize(9);
+      doc.text(consultant, 200, 18, { align: "right" });
     }
 
-    // Add Watermark (Center of Page)
-    try {
-      const logoData = await getBase64FromUrl('/logo.png');
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const logoWidth = 100;
-      const logoHeight = 60;
+    // --- FARM INFO BAR ---
+    doc.setFillColor(245, 245, 245);
+    doc.rect(0, 35, 210, 15, 'F');
 
-      // Save graphics state
-      doc.saveGraphicsState();
-      // Set transparency (approx 5-10% opacity)
-      doc.setGState(new (doc as any).GState({ opacity: 0.15 }));
-      doc.addImage(logoData, 'PNG', (pageWidth - logoWidth) / 2, (pageHeight - logoHeight) / 2, logoWidth, logoHeight);
-      // Restore graphics state
-      doc.restoreGraphicsState();
-    } catch (e) {
-      console.error("Could not load watermark for PDF", e);
-    }
+    doc.setTextColor(BRAND_TEXT[0], BRAND_TEXT[1], BRAND_TEXT[2]);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
 
-    // Farm Info
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(12);
-    doc.text(`Fazenda: ${farm?.name}`, 10, 40);
-    doc.text(`Data do Relatório: ${format(new Date(date), "dd/MM/yyyy")}`, 10, 46);
-    doc.text(`Cultura: ${farm?.cropType}`, 10, 52);
+    const dateStr = format(new Date(date), "dd/MM/yyyy");
+    doc.text(`FAZENDA: ${farm?.name.toUpperCase()}`, 10, 44);
+    doc.text(`DATA: ${dateStr}`, 140, 44);
+    doc.text(`CULTURA: ${farm?.cropType.toUpperCase()}`, 175, 44);
 
-    // Custom Comments Section
     let startY = 65;
-    if (config?.comments) {
-      doc.setFontSize(11);
-      doc.setTextColor(100);
-      doc.setFont("helvetica", "italic");
-      doc.text("Notas do Consultor:", 10, 60);
 
-      doc.setTextColor(0);
-      doc.setFont("helvetica", "normal");
-      const splitComments = doc.splitTextToSize(config.comments, 190);
-      doc.text(splitComments, 10, 66);
-
-      startY = 66 + (splitComments.length * 5) + 10;
-    }
-
-    // Financial Analysis Section (New)
+    // --- FINANCIAL SUMMARY (If Enabled) ---
     if (config?.includeFinancials && config.financials && zones.length > 0) {
-      // Calculate logic (same as FinancialDialog)
       const { costPerHa, pricePerBag, yields } = config.financials;
 
+      // ... calc logic ...
       const highZone = zones.find(z => z.name.includes("Alta"))?.area_percentage || 0;
       const mediumZone = zones.find(z => z.name.includes("Média"))?.area_percentage || 0;
       const lowZone = zones.find(z => z.name.includes("Baixa"))?.area_percentage || 0;
-
-      const production = (
-        (highZone * farm.sizeHa * yields.high) +
-        (mediumZone * farm.sizeHa * yields.medium) +
-        (lowZone * farm.sizeHa * yields.low)
-      );
-
+      const production = ((highZone * farm.sizeHa * yields.high) + (mediumZone * farm.sizeHa * yields.medium) + (lowZone * farm.sizeHa * yields.low));
       const totalCost = farm.sizeHa * costPerHa;
       const grossRevenue = production * pricePerBag;
       const netProfit = grossRevenue - totalCost;
       const roi = totalCost > 0 ? (netProfit / totalCost) * 100 : 0;
       const avgYield = production / farm.sizeHa;
 
-      // Render Table
       autoTable(doc, {
         startY: startY,
-        head: [['Análise Financeira Estimada', 'Valores']],
+        head: [['ANÁLISE FINANCEIRA PROJETADA', 'VALORES']],
         body: [
-          ['Custo de Produção Base', `R$ ${costPerHa.toFixed(2)} / ha`],
-          ['Produtividade Média Estimada', `${avgYield.toFixed(1)} sc/ha`],
-          ['Receita Bruta Total', `R$ ${grossRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
-          ['Lucro Líquido Projetado', `R$ ${netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
-          ['Retorno sobre Investimento (ROI)', `${roi.toFixed(1)}%`]
+          ['Custo Operacional', `R$ ${costPerHa.toFixed(2)} / ha`],
+          ['Produtividade Média', `${avgYield.toFixed(1)} sc/ha`],
+          ['Receita Bruta', `R$ ${grossRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+          ['Lucro Líquido', `R$ ${netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+          ['ROI (Retorno)', `${roi.toFixed(1)}%`]
         ],
         theme: 'grid',
-        headStyles: { fillColor: [22, 163, 74] }, // Green
-        columnStyles: {
-          0: { fontStyle: 'bold', cellWidth: 100 },
-          1: { halign: 'right' }
-        }
+        headStyles: {
+          fillColor: BRAND_DARK,
+          fontStyle: 'bold',
+          halign: 'left'
+        },
+        styles: { fontSize: 10, cellPadding: 3 },
+        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 120 }, 1: { halign: 'right' } }
       });
-
-      // Update startY for next section
       // @ts-ignore
-      startY = doc.lastAutoTable.finalY + 10;
+      startY = doc.lastAutoTable.finalY + 15;
     }
 
-    // Content Body
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
+    // --- AI ANALYSIS SECTION ---
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
+    doc.text("DIAGNÓSTICO E PREVISÃO (IA)", 10, startY);
+    startY += 8;
 
-    // Header for AI Analysis if we have space, otherwise add new page? 
-    // For now assuming it fits or autoTable handles paging for the next tables but text needs manual handling.
-    if (startY > 250) { doc.addPage(); startY = 20; }
+    if (structuredAnalysis) {
+      // 1. Diagnostic
+      doc.setFillColor(240, 253, 244); // Light Green
+      doc.setDrawColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
+      doc.rect(10, startY, 190, 25, 'FD');
 
-    doc.text("Análise de Inteligência Artificial:", 10, startY - 4);
+      doc.setFontSize(10);
+      doc.setTextColor(0, 100, 0); // Dark Green Text
+      doc.text("DIAGNÓSTICO TÉCNICO:", 15, startY + 6);
 
-    // Strip markdown characters (**, ##) for cleaner PDF text
-    const cleanContent = reportContent
-      .replace(/\*\*/g, "")
-      .replace(/##/g, "")
-      .replace(/__/g, "");
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      const diagLines = doc.splitTextToSize(structuredAnalysis.diagnostic || "Análise indisponível.", 180);
+      doc.text(diagLines, 15, startY + 12);
 
-    const splitText = doc.splitTextToSize(cleanContent, 190);
-    doc.text(splitText, 10, startY);
+      startY += 35;
 
-    // Calculate Y position based on text height
-    // 10 is the font size, 0.3527 converted points to mm (approx), 1.2 line height factor
-    const textHeight = splitText.length * (10 * 0.3527 * 1.2);
-    const finalY = startY + textHeight + 10;
+      // 2. Prediction
+      doc.setFillColor(239, 246, 255); // Light Blue
+      doc.setDrawColor(BRAND_SECONDARY[0], BRAND_SECONDARY[1], BRAND_SECONDARY[2]);
+      doc.rect(10, startY, 190, 25, 'FD');
 
-    // Add readings table if available
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 50, 150); // Dark Blue Text
+      doc.text("CENÁRIO FUTURO / PREVISÃO:", 15, startY + 6);
+
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      const predLines = doc.splitTextToSize(structuredAnalysis.prediction || "Sem dados históricos suficientes.", 180);
+      doc.text(predLines, 15, startY + 12);
+
+      startY += 35;
+
+      // 3. Recommendation
+      doc.setFillColor(255, 251, 235); // Light Amber
+      doc.setDrawColor(245, 158, 11); // Amber
+      doc.rect(10, startY, 190, 30, 'FD'); // Taller for lists
+
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(180, 83, 9); // Dark Amber Text
+      doc.text("RECOMENDAÇÕES DE MANEJO:", 15, startY + 6);
+
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      // Handle list if it comes as string or array (prompt says "Lista")
+      const recText = Array.isArray(structuredAnalysis.recommendation) ? structuredAnalysis.recommendation.join("\n") : structuredAnalysis.recommendation;
+      const recLines = doc.splitTextToSize(recText || "Monitoramento contínuo recomendado.", 180);
+      doc.text(recLines, 15, startY + 12);
+
+      startY += 40;
+
+    } else {
+      // Fallback for legacy text
+      const splitText = doc.splitTextToSize(simpleContent.replace(/\*\*/g, ""), 190);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(50, 50, 50);
+      doc.text(splitText, 10, startY);
+      startY += (splitText.length * 5) + 10;
+    }
+
+    // --- SATELLITE DATA TABLE ---
+    if (startY > 230) { doc.addPage(); startY = 30; } // Page break check
+
     if (latestReading) {
       autoTable(doc, {
-        startY: finalY,
-        head: [['Índice', 'Valor', 'Status']],
+        startY: startY,
+        head: [['ÍNDICE', 'DESCRIÇÃO', 'VALOR MEDIDO', 'STATUS']],
         body: [
-          ['NDVI (Vigor)', latestReading.ndvi.toFixed(2), latestReading.ndvi > 0.6 ? 'Ótimo' : 'Atenção'],
-          ['NDWI (Água)', latestReading.ndwi.toFixed(2), latestReading.ndwi > -0.1 ? 'Bom' : 'Seco'],
-          ['NDRE (Clorofila)', latestReading.ndre.toFixed(2), 'Normal'],
-          ['Temp. Superfície', latestReading.temperature ? latestReading.temperature.toFixed(1) + '°C' : 'N/A', '-']
+          ['NDVI', 'Vigor da Vegetação', latestReading.ndvi.toFixed(2), latestReading.ndvi > 0.6 ? 'ÓTIMO (Alto Vigor)' : 'ATENÇÃO'],
+          ['NDWI', 'Estresse Hídrico', latestReading.ndwi.toFixed(2), latestReading.ndwi > -0.1 ? 'BOM (Hidratado)' : 'SECO'],
+          ['NDRE', 'Clorofila / Nitrogênio', latestReading.ndre.toFixed(2), 'NORMAL'],
+          ['LST', 'Temperatura Superfície', latestReading.temperature ? latestReading.temperature.toFixed(1) + '°C' : '-', latestReading.temperature && latestReading.temperature > 35 ? 'ALERTA (Calor)' : 'IDEAL']
         ],
         theme: 'striped',
-        headStyles: { fillColor: [22, 163, 74] }
+        headStyles: { fillColor: BRAND_PRIMARY },
+        columnStyles: {
+          0: { fontStyle: 'bold' },
+          2: { fontStyle: 'bold', halign: 'center' },
+          3: { fontStyle: 'bold', halign: 'center' }
+        }
       });
     }
 
-    // Legend / Footer
-    doc.setFontSize(8);
-    doc.setTextColor(150);
-    doc.text("Gerado automaticamente por SYAZ Orbital AI System", 10, 290);
+    // --- FOOTER ---
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFillColor(245, 245, 245);
+      doc.rect(0, 285, 210, 12, 'F');
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text(`SYAZ Orbital - Inteligência Agronômica | Página ${i} de ${pageCount}`, 105, 292, { align: "center" });
+    }
 
-    doc.save(`Relatorio_${farm?.name}_${date}.pdf`);
+    doc.save(`Relatorio_Tecnico_${farm?.name}_${date}.pdf`);
   };
 
   return (

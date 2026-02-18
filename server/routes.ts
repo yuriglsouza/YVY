@@ -48,24 +48,33 @@ async function generateAgronomistReport(reading: Reading, prediction?: { date: s
     });
 
     const prompt = `
-      Você é o 'SYAZ IA', um agrônomo digital.
-      Analise os dados deste satélite e gere um relatório em formato JSON com dois campos:
+      Você é o 'SYAZ IA', um Engenheiro Agrônomo Sênior especialista em Sensoriamento Remoto.
+      Analise os dados deste satélite e gere um relatório técnico detalhado e profissional.
       
-      1. "content": Uma versão informal, direta e "parceira" para o produtor ler no celular. Use emojis, linguagem simples e acolhedora.
-         Estruture com: ## 🧐 O que vi, ## 🚜 O que fazer.
-      
-      2. "formalContent": Uma versão técnica, formal e estruturada para exportação em PDF (bancos/auditoria).
-         Sem emojis. Use termos técnicos (ex: "Índice de Vegetação", "Estresse Hídrico").
-         Estruture com: 1. Diagnóstico Técnico, 2. Análise de Índices, 3. Recomendações Agronômicas.
+      Retorne APENAS um JSON válido com a seguinte estrutura:
+        {
+          "content": "Resumo executivo curto e direto para o produtor (tom profissional mas acessível).",
+          "formalContent": "TEXTO_COMPLETO_DO_RELATÓRIO_TÉCNICO_PARA_PDF",
+          "structuredAnalysis": {
+            "diagnostic": "Análise diagnóstica detalhada dos índices atuais.",
+            "prediction": "Previsão de cenário baseada na tendência e dados históricos.",
+            "recommendation": "Lista de ações práticas sugeridas para o manejo."
+          }
+        }
+
+      Diretrizes para o 'formalContent':
+    - NÃO use emojis.
+      - Use linguagem técnica e culta.
+      - Seja assertivo nas previsões e diagnósticos.
+      - Foque em produtividade e rentabilidade.
 
       Dados Atuais:
-      - Data: ${reading.date}
-      - NDVI (Vigor): ${reading.ndvi}
-      - NDWI (Água): ${reading.ndwi}
-      - NDRE (Clorofila): ${reading.ndre}
-      - Temperatura: ${reading.temperature}°C
+    - Data: ${reading.date}
+    - NDVI(Vigor): ${reading.ndvi.toFixed(3)}
+    - NDWI(Água): ${reading.ndwi.toFixed(3)}
+    - Temperatura: ${reading.temperature ? reading.temperature.toFixed(1) + '°C' : 'N/A'}
       
-      ${prediction ? `Previsão Futura (${prediction.date}): NDVI ${prediction.value.toFixed(2)}` : ''}
+      ${prediction ? `Previsão de Produtividade (IA): Tendência aponta para NDVI ${prediction.value.toFixed(2)} em ${prediction.date}.` : ''}
     `;
 
     const result = await model.generateContent(prompt);
@@ -74,7 +83,43 @@ async function generateAgronomistReport(reading: Reading, prediction?: { date: s
     // Clean markdown code blocks if present
     const cleanJson = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
 
-    return JSON.parse(cleanJson);
+    const parsed = JSON.parse(cleanJson);
+
+    // Ensure backwards compatibility if model returns old format, or strictly new format
+    // We will save the structured part into the formalContent usually, or specific fields if we update schema.
+    // For now, let's embed the structured data into formalContent string if needed or keep using the fields.
+    // Ideally we should update the DB schema to store 'structuredAnalysis' JSONB, but to avoid migration now:
+    // We will append the structured parts to formalContent in a specific format if the frontend expects string.
+
+    // Actually, looking at the prompt, formalContent IS a string in the JSON.
+    // The prompt asks for "formalContent": "TEXTO_COMPLETO..."
+    // BUT we also asked for "structuredAnalysis".
+    // Let's store structuredAnalysis in a way we can retrieve it? 
+    // The current schema has 'content' and 'formalContent'.
+    // Let's serialize the structuredAnalysis into formalContent so the frontend can parse it back, 
+    // OR just rely on the AI generating a great text in 'formalContent'.
+
+    // DECISION: To make the PDF really good with specific sections, we need the structure.
+    // However, I cannot easily change the DB schema right now without approval/migration risk.
+    // Strategy: Pass the structured object as a JSON string mostly, OR
+    // Let's just trust the prompt's "TEXTO_COMPLETO" to be good enough for now?
+    // User asked for "interpreted" text.
+    // Let's encode the structured analysis into the formalContent string? No, that's messy.
+
+    // Let's just return the parsed object. The route handler saves it.
+    // Schema: formalContent is text.
+    // I made the prompt return "formalContent": "TEXTO_COMPLETO..."
+
+    // WAIT. I should update the prompt to put the structured stuff INSIDE formalContent if I can't change schema?
+    // Or I can JSON.stringify(structuredAnalysis) into formalContent?
+    // Let's try to JSON.stringify the WHOLE structuredAnalysis into formalContent field?
+    // Frontend expects string. If it's a JSON string, frontend can parse it.
+
+    if (parsed.structuredAnalysis) {
+      parsed.formalContent = JSON.stringify(parsed.structuredAnalysis);
+    }
+
+    return parsed;
 
   } catch (err) {
     console.error("AI Generation Error:", err);
