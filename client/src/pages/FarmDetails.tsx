@@ -450,8 +450,8 @@ export default function FarmDetails() {
     const colWidth = 90;
 
     // RIGHT COL: FINANCIALS
-    // Relaxed Check: Show if config.financials exists, even if zones are empty
-    if (config?.financials) {
+    // Relaxed Check: Show if config.financials exists AND includeFinancials is true (even if zones are empty)
+    if (config?.financials && config?.includeFinancials) {
       const { costPerHa, pricePerBag, yields } = config.financials;
 
       // Fallback: If no zones, assume 100% Medium Yield
