@@ -36,6 +36,7 @@ export const readings = pgTable("readings", {
   satelliteImage: text("satellite_image"), // URL to RGB thumbnail
   thermalImage: text("thermal_image"), // URL to Thermal map thumbnail (LST)
   imageBounds: jsonb("image_bounds"), // [[lat1, lon1], [lat2, lon2]]
+  regionalNdvi: real("regional_ndvi"), // Average NDVI of surrounding area (5km radius)
 });
 
 export const insertReadingSchema = createInsertSchema(readings).omit({ id: true });

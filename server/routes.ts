@@ -236,10 +236,9 @@ export async function registerRoutes(
       return res.status(404).json({ message: "No data available for benchmark" });
     }
 
-    // Mocked Regional Data (in a real app, this would query DB for same crop/region)
-    // Randomize slightly around a "regional average" to make it look realistic
-    const baseRegionalNdvi = 0.65;
-    const regionalNdvi = baseRegionalNdvi + (Math.random() * 0.1 - 0.05);
+    // Use Real Regional Data if available, fallback to mock if 0 or null
+    // If we have history, we could average it, but let's use the latest reading's regional data
+    let regionalNdvi = reading.regionalNdvi || 0.65; // Default fallback
 
     // Calculate Percentile
     const diff = reading.ndvi - regionalNdvi;
@@ -467,7 +466,9 @@ export async function registerRoutes(
           temperature: result.temperature,
           satelliteImage: result.satellite_image,
           thermalImage: result.thermal_image,
-          imageBounds: result.bounds // Add bounds from python script
+
+          imageBounds: result.bounds, // Add bounds from python script
+          regionalNdvi: result.regional_ndvi // Add benchmark data
         };
 
         await storage.createReading(newReading);

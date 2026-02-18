@@ -233,6 +233,27 @@ def analyze_farm(roi, start_date, end_date, size_ha):
         val_otci = {'otci': val_s2.get('otci', 0)}
         # val_s3 já está definido acima
         
+        # 3. Calcular Média Regional (5km) - Benchmark
+        # Usar thermal_roi (que já é aprox 5km) ou criar um buffer específico se necessario
+        # O thermal_roi é max(radius_farm * 3, 5000), então serve como regional
+        
+        # Vamos usar o MODIS/Landsat ROI para calcular a media regional do NDVI (Sentinel-2)
+        # Atenção: Processar 5km de S2 pode ser pesado no getInfo(), mas reduceRegion é server-side.
+        
+        try:
+            stats_regional = ndvi_img.reduceRegion(
+                reducer=ee.Reducer.mean(),
+                geometry=thermal_roi, # 5km context
+                scale=50, # Scale maior para ser mais rápido (não precisamos de 10m para regional)
+                maxPixels=1e9
+            )
+            val_regional = stats_regional.getInfo()
+            regional_ndvi = val_regional.get('ndvi', 0)
+        except Exception as e:
+             sys.stderr.write(f"Warning: Regional NDVI calc failed: {e}\n")
+             regional_ndvi = 0
+
+        
         # Gerar URL da imagem (Visualização RGB)
         # Estratégia Híbrida: Usar pixels limpos onde possível, preencher fundo
         
@@ -295,7 +316,10 @@ def analyze_farm(roi, start_date, end_date, size_ha):
             "otci": val_otci.get('otci', 0) if val_otci.get('otci') is not None else 0,
             "satellite_image": thumb_url,
             "thermal_image": thermal_url,
-            "bounds": bounds_overlay # Adicionando Bounds
+            "satellite_image": thumb_url,
+            "thermal_image": thermal_url,
+            "bounds": bounds_overlay, # Adicionando Bounds
+            "regional_ndvi": regional_ndvi # Benchmark Data
         }
         
         print(json.dumps(result))
