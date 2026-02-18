@@ -263,6 +263,17 @@ def analyze_farm(roi, start_date, end_date, size_ha):
         
         visual_rgb = composite.select(['B4', 'B3', 'B2']).visualize(min=0, max=0.3)
         
+        # Obter Bounds da Imagem para Overlay no Frontend
+        # O bounds() do ee.Geometry retorna um Polygon.
+        # Precisamos das coords min/max dele.
+        rgb_bounds_info = rgb_roi.getInfo()['coordinates'][0]
+        # rgb_bounds_info é [[lon, lat], ...]
+        lons = [p[0] for p in rgb_bounds_info]
+        lats = [p[1] for p in rgb_bounds_info]
+        # Leaflet espera [[lat1, lon1], [lat2, lon2]] (SouthWest, NorthEast)
+        # Vamos retornar: [[min_lat, min_lon], [max_lat, max_lon]]
+        bounds_overlay = [[min(lats), min(lons)], [max(lats), max(lons)]]
+        
         # Preencher fundo transparente (buracos) com cinza muito claro (nuvem/sem dados)
         # background = ee.Image.constant(0.9).visualize(min=0, max=1) # Branco quase
         # visual_filled = background.blend(visual_rgb) 
@@ -321,7 +332,8 @@ def analyze_farm(roi, start_date, end_date, size_ha):
             "temperature": val_s3.get('lst', 0) if val_s3.get('lst') is not None else 0,
             "otci": val_otci.get('otci', 0) if val_otci.get('otci') is not None else 0,
             "satellite_image": thumb_url,
-            "thermal_image": thermal_url
+            "thermal_image": thermal_url,
+            "bounds": bounds_overlay # Adicionando Bounds
         }
         
         print(json.dumps(result))

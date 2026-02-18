@@ -1,5 +1,14 @@
+import "dotenv/config";
 import { createApp } from "./app";
 import { serveStatic } from "./static";
+
+console.log("Current working directory:", process.cwd());
+console.log("DATABASE_URL present:", !!process.env.DATABASE_URL);
+if (process.env.DATABASE_URL) {
+  console.log("DATABASE_URL starts with:", process.env.DATABASE_URL.substring(0, 15));
+} else {
+  console.error("CRITICAL: DATABASE_URL is missing!");
+}
 
 (async () => {
   const { app, httpServer } = await createApp();
