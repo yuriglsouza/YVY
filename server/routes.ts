@@ -72,6 +72,8 @@ async function generateAgronomistReport(reading: Reading, prediction?: { date: s
     - Data: ${reading.date}
     - NDVI(Vigor): ${reading.ndvi.toFixed(3)}
     - NDWI(Água): ${reading.ndwi.toFixed(3)}
+    - NDRE(Clorofila/Nitrogênio): ${reading.ndre.toFixed(3)}
+    - OTCI(Pigmentação): ${reading.otci ? reading.otci.toFixed(3) : 'N/A'}
     - Temperatura: ${reading.temperature ? reading.temperature.toFixed(1) + '°C' : 'N/A'}
       
       ${prediction ? `Previsão de Produtividade (IA): Tendência aponta para NDVI ${prediction.value.toFixed(2)} em ${prediction.date}.` : ''}

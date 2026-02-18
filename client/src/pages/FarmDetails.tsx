@@ -415,6 +415,7 @@ export default function FarmDetails() {
           ['NDVI', latestReading.ndvi.toFixed(2), latestReading.ndvi > 0.6 ? 'ÓTIMO' : 'ATENÇÃO'],
           ['NDWI', latestReading.ndwi.toFixed(2), latestReading.ndwi > -0.1 ? 'BOM' : 'SECO'],
           ['NDRE', latestReading.ndre.toFixed(2), 'NORMAL'],
+          ['OTCI', latestReading.otci ? latestReading.otci.toFixed(2) : '-', latestReading.otci && latestReading.otci > 2 ? 'ALTO' : 'MÉDIO'],
           ['LST', latestReading.temperature ? latestReading.temperature.toFixed(1) + '°C' : '-', latestReading.temperature && latestReading.temperature > 35 ? 'ALERTA' : 'IDEAL']
         ],
         theme: 'grid',
@@ -559,6 +560,7 @@ export default function FarmDetails() {
         { label: "NDVI (Vigor)", val: latestReading.ndvi, min: 0, max: 1, stop1: [239, 68, 68], stop2: [234, 179, 8], stop3: [34, 197, 94] }, // Red -> Yellow -> Green
         { label: "NDWI (Água)", val: latestReading.ndwi, min: -0.5, max: 0.5, stop1: [239, 68, 68], stop2: [59, 130, 246], stop3: [30, 64, 175] }, // Red -> Blue -> Dark Blue
         { label: "NDRE (Nutrição)", val: latestReading.ndre, min: 0, max: 1, stop1: [239, 68, 68], stop2: [234, 179, 8], stop3: [34, 197, 94] },
+        { label: "OTCI (Clorofila)", val: latestReading.otci || 0, min: 0, max: 5, stop1: [234, 179, 8], stop2: [34, 197, 94], stop3: [21, 128, 61] }, // Yellow -> Green -> Dark Green
         { label: "LST (Temperatura)", val: latestReading.temperature || 0, min: 10, max: 40, stop1: [34, 197, 94], stop2: [234, 179, 8], stop3: [239, 68, 68] } // Green -> Yellow -> Red
       ];
 
@@ -642,6 +644,7 @@ export default function FarmDetails() {
         "NDVI (Vigor): Índice de Vegetação. Valores > 0.6 indicam alta biomassa e saúde. < 0.3 sugere solo exposto ou estresse severo.",
         "NDWI (Água): Índice de Água. Monitora o estresse hídrico na planta. Valores negativos indicam baixa umidade.",
         "NDRE (Nutrição): Sensível à clorofila. Útil para detectar deficiências de Nitrogênio precocemente.",
+        "OTCI (Sentinel-3): Índice de Clorofila Terrestre. Alta correlação com nitrogênio e produtividade em grandes culturas.",
         "LST (Temperatura): Temperatura da superfície. Altas temperaturas podem indicar estresse hídrico (fechamento estomático).",
         "Fonte de Dados: Imagens do satélite Sentinel-2 (ESA) processadas via Google Earth Engine. Resolução espacial de 10m."
       ];
