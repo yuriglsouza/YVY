@@ -260,8 +260,20 @@ export default function FarmDetails() {
 
     // Add Logo
     try {
-      const logoData = await getBase64FromUrl('/logo.png');
-      doc.addImage(logoData, 'PNG', 10, 5, 25, 25);
+      const logoUrl = '/logo.png';
+      const logoData = await getBase64FromUrl(logoUrl);
+
+      const img = new Image();
+      img.src = logoUrl;
+      await new Promise(r => img.onload = r);
+
+      const maxWidth = 50;
+      const maxHeight = 20;
+      let w = img.width;
+      let h = img.height;
+      const ratio = Math.min(maxWidth / w, maxHeight / h);
+
+      doc.addImage(logoData, 'PNG', 10, 5, w * ratio, h * ratio);
     } catch (e) {
       // Fallback text if logo fails
       doc.setTextColor(255, 255, 255);
@@ -310,57 +322,67 @@ export default function FarmDetails() {
 
     if (structuredAnalysis) {
       // 1. Diagnostic (Full Width)
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+
+      const diagWidth = 180;
+      const diagLines = doc.splitTextToSize(structuredAnalysis.diagnostic || "-", diagWidth);
+      const lineHeight = 4;
+      const diagBoxHeight = (diagLines.length * lineHeight) + 15;
+
       doc.setFillColor(240, 253, 244);
       doc.setDrawColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
-      doc.rect(10, startY, 190, 25, 'FD');
+      doc.rect(10, startY, 190, diagBoxHeight, 'FD');
 
-      doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 100, 0);
-      doc.text("DIAGNÓSTICO TÉCNICO:", 15, startY + 5);
+      doc.text("DIAGNÓSTICO TÉCNICO:", 15, startY + 6);
 
       doc.setFont("helvetica", "normal");
       doc.setTextColor(0, 0, 0);
-      const diagLines = doc.splitTextToSize(structuredAnalysis.diagnostic || "-", 180);
-      doc.text(diagLines, 15, startY + 10);
+      doc.text(diagLines, 15, startY + 12);
 
-      startY += 30;
+      startY += diagBoxHeight + 5;
 
       // GRID: Prediction (Left) + Recommendation (Right)
       const colW = 92;
       const gap = 6;
-      const boxH = 40; // Fixed height for alignment
+
+      const predLines = doc.splitTextToSize(structuredAnalysis.prediction || "-", colW - 10);
+      const recText = Array.isArray(structuredAnalysis.recommendation) ? structuredAnalysis.recommendation.join("; ") : structuredAnalysis.recommendation;
+      const recLines = doc.splitTextToSize(recText || "-", colW - 10);
+
+      const predHeight = (predLines.length * lineHeight) + 15;
+      const recHeight = (recLines.length * lineHeight) + 15;
+      const maxRowHeight = Math.max(predHeight, recHeight, 30);
 
       // Prediction (Left)
       doc.setFillColor(239, 246, 255);
       doc.setDrawColor(BRAND_SECONDARY[0], BRAND_SECONDARY[1], BRAND_SECONDARY[2]);
-      doc.rect(10, startY, colW, boxH, 'FD');
+      doc.rect(10, startY, colW, maxRowHeight, 'FD');
 
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 50, 150);
-      doc.text("PREVISÃO / CENÁRIO:", 15, startY + 5);
+      doc.text("PREVISÃO / CENÁRIO:", 15, startY + 6);
 
       doc.setFont("helvetica", "normal");
       doc.setTextColor(0, 0, 0);
-      const predLines = doc.splitTextToSize(structuredAnalysis.prediction || "-", colW - 10);
-      doc.text(predLines, 15, startY + 10);
+      doc.text(predLines, 15, startY + 12);
 
       // Recommendation (Right)
       doc.setFillColor(255, 251, 235);
       doc.setDrawColor(245, 158, 11);
-      doc.rect(10 + colW + gap, startY, colW, boxH, 'FD');
+      doc.rect(10 + colW + gap, startY, colW, maxRowHeight, 'FD');
 
       doc.setFont("helvetica", "bold");
       doc.setTextColor(180, 83, 9);
-      doc.text("RECOMENDAÇÕES:", 15 + colW + gap, startY + 5);
+      doc.text("RECOMENDAÇÕES:", 15 + colW + gap, startY + 6);
 
       doc.setFont("helvetica", "normal");
       doc.setTextColor(0, 0, 0);
-      const recText = Array.isArray(structuredAnalysis.recommendation) ? structuredAnalysis.recommendation.join("; ") : structuredAnalysis.recommendation;
-      const recLines = doc.splitTextToSize(recText || "-", colW - 10);
-      doc.text(recLines, 15 + colW + gap, startY + 10);
+      doc.text(recLines, 15 + colW + gap, startY + 12);
 
-      startY += boxH + 10;
+      startY += maxRowHeight + 10;
     } else {
       const splitText = doc.splitTextToSize(simpleContent.replace(/\*\*/g, ""), 190);
       doc.setFont("helvetica", "normal");
@@ -509,6 +531,39 @@ export default function FarmDetails() {
       doc.text("NOTAS:", notesX, footerY);
       doc.setDrawColor(200);
       doc.rect(notesX, footerY + 5, colWidth, 50);
+    }
+
+    // --- GLOSSARY & METHODOLOGY ---
+    const glossaryY = footerY + 60;
+
+    // Check if we have space on the page (A4 height ~297mm, Footer starts at 285)
+    if (glossaryY < 240) {
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.rect(10, glossaryY, 190, 35, 'FD');
+
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
+      doc.text("METODOLOGIA E GLOSSÁRIO", 15, glossaryY + 6);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(80, 80, 80);
+
+      const glossary = [
+        "NDVI (Vigor): Índice de Vegetação. Valores > 0.6 indicam alta biomassa e saúde. < 0.3 sugere solo exposto ou estresse severo.",
+        "NDWI (Água): Índice de Água. Monitora o estresse hídrico na planta. Valores negativos indicam baixa umidade.",
+        "NDRE (Nutrição): Sensível à clorofila. Útil para detectar deficiências de Nitrogênio precocemente.",
+        "LST (Temperatura): Temperatura da superfície. Altas temperaturas podem indicar estresse hídrico (fechamento estomático).",
+        "Fonte de Dados: Imagens do satélite Sentinel-2 (ESA) processadas via Google Earth Engine. Resolução espacial de 10m."
+      ];
+
+      let gy = glossaryY + 11;
+      glossary.forEach(item => {
+        doc.text("• " + item, 15, gy);
+        gy += 4.5;
+      });
     }
 
     // --- FOOTER ---
