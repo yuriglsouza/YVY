@@ -427,6 +427,84 @@ export default function FarmDetails() {
           3: { fontStyle: 'bold', halign: 'center' }
         }
       });
+      // @ts-ignore
+      startY = doc.lastAutoTable.finalY + 15;
+    }
+
+    // --- CHART (Vector Drawing) ---
+    // Draw a simple line chart for NDVI History if we have data
+    // Assuming 'readings' is available in scope (it is from useReadings hook)
+    if (readings && readings.length > 1) {
+      if (startY > 200) { doc.addPage(); startY = 30; }
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
+      doc.text("EVOLUÇÃO DO NDVI (VIGOR)", 10, startY);
+      startY += 10;
+
+      const chartHeight = 50;
+      const chartWidth = 190;
+      const chartX = 10;
+      const chartY = startY;
+
+      // Draw Axis
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.5);
+      doc.line(chartX, chartY + chartHeight, chartX + chartWidth, chartY + chartHeight); // X Axis
+      doc.line(chartX, chartY, chartX, chartY + chartHeight); // Y Axis
+
+      // Plot Data (Last 10 readings or so)
+      // Reverse because readings are usually desc in UI, but we want chronological left-to-right
+      // Actually readings comes from hook, let's check order. Usually API returns chronological or we sorted it.
+      // In chartData logic earlier: readings?.map...reverse(). So readings is likely desc?
+      // Let's sort just to be safe.
+      const histData = [...readings]
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .slice(-12); // Last 12 points
+
+      if (histData.length > 1) {
+        const minDate = new Date(histData[0].date).getTime();
+        const maxDate = new Date(histData[histData.length - 1].date).getTime();
+        const timeRange = maxDate - minDate;
+
+        // Y Axis (0 to 1)
+        const getX = (d: string) => chartX + ((new Date(d).getTime() - minDate) / timeRange) * chartWidth;
+        const getY = (v: number) => chartY + chartHeight - (v * chartHeight); // 0 at bottom, 1 at top
+
+        doc.setDrawColor(16, 185, 129); // Emerald Line
+        doc.setLineWidth(1.5);
+
+        let prevX = getX(histData[0].date);
+        let prevY = getY(histData[0].ndvi);
+
+        histData.forEach((r, i) => {
+          const cx = getX(r.date);
+          const cy = getY(r.ndvi);
+
+          if (i > 0) {
+            doc.line(prevX, prevY, cx, cy);
+          }
+
+          // Draw point
+          doc.setFillColor(16, 185, 129);
+          doc.circle(cx, cy, 1.5, 'F');
+
+          prevX = cx;
+          prevY = cy;
+        });
+
+        // Labels (Start/End date)
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(format(new Date(histData[0].date), "dd/MM"), chartX, chartY + chartHeight + 4);
+        doc.text(format(new Date(histData[histData.length - 1].date), "dd/MM"), chartX + chartWidth - 10, chartY + chartHeight + 4);
+
+        // Y Axis Labels
+        doc.text("1.0", chartX - 6, chartY);
+        doc.text("0.5", chartX - 6, chartY + (chartHeight / 2));
+        doc.text("0.0", chartX - 6, chartY + chartHeight);
+      }
     }
 
     // --- FOOTER ---

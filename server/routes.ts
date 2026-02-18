@@ -53,7 +53,7 @@ async function generateAgronomistReport(reading: Reading, prediction?: { date: s
       
       Retorne APENAS um JSON válido com a seguinte estrutura:
         {
-          "content": "Resumo executivo curto e direto para o produtor (tom profissional mas acessível).",
+          "content": "Uma versão informal, direta e 'parceira' para o produtor ler no celular. Use emojis, linguagem simples, acolhedora e caipira respeitosa. Estruture com: ## 🧐 O que vi, ## 🚜 O que fazer.",
           "formalContent": "TEXTO_COMPLETO_DO_RELATÓRIO_TÉCNICO_PARA_PDF",
           "structuredAnalysis": {
             "diagnostic": "Análise diagnóstica detalhada dos índices atuais.",
