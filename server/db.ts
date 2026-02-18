@@ -11,7 +11,7 @@ if (!process.env.DATABASE_URL) {
 // Config for Vercel/Supabase (SSL required for production)
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined,
+  ssl: { rejectUnauthorized: false },
   max: 10, // Limit connections for serverless
   connectionTimeoutMillis: 5000,
 });

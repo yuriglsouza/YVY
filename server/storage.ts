@@ -340,7 +340,8 @@ export class MemStorage implements IStorage {
       temperature: insertReading.temperature ?? null,
       otci: insertReading.otci ?? null,
       satelliteImage: insertReading.satelliteImage ?? null,
-      thermalImage: insertReading.thermalImage ?? null
+      thermalImage: insertReading.thermalImage ?? null,
+      imageBounds: insertReading.imageBounds ?? null
     };
     this.readings.set(id, reading);
     return reading;
