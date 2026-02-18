@@ -542,6 +542,84 @@ export default function FarmDetails() {
       doc.rect(notesX, footerY + 5, colWidth, 50);
     }
 
+    // --- LEFT COL: HORIZONTAL GAUGES (Data Intelligence) ---
+    // Fills the empty space opposite to Financials/Notes
+    if (latestReading) {
+      const gaugeX = 10;
+      const gaugeY = footerY;
+      const gaugeW = 90;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
+      doc.text("ÍNDICES DE VIGOR (MÉDIA)", gaugeX, gaugeY);
+
+      let gy = gaugeY + 5;
+      const items = [
+        { label: "NDVI (Vigor)", val: latestReading.ndvi, min: 0, max: 1, stop1: [239, 68, 68], stop2: [234, 179, 8], stop3: [34, 197, 94] }, // Red -> Yellow -> Green
+        { label: "NDWI (Água)", val: latestReading.ndwi, min: -0.5, max: 0.5, stop1: [239, 68, 68], stop2: [59, 130, 246], stop3: [30, 64, 175] }, // Red -> Blue -> Dark Blue
+        { label: "NDRE (Nutrição)", val: latestReading.ndre, min: 0, max: 1, stop1: [239, 68, 68], stop2: [234, 179, 8], stop3: [34, 197, 94] },
+        { label: "LST (Temperatura)", val: latestReading.temperature || 0, min: 10, max: 40, stop1: [34, 197, 94], stop2: [234, 179, 8], stop3: [239, 68, 68] } // Green -> Yellow -> Red
+      ];
+
+      items.forEach((item) => {
+        // Label & Value
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(50);
+        doc.text(item.label, gaugeX, gy + 3);
+        doc.text(item.val.toFixed(2), gaugeX + gaugeW, gy + 3, { align: 'right' });
+
+        // Gradient Bar
+        const barY = gy + 5;
+        const barH = 4;
+        const steps = 30;
+        const stepW = gaugeW / steps;
+
+        for (let s = 0; s < steps; s++) {
+          const t = s / (steps - 1);
+          let r, g, b;
+
+          if (t < 0.5) {
+            // First Half
+            const localT = t * 2;
+            r = Math.round(item.stop1[0] + (item.stop2[0] - item.stop1[0]) * localT);
+            g = Math.round(item.stop1[1] + (item.stop2[1] - item.stop1[1]) * localT);
+            b = Math.round(item.stop1[2] + (item.stop2[2] - item.stop1[2]) * localT);
+          } else {
+            // Second Half
+            const localT = (t - 0.5) * 2;
+            r = Math.round(item.stop2[0] + (item.stop3[0] - item.stop2[0]) * localT);
+            g = Math.round(item.stop2[1] + (item.stop3[1] - item.stop2[1]) * localT);
+            b = Math.round(item.stop2[2] + (item.stop3[2] - item.stop2[2]) * localT);
+          }
+
+          doc.setFillColor(r, g, b);
+          doc.rect(gaugeX + (s * stepW), barY, stepW + 0.5, barH, 'F'); // +0.5 to avoid gaps
+        }
+
+        // Marker (Triangle)
+        // Normalize value to 0-1 range
+        const normVal = Math.max(0, Math.min(1, (item.val - item.min) / (item.max - item.min)));
+        const markerX = gaugeX + (normVal * gaugeW);
+
+        doc.setFillColor(50, 50, 50);
+        // Triangle pointing down
+        doc.triangle(
+          markerX - 1.5, barY - 1,
+          markerX + 1.5, barY - 1,
+          markerX, barY + 1.5,
+          'F'
+        );
+        // Line marker through bar
+        doc.setDrawColor(255, 255, 255);
+        doc.setLineWidth(0.5);
+        doc.line(markerX, barY, markerX, barY + barH);
+
+        gy += 12; // Spacing
+      });
+    }
+
     // --- GLOSSARY & METHODOLOGY ---
     const glossaryY = footerY + 60;
 
