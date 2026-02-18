@@ -251,14 +251,13 @@ export default function FarmDetails() {
     }
 
     // Custom or Default Branding
-    const company = config?.companyName || "SYAZ ORBITAL";
     const consultant = config?.consultantName ? `Consultor: ${config.consultantName}` : "";
 
     // --- HEADER ---
     doc.setFillColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
     doc.rect(0, 0, 210, 30, 'F'); // Darker, taller header
 
-    // Add Logo
+    // Add Logo & Header Text
     try {
       const logoUrl = '/logo.png';
       const logoData = await getBase64FromUrl(logoUrl);
@@ -273,29 +272,39 @@ export default function FarmDetails() {
       let h = img.height;
       const ratio = Math.min(maxWidth / w, maxHeight / h);
 
-      doc.addImage(logoData, 'PNG', 10, 5, w * ratio, h * ratio);
+      const logoW = w * ratio;
+      const logoH = h * ratio;
+      doc.addImage(logoData, 'PNG', 10, 5, logoW, logoH);
+
+      // Header Title (Next to Logo)
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14); // Slightly larger
+      doc.setTextColor(16, 185, 129); // Emerald Text
+      doc.text("RELATÓRIO DE INTELIGÊNCIA DE DADOS", 15 + logoW, 18);
+
+      // Consultant Info (Right Aligned)
+      if (consultant) {
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(200, 200, 200);
+        doc.setFontSize(9);
+        doc.text(consultant, 200, 18, { align: "right" });
+      }
+
+      // --- WATERMARK (10% Opacity) ---
+      const pageCount = doc.getNumberOfPages(); // We'll loop at end, but prepare data
+      const wmWidth = 100;
+      const wmHeight = (h / w) * wmWidth;
+      const wmX = (210 - wmWidth) / 2;
+      const wmY = (297 - wmHeight) / 2;
+
+      // Store for later application
+      (doc as any).watermarkData = { logoData, wmX, wmY, wmWidth, wmHeight };
+
     } catch (e) {
       // Fallback text if logo fails
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(14);
-      doc.text("SYAZ", 15, 20);
-    }
-
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.text(company, 40, 15);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(16, 185, 129); // Emerald Text
-    doc.text("RELATÓRIO AGRONÔMICO DE PRECISÃO", 40, 22);
-
-    // Consultant Info
-    if (consultant) {
-      doc.setTextColor(200, 200, 200);
-      doc.setFontSize(9);
-      doc.text(consultant, 200, 18, { align: "right" });
+      doc.text("SYAZ ORBITAL", 15, 20);
     }
 
     // --- FARM INFO BAR ---
@@ -566,15 +575,33 @@ export default function FarmDetails() {
       });
     }
 
-    // --- FOOTER ---
-    const pageCount = doc.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
+    // --- FOOTER & WATERMARK LOOP ---
+    const totalPages = doc.getNumberOfPages();
+    const wm = (doc as any).watermarkData;
+
+    for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
+
+      // Watermark
+      if (wm) {
+        doc.saveGraphicsState();
+        try {
+          // @ts-ignore
+          const gState = new doc.GState({ opacity: 0.1 });
+          doc.setGState(gState);
+        } catch (e) {
+          // Fallback or ignore if GState fails
+        }
+        doc.addImage(wm.logoData, 'PNG', wm.wmX, wm.wmY, wm.wmWidth, wm.wmHeight);
+        doc.restoreGraphicsState();
+      }
+
+      // Footer
       doc.setFillColor(245, 245, 245);
       doc.rect(0, 285, 210, 12, 'F');
       doc.setFontSize(8);
       doc.setTextColor(150);
-      doc.text(`SYAZ Orbital - Inteligência Agronômica | Página ${i} de ${pageCount}`, 105, 292, { align: "center" });
+      doc.text(`SYAZ Orbital - Inteligência Agronômica | Página ${i} de ${totalPages}`, 105, 292, { align: "center" });
     }
 
     doc.save(`Relatorio_Tecnico_${farm?.name}_${date}.pdf`);

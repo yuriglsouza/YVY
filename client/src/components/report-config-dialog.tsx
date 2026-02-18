@@ -14,7 +14,6 @@ interface ReportConfigDialogProps {
 }
 
 export interface ReportConfig {
-    companyName: string;
     consultantName: string;
     comments: string;
     includeFinancials: boolean;
@@ -32,7 +31,6 @@ export interface ReportConfig {
 export function ReportConfigDialog({ onGenerate, trigger }: ReportConfigDialogProps) {
     const [open, setOpen] = useState(false);
     const [config, setConfig] = useState<ReportConfig>({
-        companyName: "",
         consultantName: "",
         comments: "",
         includeFinancials: false,
@@ -88,18 +86,6 @@ export function ReportConfigDialog({ onGenerate, trigger }: ReportConfigDialogPr
                     <DialogTitle>Personalizar Relatório</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="company" className="text-right">
-                            Empresa
-                        </Label>
-                        <Input
-                            id="company"
-                            placeholder="Sua Consultoria Ltda"
-                            className="col-span-3"
-                            value={config.companyName}
-                            onChange={(e) => setConfig({ ...config, companyName: e.target.value })}
-                        />
-                    </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="consultant" className="text-right">
                             Consultor
