@@ -256,7 +256,7 @@ export default function FarmDetails() {
 
     // --- HEADER ---
     doc.setFillColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
-    doc.rect(0, 0, 210, 35, 'F'); // Darker, taller header
+    doc.rect(0, 0, 210, 30, 'F'); // Darker, taller header
 
     // Add Logo
     try {
@@ -271,13 +271,13 @@ export default function FarmDetails() {
 
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(22);
-    doc.text(company, 45, 18);
+    doc.setFontSize(20);
+    doc.text(company, 40, 15);
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.setTextColor(16, 185, 129); // Emerald Text
-    doc.text("RELATÓRIO AGRONÔMICO DE PRECISÃO", 45, 26);
+    doc.text("RELATÓRIO AGRONÔMICO DE PRECISÃO", 40, 22);
 
     // Consultant Info
     if (consultant) {
@@ -288,58 +288,20 @@ export default function FarmDetails() {
 
     // --- FARM INFO BAR ---
     doc.setFillColor(245, 245, 245);
-    doc.rect(0, 35, 210, 15, 'F');
+    doc.rect(0, 30, 210, 10, 'F');
 
     doc.setTextColor(BRAND_TEXT[0], BRAND_TEXT[1], BRAND_TEXT[2]);
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
 
     const dateStr = format(new Date(date), "dd/MM/yyyy");
-    doc.text(`FAZENDA: ${farm?.name.toUpperCase()}`, 10, 44);
-    doc.text(`DATA: ${dateStr}`, 140, 44);
-    doc.text(`CULTURA: ${farm?.cropType.toUpperCase()}`, 175, 44);
+    doc.text(`FAZENDA: ${farm?.name.toUpperCase()}`, 10, 36);
+    doc.text(`DATA: ${dateStr}`, 140, 36);
+    doc.text(`CULTURA: ${farm?.cropType.toUpperCase()}`, 175, 36);
 
-    let startY = 65;
+    let startY = 45;
 
-    // --- FINANCIAL SUMMARY (If Enabled) ---
-    if (config?.includeFinancials && config.financials && zones.length > 0) {
-      const { costPerHa, pricePerBag, yields } = config.financials;
-
-      // ... calc logic ...
-      const highZone = zones.find(z => z.name.includes("Alta"))?.area_percentage || 0;
-      const mediumZone = zones.find(z => z.name.includes("Média"))?.area_percentage || 0;
-      const lowZone = zones.find(z => z.name.includes("Baixa"))?.area_percentage || 0;
-      const production = ((highZone * farm.sizeHa * yields.high) + (mediumZone * farm.sizeHa * yields.medium) + (lowZone * farm.sizeHa * yields.low));
-      const totalCost = farm.sizeHa * costPerHa;
-      const grossRevenue = production * pricePerBag;
-      const netProfit = grossRevenue - totalCost;
-      const roi = totalCost > 0 ? (netProfit / totalCost) * 100 : 0;
-      const avgYield = production / farm.sizeHa;
-
-      autoTable(doc, {
-        startY: startY,
-        head: [['ANÁLISE FINANCEIRA PROJETADA', 'VALORES']],
-        body: [
-          ['Custo Operacional', `R$ ${costPerHa.toFixed(2)} / ha`],
-          ['Produtividade Média', `${avgYield.toFixed(1)} sc/ha`],
-          ['Receita Bruta', `R$ ${grossRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
-          ['Lucro Líquido', `R$ ${netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
-          ['ROI (Retorno)', `${roi.toFixed(1)}%`]
-        ],
-        theme: 'grid',
-        headStyles: {
-          fillColor: BRAND_DARK,
-          fontStyle: 'bold',
-          halign: 'left'
-        },
-        styles: { fontSize: 10, cellPadding: 3 },
-        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 120 }, 1: { halign: 'right' } }
-      });
-      // @ts-ignore
-      startY = doc.lastAutoTable.finalY + 15;
-    }
-
-    // --- AI ANALYSIS SECTION ---
+    // --- AI ANALYSIS SECTION (Compact) ---
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
     doc.setTextColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
@@ -348,163 +310,182 @@ export default function FarmDetails() {
 
     if (structuredAnalysis) {
       // 1. Diagnostic
-      doc.setFillColor(240, 253, 244); // Light Green
+      doc.setFillColor(240, 253, 244);
       doc.setDrawColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
-      doc.rect(10, startY, 190, 25, 'FD');
+      doc.rect(10, startY, 190, 20, 'FD');
 
-      doc.setFontSize(10);
-      doc.setTextColor(0, 100, 0); // Dark Green Text
-      doc.text("DIAGNÓSTICO TÉCNICO:", 15, startY + 6);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 100, 0);
+      doc.text("DIAGNÓSTICO TÉCNICO:", 15, startY + 5);
 
       doc.setFont("helvetica", "normal");
       doc.setTextColor(0, 0, 0);
-      const diagLines = doc.splitTextToSize(structuredAnalysis.diagnostic || "Análise indisponível.", 180);
-      doc.text(diagLines, 15, startY + 12);
+      const diagLines = doc.splitTextToSize(structuredAnalysis.diagnostic || "-", 180);
+      doc.text(diagLines, 15, startY + 10);
 
-      startY += 35;
+      startY += 25;
 
       // 2. Prediction
-      doc.setFillColor(239, 246, 255); // Light Blue
+      doc.setFillColor(239, 246, 255);
       doc.setDrawColor(BRAND_SECONDARY[0], BRAND_SECONDARY[1], BRAND_SECONDARY[2]);
+      doc.rect(10, startY, 190, 20, 'FD');
+
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 50, 150);
+      doc.text("PREVISÃO / CENÁRIO:", 15, startY + 5);
+
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      const predLines = doc.splitTextToSize(structuredAnalysis.prediction || "-", 180);
+      doc.text(predLines, 15, startY + 10);
+
+      startY += 25;
+
+      // 3. Recommendation
+      doc.setFillColor(255, 251, 235);
+      doc.setDrawColor(245, 158, 11);
       doc.rect(10, startY, 190, 25, 'FD');
 
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(0, 50, 150); // Dark Blue Text
-      doc.text("CENÁRIO FUTURO / PREVISÃO:", 15, startY + 6);
+      doc.setTextColor(180, 83, 9);
+      doc.text("RECOMENDAÇÕES:", 15, startY + 5);
 
       doc.setFont("helvetica", "normal");
       doc.setTextColor(0, 0, 0);
-      const predLines = doc.splitTextToSize(structuredAnalysis.prediction || "Sem dados históricos suficientes.", 180);
-      doc.text(predLines, 15, startY + 12);
+      const recText = Array.isArray(structuredAnalysis.recommendation) ? structuredAnalysis.recommendation.join("; ") : structuredAnalysis.recommendation;
+      const recLines = doc.splitTextToSize(recText || "-", 180);
+      doc.text(recLines, 15, startY + 10);
 
-      startY += 35;
-
-      // 3. Recommendation
-      doc.setFillColor(255, 251, 235); // Light Amber
-      doc.setDrawColor(245, 158, 11); // Amber
-      doc.rect(10, startY, 190, 30, 'FD'); // Taller for lists
-
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(180, 83, 9); // Dark Amber Text
-      doc.text("RECOMENDAÇÕES DE MANEJO:", 15, startY + 6);
-
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(0, 0, 0);
-      // Handle list if it comes as string or array (prompt says "Lista")
-      const recText = Array.isArray(structuredAnalysis.recommendation) ? structuredAnalysis.recommendation.join("\n") : structuredAnalysis.recommendation;
-      const recLines = doc.splitTextToSize(recText || "Monitoramento contínuo recomendado.", 180);
-      doc.text(recLines, 15, startY + 12);
-
-      startY += 40;
-
+      startY += 30;
     } else {
-      // Fallback for legacy text
       const splitText = doc.splitTextToSize(simpleContent.replace(/\*\*/g, ""), 190);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(50, 50, 50);
       doc.text(splitText, 10, startY);
-      startY += (splitText.length * 5) + 10;
+      startY += (splitText.length * 4) + 10;
     }
 
-    // --- SATELLITE DATA TABLE ---
-    if (startY > 230) { doc.addPage(); startY = 30; } // Page break check
-
+    // --- SATELLITE DATA TABLE (Compact) ---
     if (latestReading) {
       autoTable(doc, {
         startY: startY,
-        head: [['ÍNDICE', 'DESCRIÇÃO', 'VALOR MEDIDO', 'STATUS']],
+        head: [['ÍNDICE', 'DESCRIÇÃO', 'VALOR', 'STATUS']],
         body: [
-          ['NDVI', 'Vigor da Vegetação', latestReading.ndvi.toFixed(2), latestReading.ndvi > 0.6 ? 'ÓTIMO (Alto Vigor)' : 'ATENÇÃO'],
-          ['NDWI', 'Estresse Hídrico', latestReading.ndwi.toFixed(2), latestReading.ndwi > -0.1 ? 'BOM (Hidratado)' : 'SECO'],
-          ['NDRE', 'Clorofila / Nitrogênio', latestReading.ndre.toFixed(2), 'NORMAL'],
-          ['LST', 'Temperatura Superfície', latestReading.temperature ? latestReading.temperature.toFixed(1) + '°C' : '-', latestReading.temperature && latestReading.temperature > 35 ? 'ALERTA (Calor)' : 'IDEAL']
+          ['NDVI', 'Vigor Vegetativo', latestReading.ndvi.toFixed(2), latestReading.ndvi > 0.6 ? 'ÓTIMO' : 'ATENÇÃO'],
+          ['NDWI', 'Estresse Hídrico', latestReading.ndwi.toFixed(2), latestReading.ndwi > -0.1 ? 'BOM' : 'SECO'],
+          ['NDRE', 'Clorofila', latestReading.ndre.toFixed(2), 'NORMAL'],
+          ['LST', 'Temp. Superfície', latestReading.temperature ? latestReading.temperature.toFixed(1) + '°C' : '-', latestReading.temperature && latestReading.temperature > 35 ? 'ALERTA' : 'IDEAL']
         ],
         theme: 'striped',
-        headStyles: { fillColor: BRAND_PRIMARY },
+        headStyles: { fillColor: BRAND_PRIMARY, fontSize: 8, cellPadding: 2 },
+        bodyStyles: { fontSize: 8, cellPadding: 2 },
         columnStyles: {
           0: { fontStyle: 'bold' },
-          2: { fontStyle: 'bold', halign: 'center' },
-          3: { fontStyle: 'bold', halign: 'center' }
+          2: { halign: 'center' },
+          3: { halign: 'center', fontStyle: 'bold' }
         }
       });
       // @ts-ignore
-      startY = doc.lastAutoTable.finalY + 15;
+      startY = doc.lastAutoTable.finalY + 10;
     }
 
-    // --- CHART (Vector Drawing) ---
-    // Draw a simple line chart for NDVI History if we have data
-    // Assuming 'readings' is available in scope (it is from useReadings hook)
+    // --- FOOTER SECTION: CHART (Left) + FINANCIALS (Right) ---
+    if (startY > 230) { doc.addPage(); startY = 20; }
+
+    const footerY = startY;
+    const colWidth = 90;
+
+    // LEFT COL: CHART (Bar Chart)
     if (readings && readings.length > 1) {
-      if (startY > 200) { doc.addPage(); startY = 30; }
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(14);
+      doc.setFontSize(10);
       doc.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
-      doc.text("EVOLUÇÃO DO NDVI (VIGOR)", 10, startY);
-      startY += 10;
+      doc.text("EVOLUÇÃO DO VIGOR (NDVI)", 10, footerY);
 
-      const chartHeight = 50;
-      const chartWidth = 190;
       const chartX = 10;
-      const chartY = startY;
+      const chartY = footerY + 5;
+      const chartH = 50;
+      const chartW = colWidth;
 
-      // Draw Axis
-      doc.setDrawColor(200, 200, 200);
-      doc.setLineWidth(0.5);
-      doc.line(chartX, chartY + chartHeight, chartX + chartWidth, chartY + chartHeight); // X Axis
-      doc.line(chartX, chartY, chartX, chartY + chartHeight); // Y Axis
+      doc.setDrawColor(200);
+      doc.line(chartX, chartY + chartH, chartX + chartW, chartY + chartH); // X
+      doc.line(chartX, chartY, chartX, chartY + chartH); // Y
 
-      // Plot Data (Last 10 readings or so)
-      // Reverse because readings are usually desc in UI, but we want chronological left-to-right
-      // Actually readings comes from hook, let's check order. Usually API returns chronological or we sorted it.
-      // In chartData logic earlier: readings?.map...reverse(). So readings is likely desc?
-      // Let's sort just to be safe.
-      const histData = [...readings]
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        .slice(-12); // Last 12 points
+      const histData = [...readings].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(-8);
 
-      if (histData.length > 1) {
-        const minDate = new Date(histData[0].date).getTime();
-        const maxDate = new Date(histData[histData.length - 1].date).getTime();
-        const timeRange = maxDate - minDate;
-
-        // Y Axis (0 to 1)
-        const getX = (d: string) => chartX + ((new Date(d).getTime() - minDate) / timeRange) * chartWidth;
-        const getY = (v: number) => chartY + chartHeight - (v * chartHeight); // 0 at bottom, 1 at top
-
-        doc.setDrawColor(16, 185, 129); // Emerald Line
-        doc.setLineWidth(1.5);
-
-        let prevX = getX(histData[0].date);
-        let prevY = getY(histData[0].ndvi);
+      if (histData.length > 0) {
+        const barWidth = (chartW / histData.length) * 0.6;
+        const gap = (chartW / histData.length) * 0.4;
 
         histData.forEach((r, i) => {
-          const cx = getX(r.date);
-          const cy = getY(r.ndvi);
+          const height = r.ndvi * chartH;
+          const x = chartX + gap / 2 + (i * (barWidth + gap));
+          const y = chartY + (chartH - height);
 
-          if (i > 0) {
-            doc.line(prevX, prevY, cx, cy);
-          }
-
-          // Draw point
           doc.setFillColor(16, 185, 129);
-          doc.circle(cx, cy, 1.5, 'F');
+          doc.rect(x, y, barWidth, height, 'F');
 
-          prevX = cx;
-          prevY = cy;
+          doc.setFontSize(6);
+          doc.setTextColor(100);
+          doc.text(format(new Date(r.date), "dd/MM"), x + barWidth / 2, chartY + chartH + 3, { align: 'center' });
         });
-
-        // Labels (Start/End date)
-        doc.setFontSize(8);
-        doc.setTextColor(150);
-        doc.text(format(new Date(histData[0].date), "dd/MM"), chartX, chartY + chartHeight + 4);
-        doc.text(format(new Date(histData[histData.length - 1].date), "dd/MM"), chartX + chartWidth - 10, chartY + chartHeight + 4);
-
-        // Y Axis Labels
-        doc.text("1.0", chartX - 6, chartY);
-        doc.text("0.5", chartX - 6, chartY + (chartHeight / 2));
-        doc.text("0.0", chartX - 6, chartY + chartHeight);
+        doc.setFontSize(6);
+        doc.text("1.0", chartX - 2, chartY);
+        doc.text("0.5", chartX - 2, chartY + chartH / 2);
       }
+    }
+
+    // RIGHT COL: FINANCIALS
+    if (config?.financials && zones.length > 0) {
+      const { costPerHa, pricePerBag, yields } = config.financials;
+
+      const highZone = zones.find(z => z.name.includes("Alta"))?.area_percentage || 0;
+      const mediumZone = zones.find(z => z.name.includes("Média"))?.area_percentage || 0;
+      const lowZone = zones.find(z => z.name.includes("Baixa"))?.area_percentage || 0;
+      const production = ((highZone * farm.sizeHa * yields.high) + (mediumZone * farm.sizeHa * yields.medium) + (lowZone * farm.sizeHa * yields.low));
+      const totalCost = farm.sizeHa * costPerHa;
+      const grossRevenue = production * pricePerBag;
+      const netProfit = grossRevenue - totalCost;
+      const roi = totalCost > 0 ? (netProfit / totalCost) * 100 : 0;
+
+      const roiX = 110;
+      const roiY = footerY;
+
+      doc.setFontSize(10);
+      doc.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
+      doc.text("ANÁLISE FINANCEIRA (ESTIMADA)", roiX, roiY);
+
+      doc.setDrawColor(200);
+      doc.setFillColor(250, 250, 250);
+      doc.rect(roiX, roiY + 5, colWidth, 50, 'FD');
+
+      doc.setFontSize(9);
+      doc.setTextColor(50);
+
+      let py = roiY + 15;
+      const row = (label: string, val: string, isBold = false) => {
+        if (isBold) doc.setFont("helvetica", "bold"); else doc.setFont("helvetica", "normal");
+        doc.text(label, roiX + 5, py);
+        doc.text(val, roiX + colWidth - 5, py, { align: 'right' });
+        py += 8;
+      };
+
+      row("Custo Total:", `R$ ${(totalCost / 1000).toFixed(1)}k`);
+      row("Receita Bruta:", `R$ ${(grossRevenue / 1000).toFixed(1)}k`);
+      doc.setDrawColor(220);
+      doc.line(roiX + 5, py - 4, roiX + colWidth - 5, py - 4);
+
+      doc.setTextColor(16, 185, 129);
+      row("Lucro Líquido:", `R$ ${(netProfit / 1000).toFixed(1)}k`, true);
+
+      doc.setTextColor(BRAND_SECONDARY[0], BRAND_SECONDARY[1], BRAND_SECONDARY[2]);
+      doc.setFontSize(14);
+      doc.text(`ROI: ${roi.toFixed(0)}%`, roiX + colWidth / 2, py + 5, { align: 'center' });
+    } else {
+      const notesX = 110;
+      doc.text("NOTAS:", notesX, footerY);
+      doc.setDrawColor(200);
+      doc.rect(notesX, footerY + 5, colWidth, 50);
     }
 
     // --- FOOTER ---
