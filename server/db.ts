@@ -6,6 +6,8 @@ const { Pool } = pg;
 
 if (!process.env.DATABASE_URL) {
   console.warn("DATABASE_URL not set. Falling back to memory storage.");
+} else {
+  console.log("DATABASE_URL is set:", process.env.DATABASE_URL.substring(0, 15) + "...");
 }
 
 // Config for Vercel/Supabase (SSL required for production)
