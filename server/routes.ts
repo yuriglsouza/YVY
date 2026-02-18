@@ -56,7 +56,7 @@ async function generateAgronomistReport(reading: Reading, prediction?: { date: s
           "content": "Uma versão informal, direta e 'parceira' para o produtor ler no celular. Use emojis, linguagem simples, acolhedora e caipira respeitosa. Estruture com: ## 🧐 O que vi, ## 🚜 O que fazer.",
           "formalContent": "TEXTO_COMPLETO_DO_RELATÓRIO_TÉCNICO_PARA_PDF",
           "structuredAnalysis": {
-            "diagnostic": "Análise diagnóstica detalhada dos índices atuais.",
+            "diagnostic": "Análise diagnóstica TÉCNICA e APROFUNDADA dos índices (NDVI, NDWI, NDRE), identificando variações sutis e causas prováveis.",
             "prediction": "Previsão de cenário baseada na tendência e dados históricos.",
             "recommendation": "Lista de ações práticas sugeridas para o manejo."
           }

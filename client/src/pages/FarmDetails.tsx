@@ -366,74 +366,85 @@ export default function FarmDetails() {
       startY += (splitText.length * 4) + 10;
     }
 
-    // --- SATELLITE DATA TABLE (Compact) ---
+    // --- SPLIT SECTION: TABLE (Left) + CHART (Right) ---
+    const splitSectionY = startY;
+    let maxSectionHeight = 0;
+
+    // 1. LEFT: COMPACT TABLE (Width ~90mm)
     if (latestReading) {
       autoTable(doc, {
-        startY: startY,
-        head: [['ÍNDICE', 'DESCRIÇÃO', 'VALOR', 'STATUS']],
+        startY: splitSectionY,
+        tableWidth: 90,
+        margin: { left: 10 },
+        head: [['ÍNDICE', 'VALOR', 'STATUS']],
         body: [
-          ['NDVI', 'Vigor Vegetativo', latestReading.ndvi.toFixed(2), latestReading.ndvi > 0.6 ? 'ÓTIMO' : 'ATENÇÃO'],
-          ['NDWI', 'Estresse Hídrico', latestReading.ndwi.toFixed(2), latestReading.ndwi > -0.1 ? 'BOM' : 'SECO'],
-          ['NDRE', 'Clorofila', latestReading.ndre.toFixed(2), 'NORMAL'],
-          ['LST', 'Temp. Superfície', latestReading.temperature ? latestReading.temperature.toFixed(1) + '°C' : '-', latestReading.temperature && latestReading.temperature > 35 ? 'ALERTA' : 'IDEAL']
+          ['NDVI', latestReading.ndvi.toFixed(2), latestReading.ndvi > 0.6 ? 'ÓTIMO' : 'ATENÇÃO'],
+          ['NDWI', latestReading.ndwi.toFixed(2), latestReading.ndwi > -0.1 ? 'BOM' : 'SECO'],
+          ['NDRE', latestReading.ndre.toFixed(2), 'NORMAL'],
+          ['LST', latestReading.temperature ? latestReading.temperature.toFixed(1) + '°C' : '-', latestReading.temperature && latestReading.temperature > 35 ? 'ALERTA' : 'IDEAL']
         ],
-        theme: 'striped',
-        headStyles: { fillColor: BRAND_PRIMARY, fontSize: 8, cellPadding: 2 },
-        bodyStyles: { fontSize: 8, cellPadding: 2 },
-        columnStyles: {
-          0: { fontStyle: 'bold' },
-          2: { halign: 'center' },
-          3: { halign: 'center', fontStyle: 'bold' }
-        }
+        theme: 'grid',
+        headStyles: { fillColor: BRAND_PRIMARY, fontSize: 8, cellPadding: 1, halign: 'center' },
+        bodyStyles: { fontSize: 8, cellPadding: 1, halign: 'center' },
+        columnStyles: { 0: { fontStyle: 'bold', halign: 'left' } }
       });
       // @ts-ignore
-      startY = doc.lastAutoTable.finalY + 10;
+      maxSectionHeight = Math.max(maxSectionHeight, doc.lastAutoTable.finalY - splitSectionY);
     }
 
-    // --- FOOTER SECTION: CHART (Left) + FINANCIALS (Right) ---
-    if (startY > 230) { doc.addPage(); startY = 20; }
-
-    const footerY = startY;
-    const colWidth = 90;
-
-    // LEFT COL: CHART (Bar Chart)
+    // 2. RIGHT: CHART (Width ~90mm)
+    // Filter last 30 days
     if (readings && readings.length > 1) {
-      doc.setFontSize(10);
-      doc.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
-      doc.text("EVOLUÇÃO DO VIGOR (NDVI)", 10, footerY);
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const chartX = 10;
-      const chartY = footerY + 5;
-      const chartH = 50;
-      const chartW = colWidth;
+      const chartData = [...readings]
+        .filter(r => new Date(r.date) >= thirtyDaysAgo)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-      doc.setDrawColor(200);
-      doc.line(chartX, chartY + chartH, chartX + chartW, chartY + chartH); // X
-      doc.line(chartX, chartY, chartX, chartY + chartH); // Y
+      if (chartData.length > 0) {
+        const chartX = 110;
+        const chartY = splitSectionY;
+        const chartW = 90;
+        const chartH = 35; // Match approximate table height roughly
 
-      const histData = [...readings].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(-8);
+        doc.setFontSize(9);
+        doc.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
+        doc.text("VIGOR (NDVI) - 30 DIAS", chartX, chartY - 2);
 
-      if (histData.length > 0) {
-        const barWidth = (chartW / histData.length) * 0.6;
-        const gap = (chartW / histData.length) * 0.4;
+        // Axis
+        doc.setDrawColor(200);
+        doc.line(chartX, chartY + chartH, chartX + chartW, chartY + chartH); // X
+        doc.line(chartX, chartY, chartX, chartY + chartH); // Y
 
-        histData.forEach((r, i) => {
+        const barWidth = (chartW / chartData.length) * 0.6;
+        const gap = (chartW / chartData.length) * 0.4;
+
+        chartData.forEach((r, i) => {
           const height = r.ndvi * chartH;
           const x = chartX + gap / 2 + (i * (barWidth + gap));
           const y = chartY + (chartH - height);
 
           doc.setFillColor(16, 185, 129);
           doc.rect(x, y, barWidth, height, 'F');
-
-          doc.setFontSize(6);
-          doc.setTextColor(100);
-          doc.text(format(new Date(r.date), "dd/MM"), x + barWidth / 2, chartY + chartH + 3, { align: 'center' });
         });
+
+        // Labels
         doc.setFontSize(6);
-        doc.text("1.0", chartX - 2, chartY);
-        doc.text("0.5", chartX - 2, chartY + chartH / 2);
+        doc.setTextColor(100);
+        doc.text(format(new Date(chartData[0].date), "dd/MM"), chartX, chartY + chartH + 3);
+        doc.text(format(new Date(chartData[chartData.length - 1].date), "dd/MM"), chartX + chartW - 5, chartY + chartH + 3, { align: 'right' });
+
+        maxSectionHeight = Math.max(maxSectionHeight, chartH + 10);
       }
     }
+
+    startY += maxSectionHeight + 10;
+
+    // --- FINANCIALS (Bottom Right or Footer) ---
+    // Re-define footer vars for this section
+    const footerY = startY;
+    const colWidth = 90;
 
     // RIGHT COL: FINANCIALS
     if (config?.financials && zones.length > 0) {
