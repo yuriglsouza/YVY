@@ -301,7 +301,7 @@ export default function FarmDetails() {
 
     let startY = 45;
 
-    // --- AI ANALYSIS SECTION (Compact) ---
+    // --- AI ANALYSIS SECTION (Grid Layout) ---
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
     doc.setTextColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
@@ -309,10 +309,10 @@ export default function FarmDetails() {
     startY += 8;
 
     if (structuredAnalysis) {
-      // 1. Diagnostic
+      // 1. Diagnostic (Full Width)
       doc.setFillColor(240, 253, 244);
       doc.setDrawColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
-      doc.rect(10, startY, 190, 20, 'FD');
+      doc.rect(10, startY, 190, 25, 'FD');
 
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
@@ -324,12 +324,17 @@ export default function FarmDetails() {
       const diagLines = doc.splitTextToSize(structuredAnalysis.diagnostic || "-", 180);
       doc.text(diagLines, 15, startY + 10);
 
-      startY += 25;
+      startY += 30;
 
-      // 2. Prediction
+      // GRID: Prediction (Left) + Recommendation (Right)
+      const colW = 92;
+      const gap = 6;
+      const boxH = 40; // Fixed height for alignment
+
+      // Prediction (Left)
       doc.setFillColor(239, 246, 255);
       doc.setDrawColor(BRAND_SECONDARY[0], BRAND_SECONDARY[1], BRAND_SECONDARY[2]);
-      doc.rect(10, startY, 190, 20, 'FD');
+      doc.rect(10, startY, colW, boxH, 'FD');
 
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 50, 150);
@@ -337,27 +342,25 @@ export default function FarmDetails() {
 
       doc.setFont("helvetica", "normal");
       doc.setTextColor(0, 0, 0);
-      const predLines = doc.splitTextToSize(structuredAnalysis.prediction || "-", 180);
+      const predLines = doc.splitTextToSize(structuredAnalysis.prediction || "-", colW - 10);
       doc.text(predLines, 15, startY + 10);
 
-      startY += 25;
-
-      // 3. Recommendation
+      // Recommendation (Right)
       doc.setFillColor(255, 251, 235);
       doc.setDrawColor(245, 158, 11);
-      doc.rect(10, startY, 190, 25, 'FD');
+      doc.rect(10 + colW + gap, startY, colW, boxH, 'FD');
 
       doc.setFont("helvetica", "bold");
       doc.setTextColor(180, 83, 9);
-      doc.text("RECOMENDAÇÕES:", 15, startY + 5);
+      doc.text("RECOMENDAÇÕES:", 15 + colW + gap, startY + 5);
 
       doc.setFont("helvetica", "normal");
       doc.setTextColor(0, 0, 0);
       const recText = Array.isArray(structuredAnalysis.recommendation) ? structuredAnalysis.recommendation.join("; ") : structuredAnalysis.recommendation;
-      const recLines = doc.splitTextToSize(recText || "-", 180);
-      doc.text(recLines, 15, startY + 10);
+      const recLines = doc.splitTextToSize(recText || "-", colW - 10);
+      doc.text(recLines, 15 + colW + gap, startY + 10);
 
-      startY += 30;
+      startY += boxH + 10;
     } else {
       const splitText = doc.splitTextToSize(simpleContent.replace(/\*\*/g, ""), 190);
       doc.setFont("helvetica", "normal");
@@ -447,13 +450,22 @@ export default function FarmDetails() {
     const colWidth = 90;
 
     // RIGHT COL: FINANCIALS
-    if (config?.financials && zones.length > 0) {
+    // Relaxed Check: Show if config.financials exists, even if zones are empty
+    if (config?.financials) {
       const { costPerHa, pricePerBag, yields } = config.financials;
 
-      const highZone = zones.find(z => z.name.includes("Alta"))?.area_percentage || 0;
-      const mediumZone = zones.find(z => z.name.includes("Média"))?.area_percentage || 0;
-      const lowZone = zones.find(z => z.name.includes("Baixa"))?.area_percentage || 0;
-      const production = ((highZone * farm.sizeHa * yields.high) + (mediumZone * farm.sizeHa * yields.medium) + (lowZone * farm.sizeHa * yields.low));
+      // Fallback: If no zones, assume 100% Medium Yield
+      let production = 0;
+      if (zones.length > 0) {
+        const highZone = zones.find(z => z.name.includes("Alta"))?.area_percentage || 0;
+        const mediumZone = zones.find(z => z.name.includes("Média"))?.area_percentage || 0;
+        const lowZone = zones.find(z => z.name.includes("Baixa"))?.area_percentage || 0;
+        production = ((highZone * farm.sizeHa * yields.high) + (mediumZone * farm.sizeHa * yields.medium) + (lowZone * farm.sizeHa * yields.low));
+      } else {
+        // Fallback: Assume Medium Yield for entire farm
+        production = 1.0 * farm.sizeHa * yields.medium;
+      }
+
       const totalCost = farm.sizeHa * costPerHa;
       const grossRevenue = production * pricePerBag;
       const netProfit = grossRevenue - totalCost;
