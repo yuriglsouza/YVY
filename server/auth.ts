@@ -66,8 +66,16 @@ export function setupAuth(app: Express) {
                                 receiveAlerts: true,
                             });
                         } else {
-                            if (user.avatarUrl !== avatarUrl || user.name !== name) {
-                                user = await storage.updateUser(user.id, { name, avatarUrl });
+                            // Check if user should be admin based on env var
+                            const isAdminEmail = email === process.env.ADMIN_EMAIL;
+                            const shouldUpdateRole = isAdminEmail && user.role !== 'admin';
+
+                            if (user.avatarUrl !== avatarUrl || user.name !== name || shouldUpdateRole) {
+                                const updateData: any = { name, avatarUrl };
+                                if (shouldUpdateRole) {
+                                    updateData.role = 'admin';
+                                }
+                                user = await storage.updateUser(user.id, updateData);
                             }
                         }
 
