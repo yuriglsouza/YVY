@@ -55,15 +55,19 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   async getFarms(): Promise<Farm[]> {
-    return await db!.select().from(farms);
+    const farmsList = await db!.select().from(farms);
+    return await Promise.all(farmsList.map(async (farm) => {
+      const latestReading = await this.getLatestReading(farm.id);
+      return { ...farm, latestReading };
+    }));
   }
 
   async getFarmsByUserId(userId: number): Promise<Farm[]> {
-    return await db!.select().from(farms).where(eq(farms.userId, userId));
-  }
-
-  async getFarmsByUserId(userId: number): Promise<Farm[]> {
-    return await db!.select().from(farms).where(eq(farms.userId, userId));
+    const farmsList = await db!.select().from(farms).where(eq(farms.userId, userId));
+    return await Promise.all(farmsList.map(async (farm) => {
+      const latestReading = await this.getLatestReading(farm.id);
+      return { ...farm, latestReading };
+    }));
   }
 
   async getFarm(id: number): Promise<Farm | undefined> {
