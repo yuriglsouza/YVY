@@ -74,6 +74,7 @@ async function generateAgronomistReport(
       - Use linguagem técnica e culta.
       - Seja assertivo nas previsões e diagnósticos.
       - Foque em produtividade e rentabilidade.
+      - Se houver dados de Carbono/CO2, crie um pequeno parágrafo exaltando a contribuição ambiental (Métricas ESG).
 
       Dados Atuais da Fazenda:
     - Data: ${reading.date}
@@ -82,6 +83,8 @@ async function generateAgronomistReport(
     - NDRE(Clorofila/Nitrogênio): ${reading.ndre.toFixed(3)}
     - OTCI(Pigmentação): ${reading.otci ? reading.otci.toFixed(3) : 'N/A'}
     - Temperatura de Superfície: ${reading.temperature ? reading.temperature.toFixed(1) + '°C' : 'N/A'}
+    - Estoque de Carbono Estimado: ${reading.carbonStock ? reading.carbonStock.toFixed(2) + ' kg/ha' : 'N/A'}
+    - CO2 Equivalente Retido: ${reading.co2Equivalent ? reading.co2Equivalent.toFixed(2) + ' kg/ha' : 'N/A'}
       
       ${climateForecast ? `Dados Climáticos da Região (Open-Meteo):\n    - Temp Atual: ${climateForecast.currentTemp.toFixed(1)}°C\n    - Previsão Próximos 7 Dias: ${climateForecast.forecastSummary}\n    => OBRIGATÓRIO: Leve MUITO a sério essa Previsão do Tempo 7 dias para embasar suas recomendações no relatório. Se haverá chuva, economize na irrigação. Se haverá seca/calor, prescreva ações preventivas fortes.` : ''}
 
