@@ -15,6 +15,7 @@ function generateMockReadings(farmId: number, count = 10) {
   for (let i = 0; i < count; i++) {
     const date = new Date(now);
     date.setDate(date.getDate() - i * 7); // Weekly readings
+    const baseCarbon = 20 + Math.random() * 50; // 20 - 70 tonnes
     readings.push({
       farmId,
       date: date.toISOString().split('T')[0],
@@ -24,6 +25,8 @@ function generateMockReadings(farmId: number, count = 10) {
       rvi: 0.5 + Math.random() * 1.0,
       temperature: 20 + Math.random() * 15, // 20 - 35 Celsius
       otci: 0.5 + Math.random() * 2.5, // 0.5 - 3.0 (Typical OTCI range)
+      carbonStock: baseCarbon,
+      co2Equivalent: baseCarbon * 3.67,
       satelliteImage: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
       thermalImage: "https://images.unsplash.com/photo-1577705998148-6da4f3963bc1?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80"
     });
