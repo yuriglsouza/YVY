@@ -232,21 +232,39 @@ export default function FarmDetails() {
     formattedDate: format(new Date(r.date), "d 'de' MMM")
   })).reverse();
 
-  // PDF Generation Logic
+  // Helper to convert HEX to RGB for jsPDF
+  const hex2rgb = (hex: string): [number, number, number] => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return [r, g, b];
+  };
+
+  // PDF Generation Logic - Deep-Tech Enterprise SaaS Aesthetic
   const handleDownloadPDF = async (reportContent: string, date: string, config?: ReportConfig) => {
     const doc = new jsPDF();
+    const margin = 18;
+    const pageWidth = 210;
+    const pageHeight = 297;
+    const contentWidth = pageWidth - (margin * 2); // 174mm
+    const safeHeight = pageHeight - margin; // 279mm
 
-    // Brand Colors
-    const BRAND_PRIMARY: [number, number, number] = [16, 185, 129]; // #10B981 Emerald
-    const BRAND_SECONDARY: [number, number, number] = [59, 130, 246]; // #3B82F6 Blue
-    const BRAND_DARK: [number, number, number] = [26, 28, 35]; // #1A1C23 Midnight Navy
-    const BRAND_TEXT: [number, number, number] = [18, 20, 29]; // #12141D Deep Charcoal
+    // Color Palette based on prompt requirements
+    const cDarkHeader = hex2rgb("#0D1B2A");
+    const cEmerald = hex2rgb("#00B894");
+    const cLightGray = hex2rgb("#F3F4F6");
+    const cLightGreen = hex2rgb("#E6F6F1");
+    const cBlueCol = hex2rgb("#E8F1FB");
+    const cOrangeCol = hex2rgb("#FFF2E6");
+    const cGrayFooter = hex2rgb("#F5F5F5");
+    const cPrimaryText = hex2rgb("#111111");
+    const cSecondaryText = hex2rgb("#6B7280");
+    const cBorder = hex2rgb("#E5E7EB");
 
-    // Helper: Parse AI Content
+    // Formats text properly or gives fallback
     let structuredAnalysis: any = null;
     let simpleContent = reportContent;
     try {
-      // Try to parse if it's the new structured format
       if (reportContent.trim().startsWith("{")) {
         structuredAnalysis = JSON.parse(reportContent);
       }
@@ -254,80 +272,11 @@ export default function FarmDetails() {
       console.log("Legacy text content detected");
     }
 
-    // Custom or Default Branding
-    const consultant = config?.consultantName ? `Consultor: ${config.consultantName}` : "";
-
     let logoData: string | null = null;
-    let headerBgData: string | null = null;
     let logoW = 0;
     let logoH = 0;
 
-    // --- HEADER ---
-    try {
-      const headerBgUrl = '/header_bg.png';
-      headerBgData = await getBase64FromUrl(headerBgUrl);
-
-      const bgImg = new Image();
-      bgImg.src = headerBgUrl;
-      await new Promise(r => bgImg.onload = r);
-
-      // Object-Fit: Cover Logic
-      const targetW = 210;
-      const targetH = 30;
-      const aspectTarget = targetW / targetH;
-      const aspectImg = bgImg.width / bgImg.height;
-
-      let drawW, drawH, cropX = 0, cropY = 0;
-
-      // Logic: Draw image larger than box and crop (emulated by drawing outside and clipping? No, jsPDF addImage supports simple scaling.
-      // Better: Calculate the slice of the image to draw. but jsPDF addImage doesn't support source cropping easily in all versions.
-      // Alternative: Calculate dimensions to FILL the box (at least cover it), and center it.
-
-      if (aspectImg > aspectTarget) {
-        // Image is wider: Height matches, Width is cropped
-        drawH = targetH;
-        drawW = targetH * aspectImg;
-        // Center horizontally
-        // x = (targetW - drawW) / 2
-      } else {
-        // Image is taller: Width matches, Height is cropped
-        drawW = targetW;
-        drawH = targetW / aspectImg;
-        // Center vertically (typically top or center)
-        // y = (targetH - drawH) / 2
-      }
-
-      // Simple Clip trick: existing rectangle masks it? No.
-      // Just drawing it "centered" might fail if it bleeds out. 
-      // Correct approach for 'cover' without clipping mask complexity:
-      // Since header is at (0,0), we can just draw it. If it bleeds right or bottom, it's fine?
-      // Wait, A4 is 210mm wide. If we draw 300mm wide, it goes off page. That's fine.
-      // But if we draw 100mm high, it overlaps the body. That's BAD.
-      // We MUST use a clipping rect or simple check.
-
-      // Let's use a clipping rect for safety.
-      doc.saveGraphicsState();
-      doc.rect(0, 0, 210, 30, 'clip');
-
-      if (aspectImg > aspectTarget) {
-        const newW = targetH * aspectImg;
-        const x = (targetW - newW) / 2;
-        doc.addImage(headerBgData, 'PNG', x, 0, newW, targetH);
-      } else {
-        const newH = targetW / aspectImg;
-        const y = (targetH - newH) / 2;
-        doc.addImage(headerBgData, 'PNG', 0, y, targetW, newH);
-      }
-
-      doc.restoreGraphicsState();
-
-    } catch (e) {
-      // Fallback if image not found
-      doc.setFillColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
-      doc.rect(0, 0, 210, 30, 'F'); // Darker, taller header
-    }
-
-    // Add Logo & Header Text
+    // Load logo asynchronously before drawing anything
     try {
       const logoUrl = '/logo.png';
       logoData = await getBase64FromUrl(logoUrl);
@@ -337,551 +286,500 @@ export default function FarmDetails() {
       await new Promise(r => img.onload = r);
 
       const maxWidth = 50;
-      const maxHeight = 20;
+      const maxHeight = 16;
       let w = img.width;
       let h = img.height;
       const ratio = Math.min(maxWidth / w, maxHeight / h);
 
       logoW = w * ratio;
       logoH = h * ratio;
-      doc.addImage(logoData, 'PNG', 10, 5, logoW, logoH);
-
-      // Header Title (Next to Logo)
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(14); // Slightly larger
-      doc.setTextColor(16, 185, 129); // Emerald Text
-      doc.text("RELATÓRIO DE INTELIGÊNCIA DE DADOS", 15 + logoW, 18);
-
-      // Consultant Info (Right Aligned)
-      if (consultant) {
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(200, 200, 200);
-        doc.setFontSize(9);
-        doc.text(consultant, 200, 18, { align: "right" });
-      }
-
-      // --- WATERMARK (10% Opacity) ---
-      const pageCount = doc.getNumberOfPages(); // We'll loop at end, but prepare data
-      const wmWidth = 100;
-      const wmHeight = (h / w) * wmWidth;
-      const wmX = (210 - wmWidth) / 2;
-      const wmY = (297 - wmHeight) / 2;
-
-      // Store for later application
-      (doc as any).watermarkData = { logoData, wmX, wmY, wmWidth, wmHeight };
-
     } catch (e) {
-      // Fallback text if logo fails
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(14);
-      doc.text("SYAZ ORBITAL", 15, 20);
+      console.warn("Could not load company logo for PDF");
     }
 
-    // --- FARM INFO BAR ---
-    let cursorY = 30;
-    doc.setFillColor(245, 245, 245);
-    doc.rect(0, cursorY, 210, 10, 'F');
+    const consultant = config?.consultantName ? `Consultor: ${config.consultantName}` : "";
 
-    doc.setTextColor(BRAND_TEXT[0], BRAND_TEXT[1], BRAND_TEXT[2]);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
+    // Reusable Page Header Function
+    const drawHeader = (cursorY: number) => {
+      // Dark Header Bar
+      doc.setFillColor(cDarkHeader[0], cDarkHeader[1], cDarkHeader[2]);
+      doc.rect(0, 0, pageWidth, 24, 'F');
+
+      if (logoData) {
+        // Just center vertically within 24mm -> (24 - logoH) / 2
+        const logoY = Math.max((24 - logoH) / 2, 0);
+        doc.addImage(logoData, 'PNG', margin, logoY, logoW, logoH);
+      } else {
+        // Logo Text (Left) Fallback
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(20);
+        doc.text("SYAZ", margin, 15);
+      }
+
+      // Title (Center)
+      doc.setTextColor(cEmerald[0], cEmerald[1], cEmerald[2]);
+      doc.setFont("helvetica", "bold"); // Medium approximation
+      doc.setFontSize(14);
+      const titleText = "RELATÓRIO DE INTELIGÊNCIA DE DADOS";
+      const titleWidth = doc.getTextWidth(titleText);
+      doc.text(titleText, (pageWidth - titleWidth) / 2, 14.5);
+
+      // Consultant (Right)
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(consultant, pageWidth - margin, 14.5, { align: "right" });
+
+      return cursorY + 24 + 8; // Height + Spacing
+    };
+
+    // --- WATERMARK CACHE PREP ---
+    if (logoData) {
+      const wmWidth = 120;
+      const wmHeight = (logoH / logoW) * wmWidth;
+      const wmX = (pageWidth - wmWidth) / 2;
+      const wmY = (pageHeight - wmHeight) / 2;
+      (doc as any).watermarkData = { logoData, wmX, wmY, wmWidth, wmHeight };
+    }
+
+    // Helper: Page Break Check
+    let currentCursorY = 0;
+    const checkPageBreak = (neededHeight: number) => {
+      if (currentCursorY + neededHeight > safeHeight) {
+        doc.addPage();
+        currentCursorY = drawHeader(0);
+      }
+    };
+
+    // --- PAGE 1: OVERVIEW & AI TECHNICAL REPORT ---
+    currentCursorY = drawHeader(0);
+
+    // Farm Information Bar
+    doc.setFillColor(cLightGray[0], cLightGray[1], cLightGray[2]);
+    doc.rect(0, currentCursorY, pageWidth, 16, 'F');
+
+    doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
+    doc.setFont("helvetica", "bold"); // Using 'bold' as medium approximation in pdf standard
+    doc.setFontSize(10);
 
     const dateStr = format(new Date(date), "dd/MM/yyyy");
-    doc.text(`FAZENDA: ${farm?.name.toUpperCase()}`, 10, cursorY + 6.5);
-    doc.text(`DATA: ${dateStr}`, 140, cursorY + 6.5);
-    doc.text(`CULTURA: ${farm?.cropType.toUpperCase()}`, 175, cursorY + 6.5);
+    // Distributed in 3 zones (Left, Center, Right)
+    doc.text(`FAZENDA: ${farm?.name.toUpperCase()}`, margin, currentCursorY + 9.5);
+    doc.text(`DATA: ${dateStr}`, pageWidth / 2, currentCursorY + 9.5, { align: "center" });
+    doc.text(`CULTURA: ${farm?.cropType.toUpperCase()}`, pageWidth - margin, currentCursorY + 9.5, { align: "right" });
 
-    cursorY += 15; // Move down below the bar + padding
+    currentCursorY += 16 + 12; // Height + spacing below
 
-    // --- SATELLITE IMAGE ---
+    // Orbital Image
     if (latestReading?.satelliteImage) {
+      checkPageBreak(75 + 14); // imgH + spacing
       try {
         const satData = await getBase64FromUrl(latestReading.satelliteImage);
-        // Draw satellite image. Sentinel-2 returns squares, let's keep it square to avoid stretching.
         const imgSize = 75;
-        const marginX = (210 - imgSize) / 2; // Centralizado horizontalmente
+        const marginX = (pageWidth - imgSize) / 2; // Centered
 
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
-        doc.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
-        doc.text("IMAGEM ORBITAL (SATELLITE VIEW)", marginX, cursorY);
-        cursorY += 4;
+        doc.addImage(satData, 'JPEG', marginX, currentCursorY, imgSize, imgSize);
+        // Subtle Border
+        doc.setDrawColor(cBorder[0], cBorder[1], cBorder[2]);
+        doc.setLineWidth(0.5);
+        doc.rect(marginX, currentCursorY, imgSize, imgSize, 'S');
 
-        doc.addImage(satData, 'JPEG', marginX, cursorY, imgSize, imgSize);
-
-        doc.setDrawColor(200);
-        doc.rect(marginX, cursorY, imgSize, imgSize, 'D'); // Border
-
-        cursorY += imgSize + 10;
+        currentCursorY += imgSize + 14;
       } catch (e) {
         console.warn("Could not load satellite image for PDF");
       }
     }
 
-    // --- AI ANALYSIS SECTION (Grid Layout) ---
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.setTextColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
-    doc.text("DIAGNÓSTICO E PREVISÃO (IA)", 10, cursorY);
-    cursorY += 8;
-
+    // Diagnostic Block (AI)
     if (structuredAnalysis) {
-      // 1. Diagnostic (Full Width)
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
+
+      const diagLines = doc.splitTextToSize(structuredAnalysis.diagnostic || "Buscando dados...", contentWidth - 20); // 10mm padding each side
+      const diagBodyHeight = diagLines.length * (11 * 1.4 * 0.352); // Approx height based on 11pt and 1.4 line height
+      const diagnosticHeight = 16 + diagBodyHeight + 10; // Extra padding
+
+      checkPageBreak(diagnosticHeight);
+
+      // Light Green Background
+      doc.setFillColor(cLightGreen[0], cLightGreen[1], cLightGreen[2]);
+      doc.rect(margin, currentCursorY, contentWidth, diagnosticHeight, 'F');
+
+      doc.text("DIAGNÓSTICO TÉCNICO", margin + 10, currentCursorY + 8);
+
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
+      doc.setFontSize(11);
+      doc.text(diagLines, margin + 10, currentCursorY + 16);
 
-      const diagWidth = 180;
-      const diagLines = doc.splitTextToSize(structuredAnalysis.diagnostic || "-", diagWidth);
-      const diagBoxHeight = (diagLines.length * 4) + 15;
+      currentCursorY += diagnosticHeight + 12;
 
-      // Wrap if page 1 is full, though usually it fits. (Wait, cursorY at 110-120 + 30 ≈ 150. A4=297)
-      doc.setFillColor(240, 253, 244);
-      doc.setDrawColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
-      doc.rect(10, cursorY, 190, diagBoxHeight, 'FD');
+      // Two Columns: Prediction & Recommendation
+      const colWidth = (contentWidth - 8) / 2; // 8mm gutter
+
+      doc.setFontSize(11);
+      const predLines = doc.splitTextToSize(structuredAnalysis.prediction || "-", colWidth - 16);
+      const recText = Array.isArray(structuredAnalysis.recommendation) ? structuredAnalysis.recommendation.join('\n• ') : structuredAnalysis.recommendation;
+      const recLines = doc.splitTextToSize(`• ${recText}`, colWidth - 16);
+
+      const predReqH = 16 + (predLines.length * (11 * 1.4 * 0.352)) + 10;
+      const recReqH = 16 + (recLines.length * (11 * 1.4 * 0.352)) + 10;
+      const maxColH = Math.max(predReqH, recReqH);
+
+      checkPageBreak(maxColH);
+
+      // Left Column: Prediction
+      doc.setFillColor(cBlueCol[0], cBlueCol[1], cBlueCol[2]);
+      doc.rect(margin, currentCursorY, colWidth, maxColH, 'F');
 
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(0, 100, 0);
-      doc.text("DIAGNÓSTICO TÉCNICO:", 15, cursorY + 6);
+      doc.setFontSize(12);
+      doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
+      doc.text("PREVISÃO / CENÁRIO", margin + 8, currentCursorY + 8);
 
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(0, 0, 0);
-      doc.text(diagLines, 15, cursorY + 12);
+      doc.setFontSize(11);
+      doc.text(predLines, margin + 8, currentCursorY + 16);
 
-      cursorY += diagBoxHeight + 5;
-
-      // GRID: Prediction (Left) + Recommendation (Right)
-      const colW = 92;
-      const gap = 6;
-
-      const predLines = doc.splitTextToSize(structuredAnalysis.prediction || "-", colW - 10);
-      const recText = Array.isArray(structuredAnalysis.recommendation) ? structuredAnalysis.recommendation.join("; ") : structuredAnalysis.recommendation;
-      const recLines = doc.splitTextToSize(recText || "-", colW - 10);
-
-      const predHeight = (predLines.length * 4) + 15;
-      const recHeight = (recLines.length * 4) + 15;
-      const maxRowHeight = Math.max(predHeight, recHeight, 30);
-
-      // Prediction (Left)
-      doc.setFillColor(239, 246, 255);
-      doc.setDrawColor(BRAND_SECONDARY[0], BRAND_SECONDARY[1], BRAND_SECONDARY[2]);
-      doc.rect(10, cursorY, colW, maxRowHeight, 'FD');
+      // Right Column: Recommendations
+      const rightColX = margin + colWidth + 8;
+      doc.setFillColor(cOrangeCol[0], cOrangeCol[1], cOrangeCol[2]);
+      doc.rect(rightColX, currentCursorY, colWidth, maxColH, 'F');
 
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(0, 50, 150);
-      doc.text("PREVISÃO / CENÁRIO:", 15, cursorY + 6);
+      doc.setFontSize(12);
+      doc.text("RECOMENDAÇÕES", rightColX + 8, currentCursorY + 8);
 
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(0, 0, 0);
-      doc.text(predLines, 15, cursorY + 12);
+      doc.setFontSize(11);
+      doc.text(recLines, rightColX + 8, currentCursorY + 16);
 
-      // Recommendation (Right)
-      doc.setFillColor(255, 251, 235);
-      doc.setDrawColor(245, 158, 11);
-      doc.rect(10 + colW + gap, cursorY, colW, maxRowHeight, 'FD');
-
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(180, 83, 9);
-      doc.text("RECOMENDAÇÕES:", 15 + colW + gap, cursorY + 6);
-
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(0, 0, 0);
-      doc.text(recLines, 15 + colW + gap, cursorY + 12);
-
-      cursorY += maxRowHeight + 10;
+      currentCursorY += maxColH + 12;
     } else {
-      const splitText = doc.splitTextToSize(simpleContent.replace(/\*\*/g, ""), 190);
+      // Fallback Legacy
+      const fallbackLines = doc.splitTextToSize(simpleContent.replace(/\*\*/g, ""), contentWidth);
+      const fallbackH = fallbackLines.length * 6;
+      checkPageBreak(fallbackH);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(50, 50, 50);
-      doc.text(splitText, 10, cursorY);
-      cursorY += (splitText.length * 4) + 10;
+      doc.setFontSize(11);
+      doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
+      doc.text(fallbackLines, margin, currentCursorY);
+      currentCursorY += fallbackH + 12;
     }
 
-    // --- PAGE 2: TABLE, CHART, ESG, GAUGES ---
-    // Instead of forcing it on page 1 and risking cut-off, we move to Page 2.
+    // --- PAGE 2: METRICS AND DASHBOARDS ---
     doc.addPage();
-    cursorY = 40;
+    currentCursorY = drawHeader(0);
 
-    // Draw Header on Page 2
-    if (logoData) {
-      if (headerBgData) {
-        doc.addImage(headerBgData, 'PNG', 0, 0, 210, 30, undefined, 'FAST');
-      } else {
-        doc.setFillColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
-        doc.rect(0, 0, 210, 30, 'F');
+    // Watermark (background Layer)
+    try {
+      if ((doc as any).internal) {
+        // jsPDF doesn't natively support full opacity groups for entire pages easily without states. 
+        // We will add SYAZ watermark as very light text instead if opacity fails, but we'll try API.
+        doc.saveGraphicsState();
+        try {
+          doc.setGState(new (doc as any).GState({ opacity: 0.03 }));
+        } catch (e) { }
+        const wmText = "SYAZ";
+        doc.setFontSize(100);
+        doc.setTextColor(cDarkHeader[0], cDarkHeader[1], cDarkHeader[2]);
+        doc.text(wmText, 55, 150, { angle: 45 });
+        doc.restoreGraphicsState();
       }
-      doc.addImage(logoData, 'PNG', 10, 5, logoW, logoH);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(14);
-      doc.setTextColor(16, 185, 129);
-      doc.text("RELATÓRIO DE INTELIGÊNCIA DE DADOS", 15 + logoW, 18);
-    }
+    } catch (e) { }
 
-    // Watermark Page 2
-    if (logoData) {
-      doc.setGState(new (doc as any).GState({ opacity: 0.03 }));
-      doc.addImage(logoData, 'PNG', 55, 100, 100, 28, undefined, 'FAST', 45); // Rotated
-      doc.setGState(new (doc as any).GState({ opacity: 1.0 }));
-    }
-
-    // --- SPLIT SECTION: TABLE (Left) + CHART (Right) ---
-    // 1. LEFT: COMPACT TABLE (Width ~90mm)
-    let maxTableChartH = 0;
+    // Section 1: Table & NDVI Chart
+    let section1MaxH = 0;
+    const tableWidth = 80; // Roughly 5 cols out of 12 (approx width)
 
     if (latestReading) {
       autoTable(doc, {
-        startY: cursorY,
-        tableWidth: 90,
-        margin: { left: 10 },
-        head: [['ÍNDICE', 'VALOR', 'STATUS']],
+        startY: currentCursorY,
+        tableWidth: tableWidth,
+        margin: { left: margin },
+        head: [['Índice', 'Valor', 'Status']],
         body: [
-          ['NDVI', latestReading.ndvi.toFixed(2), latestReading.ndvi > 0.6 ? 'ÓTIMO' : 'ATENÇÃO'],
-          ['NDWI', latestReading.ndwi.toFixed(2), latestReading.ndwi > -0.1 ? 'BOM' : 'SECO'],
-          ['NDRE', latestReading.ndre.toFixed(2), 'NORMAL'],
-          ['OTCI', latestReading.otci ? latestReading.otci.toFixed(2) : '-', latestReading.otci && latestReading.otci > 2 ? 'ALTO' : 'MÉDIO'],
-          ['LST', latestReading.temperature ? latestReading.temperature.toFixed(1) + '°C' : '-', latestReading.temperature && latestReading.temperature > 35 ? 'ALERTA' : 'IDEAL']
+          ['NDVI', latestReading.ndvi.toFixed(2), latestReading.ndvi > 0.6 ? 'Ótimo' : 'Atenção'],
+          ['NDWI', latestReading.ndwi.toFixed(2), latestReading.ndwi > -0.1 ? 'Bom' : 'Seco'],
+          ['NDRE', latestReading.ndre.toFixed(2), 'Normal'],
+          ['OTCI', latestReading.otci ? latestReading.otci.toFixed(2) : '-', latestReading.otci && latestReading.otci > 2 ? 'Alto' : 'Baixo'],
+          ['LST', latestReading.temperature ? latestReading.temperature.toFixed(1) + '°C' : '-', latestReading.temperature && latestReading.temperature > 35 ? 'Alerta' : 'Ideal']
         ],
         theme: 'grid',
-        headStyles: { fillColor: BRAND_PRIMARY, fontSize: 8, cellPadding: 1, halign: 'center' },
-        bodyStyles: { fontSize: 8, cellPadding: 1, halign: 'center' },
-        columnStyles: { 0: { fontStyle: 'bold', halign: 'left' } }
+        headStyles: { fillColor: [243, 244, 246], textColor: cPrimaryText, fontStyle: 'bold', fontSize: 10, cellPadding: 2, lineWidth: 0.1, lineColor: cBorder },
+        bodyStyles: { textColor: cSecondaryText, fontSize: 10, cellPadding: 2, lineWidth: 0.1, lineColor: cBorder },
+        styles: { font: "helvetica" }
       });
       // @ts-ignore
       const tableFinalY = doc.lastAutoTable.finalY;
-      maxTableChartH = Math.max(maxTableChartH, tableFinalY - cursorY);
+      section1MaxH = Math.max(section1MaxH, tableFinalY - currentCursorY);
     }
 
-    // 2. RIGHT: CHART (Width ~90mm)
+    // Chart Right Side
     if (readings && readings.length > 1) {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
       const chartData = [...readings]
         .filter(r => new Date(r.date) >= thirtyDaysAgo)
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
       if (chartData.length > 0) {
-        const chartX = 110;
-        const chartY = cursorY + 2; // slight shift
-        const chartW = 90;
-        const chartH = 35;
+        const chartX = margin + tableWidth + 5; // 5mm gutter
+        const chartW = contentWidth - tableWidth - 5;
+        const chartH = 60;
 
-        doc.setFontSize(9);
+        doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
-        doc.text("VIGOR (NDVI) - 30 DIAS", chartX, chartY - 2);
+        doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
+        doc.text("VIGOR (NDVI) – 30 DIAS", chartX, currentCursorY);
 
-        // Axis
-        doc.setDrawColor(200);
-        doc.line(chartX, chartY + chartH, chartX + chartW, chartY + chartH); // X
-        doc.line(chartX, chartY, chartX, chartY + chartH); // Y
+        const graphY = currentCursorY + 5;
 
-        const barWidth = (chartW / chartData.length) * 0.6;
-        const gap = (chartW / chartData.length) * 0.4;
+        // Light grid lines (horizontal 0, 0.5, 1.0)
+        doc.setDrawColor(cBorder[0], cBorder[1], cBorder[2]);
+        doc.setLineWidth(0.2);
+        doc.line(chartX, graphY, chartX + chartW, graphY); // Top (1.0)
+        doc.line(chartX, graphY + (chartH / 2), chartX + chartW, graphY + (chartH / 2)); // Mid (0.5)
+        doc.line(chartX, graphY + chartH, chartX + chartW, graphY + chartH); // Base (0.0)
+
+        const barWidth = (chartW / chartData.length) * 0.7; // 70% bar width
+        const gap = (chartW / chartData.length) * 0.3;
 
         chartData.forEach((r, i) => {
-          const height = r.ndvi * chartH;
-          const x = chartX + gap / 2 + (i * (barWidth + gap));
-          const y = chartY + (chartH - height);
+          const height = Math.min(Math.max((r.ndvi / 1.0) * chartH, 0), chartH);
+          const x = chartX + (i * (barWidth + gap));
+          const y = graphY + (chartH - height);
 
-          doc.setFillColor(16, 185, 129);
+          doc.setFillColor(cEmerald[0], cEmerald[1], cEmerald[2]);
           doc.rect(x, y, barWidth, height, 'F');
         });
 
-        // Labels
-        doc.setFontSize(6);
-        doc.setTextColor(100);
-        doc.text(format(new Date(chartData[0].date), "dd/MM"), chartX, chartY + chartH + 3);
-        doc.text(format(new Date(chartData[chartData.length - 1].date), "dd/MM"), chartX + chartW - 5, chartY + chartH + 3, { align: 'right' });
-
-        maxTableChartH = Math.max(maxTableChartH, chartH + 10);
-      }
-    }
-
-    cursorY += maxTableChartH + 15; // Move down after table/chart
-
-    // --- SPLIT SECTION: ESG (Left) + FINANCIALS (Right) ---
-    let esgFinY = cursorY;
-    let maxEsgFinHeight = 50;
-
-    // ESG / CARBON 
-    if (latestReading && (latestReading.carbonStock !== undefined || structuredAnalysis)) {
-      let esgH = 50;
-
-      let esgLines: string[] = [];
-      if (structuredAnalysis && structuredAnalysis.esg && structuredAnalysis.esg !== '-') {
-        // Safe check for esg format since it might be long string
-        esgLines = doc.splitTextToSize(structuredAnalysis.esg, 80);
-        esgH += (esgLines.length * 4) + 10;
-      }
-
-      maxEsgFinHeight = Math.max(maxEsgFinHeight, esgH);
-
-      doc.setFillColor(236, 253, 245);
-      doc.setDrawColor(16, 185, 129);
-      doc.rect(10, esgFinY, 90, esgH, 'FD');
-
-      doc.setFontSize(10);
-      doc.setTextColor(16, 185, 129);
-      doc.setFont("helvetica", "bold");
-      doc.text("SUSTENTABILIDADE (ESG)", 15, esgFinY + 8);
-
-      doc.setFontSize(9);
-      doc.setTextColor(50);
-
-      let py = esgFinY + 18;
-      const row = (label: string, val: string) => {
-        doc.setFont("helvetica", "normal");
-        doc.text(label, 15, py);
-        doc.setFont("helvetica", "bold");
-        doc.text(val, 95, py, { align: 'right' });
-        py += 8;
-      };
-
-      const cStock = latestReading.carbonStock ?? 0;
-      const co2Eq = latestReading.co2Equivalent ?? 0;
-
-      row("Estoque Carbono:", `${cStock.toFixed(1)} t`);
-      row("CO2 Equivalente:", `${co2Eq.toFixed(1)} tCO2e`);
-
-      doc.setDrawColor(16, 185, 129);
-      doc.line(15, py - 4, 95, py - 4);
-
-      doc.setTextColor(180, 83, 9); // Amber
-      row("Valor Potencial:", `R$ ${(co2Eq * 15 * 5.5).toFixed(0)}`);
-
-      doc.setFontSize(7);
-      doc.setTextColor(100);
-      doc.setFont("helvetica", "italic");
-      doc.text("*Estimativa baseada em biomassa via sat.", 15, py + 5);
-
-      // AI Narrative Block
-      if (esgLines.length > 0) {
-        py += 12;
-        doc.setFont("helvetica", "bold");
+        // Date Labels Base
         doc.setFontSize(8);
-        doc.setTextColor(16, 185, 129);
-        doc.text("Parecer Ambiental (IA):", 15, py);
+        doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
+        doc.text(format(new Date(chartData[0].date), "dd/MM"), chartX, graphY + chartH + 4);
+        doc.text(format(new Date(chartData[chartData.length - 1].date), "dd/MM"), chartX + chartW, graphY + chartH + 4, { align: 'right' });
 
-        py += 5;
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(50, 50, 50);
-        doc.text(esgLines, 15, py);
+        section1MaxH = Math.max(section1MaxH, chartH + 15);
       }
     }
 
-    const colWidth = 90;
-    const roiX = 110;
+    currentCursorY += section1MaxH + 16;
+    checkPageBreak(80); // Ensure ESG fits
 
-    // FINANCIALS 
+    // Section 2: ESG vs Finance
+    const blockWidth = (contentWidth - 8) / 2; // 8mm gap
+    let esgH = 50;
+
+    let esgLines: string[] = [];
+    if (structuredAnalysis?.esg && structuredAnalysis.esg !== '-') {
+      esgLines = doc.splitTextToSize(structuredAnalysis.esg, blockWidth - 20);
+      esgH = 40 + (esgLines.length * (11 * 1.4 * 0.352));
+    }
+
+    let leftBlockH = Math.max(esgH, 65);
+
+    // Left ESG
+    doc.setFillColor(240, 251, 247); // #F0FBF7 very light green
+    doc.rect(margin, currentCursorY, blockWidth, leftBlockH, 'F');
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(cEmerald[0], cEmerald[1], cEmerald[2]);
+    doc.text("SUSTENTABILIDADE (ESG)", margin + 10, currentCursorY + 10);
+
+    const cStock = latestReading?.carbonStock ?? 0;
+    const co2Eq = latestReading?.co2Equivalent ?? 0;
+
+    doc.setFontSize(11);
+    doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
+    doc.setFont("helvetica", "normal");
+    doc.text("Estoque Carbono:", margin + 10, currentCursorY + 18);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${cStock.toFixed(1)} t`, margin + blockWidth - 10, currentCursorY + 18, { align: 'right' });
+
+    doc.setFont("helvetica", "normal");
+    doc.text("CO2 Equivalente:", margin + 10, currentCursorY + 24);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${co2Eq.toFixed(1)} tCO2e`, margin + blockWidth - 10, currentCursorY + 24, { align: 'right' });
+
+    if (esgLines.length > 0) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
+      doc.text(esgLines, margin + 10, currentCursorY + 32);
+    }
+
+    // Right Finance
+    const financeX = margin + blockWidth + 8;
+    doc.setFillColor(cLightGray[0], cLightGray[1], cLightGray[2]);
+    doc.rect(financeX, currentCursorY, blockWidth, leftBlockH, 'F');
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
+    doc.text("ANÁLISE FINANCEIRA (ESTIMADA)", financeX + 10, currentCursorY + 10);
+
     if (config?.financials && config?.includeFinancials) {
       const { costPerHa, pricePerBag, yields } = config.financials;
-
-      let production = 0;
+      let production = 1.0 * farm.sizeHa * yields.medium;
       if (zones.length > 0) {
-        const highZone = zones.find(z => z.name.includes("Alta"))?.area_percentage || 0;
-        const mediumZone = zones.find(z => z.name.includes("Média"))?.area_percentage || 0;
-        const lowZone = zones.find(z => z.name.includes("Baixa"))?.area_percentage || 0;
-        production = ((highZone * farm.sizeHa * yields.high) + (mediumZone * farm.sizeHa * yields.medium) + (lowZone * farm.sizeHa * yields.low));
-      } else {
-        production = 1.0 * farm.sizeHa * yields.medium;
+        const hZ = zones.find(z => z.name.includes("Alta"))?.area_percentage || 0;
+        const mZ = zones.find(z => z.name.includes("Média"))?.area_percentage || 0;
+        const lZ = zones.find(z => z.name.includes("Baixa"))?.area_percentage || 0;
+        production = ((hZ * farm.sizeHa * yields.high) + (mZ * farm.sizeHa * yields.medium) + (lZ * farm.sizeHa * yields.low));
       }
-
       const totalCost = farm.sizeHa * costPerHa;
       const grossRevenue = production * pricePerBag;
       const netProfit = grossRevenue - totalCost;
       const roi = totalCost > 0 ? (netProfit / totalCost) * 100 : 0;
 
-      doc.setFontSize(10);
+      let fy = currentCursorY + 18;
+      doc.setFontSize(11);
+
+      doc.setFont("helvetica", "normal");
+      doc.text("Custo Total:", financeX + 10, fy);
+      doc.text(`R$ ${(totalCost / 1000).toFixed(1)}k`, financeX + blockWidth - 10, fy, { align: 'right' });
+      fy += 6;
+
+      doc.text("Receita Bruta:", financeX + 10, fy);
+      doc.text(`R$ ${(grossRevenue / 1000).toFixed(1)}k`, financeX + blockWidth - 10, fy, { align: 'right' });
+      fy += 6;
+
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
-      doc.text("ANÁLISE FINANCEIRA (ESTIMADA)", roiX, esgFinY - 2);
+      doc.text("Lucro Líquido:", financeX + 10, fy);
+      doc.text(`R$ ${(netProfit / 1000).toFixed(1)}k`, financeX + blockWidth - 10, fy, { align: 'right' });
+      fy += 12;
 
-      doc.setDrawColor(200);
-      doc.setFillColor(250, 250, 250);
-      doc.rect(roiX, esgFinY, colWidth, 50, 'FD');
+      doc.setFont("helvetica", "bold");
+      doc.text("ROI:", financeX + 10, fy);
+      doc.setFontSize(16);
+      const cBlueROI = hex2rgb("#2563EB");
+      doc.setTextColor(cBlueROI[0], cBlueROI[1], cBlueROI[2]);
+      doc.text(`${roi.toFixed(0)}%`, financeX + blockWidth - 10, fy, { align: 'right' });
 
-      doc.setFontSize(9);
-      doc.setTextColor(50);
-
-      let py = esgFinY + 10;
-      const row = (label: string, val: string, isBold = false) => {
-        if (isBold) doc.setFont("helvetica", "bold"); else doc.setFont("helvetica", "normal");
-        doc.text(label, roiX + 5, py);
-        doc.text(val, roiX + colWidth - 5, py, { align: 'right' });
-        py += 8;
-      };
-
-      row("Custo Total:", `R$ ${(totalCost / 1000).toFixed(1)}k`);
-      row("Receita Bruta:", `R$ ${(grossRevenue / 1000).toFixed(1)}k`);
-      doc.setDrawColor(220);
-      doc.line(roiX + 5, py - 4, roiX + colWidth - 5, py - 4);
-
-      doc.setTextColor(16, 185, 129);
-      row("Lucro Líquido:", `R$ ${(netProfit / 1000).toFixed(1)}k`, true);
-
-      doc.setTextColor(BRAND_SECONDARY[0], BRAND_SECONDARY[1], BRAND_SECONDARY[2]);
-      doc.setFontSize(14);
-      doc.text(`ROI: ${roi.toFixed(0)}%`, roiX + colWidth / 2, py + 5, { align: 'center' });
     } else {
       doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text("NOTAS:", roiX, esgFinY - 2);
-      doc.setDrawColor(200);
-      doc.rect(roiX, esgFinY, colWidth, 50);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
+      doc.text("Dados não preenchidos.", financeX + 10, currentCursorY + 20);
     }
 
-    cursorY += maxEsgFinHeight + 15; // Move down below ESG/FIN blocks
+    currentCursorY += leftBlockH + 18;
+    checkPageBreak(80);
 
-    // --- HORIZONTAL GAUGES (Data Intelligence) ---
-    // If we exceed page bounds, we create Page 3. But usually it fits.
-    // Safety check:
-    if (cursorY > 230) {
-      doc.addPage();
-      cursorY = 20; // reset
-    }
+    // Section 3: Horizontal Gauges
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
+    const gaugeTitle = "ÍNDICES DE VIGOR (MÉDIA)";
+    doc.text(gaugeTitle, pageWidth / 2, currentCursorY, { align: "center" });
+    currentCursorY += 8;
 
     if (latestReading) {
-      const gaugeX = 10;
-      const gaugeW = 190;
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
-      doc.text("ÍNDICES DE VIGOR (MÉDIA)", gaugeX, cursorY);
-
-      let gy = cursorY + 5;
       const items = [
-        { label: "NDVI (Vigor)", val: latestReading.ndvi, min: 0, max: 1, stop1: [239, 68, 68], stop2: [234, 179, 8], stop3: [34, 197, 94] },
-        { label: "NDWI (Água)", val: latestReading.ndwi, min: -0.5, max: 0.5, stop1: [239, 68, 68], stop2: [59, 130, 246], stop3: [30, 64, 175] },
-        { label: "NDRE (Nutrição)", val: latestReading.ndre, min: 0, max: 1, stop1: [239, 68, 68], stop2: [234, 179, 8], stop3: [34, 197, 94] },
-        { label: "OTCI (Clorofila)", val: latestReading.otci || 0, min: 0, max: 5, stop1: [234, 179, 8], stop2: [34, 197, 94], stop3: [21, 128, 61] },
-        { label: "LST (Temperatura)", val: latestReading.temperature || 0, min: 10, max: 40, stop1: [34, 197, 94], stop2: [234, 179, 8], stop3: [239, 68, 68] }
+        { label: "NDVI", val: latestReading.ndvi, min: 0, max: 1 },
+        { label: "NDWI", val: latestReading.ndwi, min: -0.5, max: 0.5 },
+        { label: "NDRE", val: latestReading.ndre, min: 0, max: 1 },
+        { label: "OTCI", val: latestReading.otci || 0, min: 0, max: 5 },
+        { label: "LST (°C)", val: latestReading.temperature || 0, min: 10, max: 40 }
       ];
 
       items.forEach((item) => {
-        // Label & Value
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(50);
-        doc.text(item.label, gaugeX, gy + 3);
-        doc.text(item.val.toFixed(2), gaugeX + gaugeW, gy + 3, { align: 'right' });
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
+        doc.text(item.label, margin, currentCursorY + 3);
 
-        // Gradient Bar
-        const barY = gy + 5;
-        const barH = 4;
-        const steps = 30;
-        const stepW = gaugeW / steps;
+        doc.setFont("helvetica", "normal");
+        doc.text(item.val.toFixed(2), margin + contentWidth, currentCursorY + 3, { align: 'right' });
+
+        const barX = margin + 30; // Push right to allow label
+        const barW = contentWidth - 45; // Leave space for value
+        const barH = 8;
+        const statY = currentCursorY;
+
+        // Custom Gradient: Red(left) - Yellow(mid) - Green(right)
+        // Except LST which is Green-Yellow-Red. We'll flip logic for LST
+        const isFlipped = item.label.includes("LST");
+
+        const steps = 40;
+        const stepW = barW / steps;
 
         for (let s = 0; s < steps; s++) {
           const t = s / (steps - 1);
           let r, g, b;
 
-          if (t < 0.5) {
-            // First Half
-            const localT = t * 2;
-            r = Math.round(item.stop1[0] + (item.stop2[0] - item.stop1[0]) * localT);
-            g = Math.round(item.stop1[1] + (item.stop2[1] - item.stop1[1]) * localT);
-            b = Math.round(item.stop1[2] + (item.stop2[2] - item.stop1[2]) * localT);
-          } else {
-            // Second Half
-            const localT = (t - 0.5) * 2;
-            r = Math.round(item.stop2[0] + (item.stop3[0] - item.stop2[0]) * localT);
-            g = Math.round(item.stop2[1] + (item.stop3[1] - item.stop2[1]) * localT);
-            b = Math.round(item.stop2[2] + (item.stop3[2] - item.stop2[2]) * localT);
-          }
+          let effectiveT = isFlipped ? 1 - t : t;
 
+          if (effectiveT < 0.5) {
+            // Red to Yellow: #DC2626 to #FBBF24
+            const nt = effectiveT * 2;
+            r = 220 + (251 - 220) * nt;
+            g = 38 + (191 - 38) * nt;
+            b = 38 + (36 - 38) * nt;
+          } else {
+            // Yellow to Green: #FBBF24 to #16A34A
+            const nt = (effectiveT - 0.5) * 2;
+            r = 251 + (22 - 251) * nt;
+            g = 191 + (163 - 191) * nt;
+            b = 36 + (74 - 36) * nt;
+          }
           doc.setFillColor(r, g, b);
-          doc.rect(gaugeX + (s * stepW), barY, stepW + 0.5, barH, 'F'); // +0.5 to avoid gaps
+          doc.rect(barX + (s * stepW), statY, stepW + 0.5, barH, 'F');
         }
 
-        // Marker (Triangle)
-        // Normalize value to 0-1 range
+        // Pointer Layer
         const normVal = Math.max(0, Math.min(1, (item.val - item.min) / (item.max - item.min)));
-        const markerX = gaugeX + (normVal * gaugeW);
+        const markerX = barX + (normVal * barW);
 
-        doc.setFillColor(50, 50, 50);
-        // Triangle pointing down
+        // Marker Triangle (Dark)
+        doc.setFillColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
         doc.triangle(
-          markerX - 1.5, barY - 1,
-          markerX + 1.5, barY - 1,
-          markerX, barY + 1.5,
+          markerX - 2, statY - 2,
+          markerX + 2, statY - 2,
+          markerX, statY + 2,
           'F'
         );
-        // Line marker through bar
+
+        // White cut-line inside bar
         doc.setDrawColor(255, 255, 255);
-        doc.setLineWidth(0.5);
-        doc.line(markerX, barY, markerX, barY + barH);
+        doc.setLineWidth(0.8);
+        doc.line(markerX, statY, markerX, statY + barH);
 
-        gy += 12; // Spacing
-      });
-      cursorY = gy + 10;
-    }
-
-    // --- GLOSSARY & METHODOLOGY ---
-    // Shifted further down to accommodate Gauges
-    const glossaryY = cursorY;
-
-    // Check if we have space on the page (A4 height ~297mm, Footer starts at 285)
-    if (glossaryY < 240) {
-      doc.setFillColor(248, 250, 252);
-      doc.setDrawColor(226, 232, 240);
-      doc.rect(10, glossaryY, 190, 35, 'FD');
-
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
-      doc.text("METODOLOGIA E GLOSSÁRIO", 15, glossaryY + 6);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
-      doc.setTextColor(80, 80, 80);
-
-      const glossary = [
-        "NDVI (Vigor): Índice de Vegetação. Valores > 0.6 indicam alta biomassa e saúde. < 0.3 sugere solo exposto ou estresse severo.",
-        "NDWI (Água): Índice de Água. Monitora o estresse hídrico na planta. Valores negativos indicam baixa umidade.",
-        "NDRE (Nutrição): Sensível à clorofila. Útil para detectar deficiências de Nitrogênio precocemente.",
-        "OTCI (Sentinel-3): Índice de Clorofila Terrestre. Alta correlação com nitrogênio e produtividade em grandes culturas.",
-        "LST (Temperatura): Temperatura da superfície. Altas temperaturas podem indicar estresse hídrico (fechamento estomático).",
-        "Fonte de Dados: Imagens do satélite Sentinel-2 (ESA) processadas via Google Earth Engine. Resolução espacial de 10m."
-      ];
-
-      let gy = glossaryY + 11;
-      glossary.forEach(item => {
-        doc.text("• " + item, 15, gy);
-        gy += 4.5;
+        currentCursorY += 8 + 8; // Bar + Spacing (16 total per item, baseline rule)
       });
     }
 
-    // --- FOOTER & WATERMARK LOOP ---
+    currentCursorY += 16;
+
+    // --- GLOBAL FOOTER (All Pages) ---
+    // Actually jsPDF requires loop to apply to all pages exactly
     const totalPages = doc.getNumberOfPages();
-    const wm = (doc as any).watermarkData;
-
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
+      const footerY = pageHeight - margin - 20; // 20mm height footer box
 
-      // Watermark
-      if (wm) {
-        doc.saveGraphicsState();
-        try {
-          // @ts-ignore
-          const gState = new doc.GState({ opacity: 0.1 });
-          doc.setGState(gState);
-        } catch (e) {
-          // Fallback or ignore if GState fails
-        }
-        doc.addImage(wm.logoData, 'PNG', wm.wmX, wm.wmY, wm.wmWidth, wm.wmHeight);
-        doc.restoreGraphicsState();
-      }
+      doc.setFillColor(cGrayFooter[0], cGrayFooter[1], cGrayFooter[2]);
+      doc.rect(margin, footerY, contentWidth, 20, 'F');
 
-      // Footer
-      doc.setFillColor(245, 245, 245);
-      doc.rect(0, 285, 210, 12, 'F');
+      // Glossary Left
       doc.setFontSize(8);
-      doc.setTextColor(150);
-      doc.text(`SYAZ Orbital - Inteligência Agronômica | Página ${i} de ${totalPages}`, 105, 292, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
+      doc.text("Glossário: NDVI (Vigor Vegetativo). Valores medidos por reflectância.", margin + 4, footerY + 6);
+      doc.text("Fonte de Dados: Imagens Sentinel-2 (ESA) via processamento GEE.", margin + 4, footerY + 11);
+      doc.text("Este relatorio é emitido através do software SYAZ SaaS e possui validade técnica apenas com recolha de campo.", margin + 4, footerY + 16);
+
+      // Pagination Right
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
+      doc.text(`Página ${i} de ${totalPages}`, margin + contentWidth - 4, footerY + 12, { align: 'right' });
     }
 
-    doc.save(`Relatorio_Tecnico_${farm?.name}_${date}.pdf`);
+    doc.save(`Relatorio_Inteligencia_${farm?.name}_${date}.pdf`);
   };
 
   return (
