@@ -1346,9 +1346,7 @@ export default function FarmDetails() {
         </TabsContent>
       </Tabs>
 
-        </div >
-      </main >
-    </div >
+      </main>
+    </div>
   );
 }
-// Forced redeploy trigger
