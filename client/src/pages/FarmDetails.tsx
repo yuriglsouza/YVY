@@ -378,26 +378,53 @@ export default function FarmDetails() {
     }
 
     // --- FARM INFO BAR ---
+    let cursorY = 30;
     doc.setFillColor(245, 245, 245);
-    doc.rect(0, 30, 210, 10, 'F');
+    doc.rect(0, cursorY, 210, 10, 'F');
 
     doc.setTextColor(BRAND_TEXT[0], BRAND_TEXT[1], BRAND_TEXT[2]);
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
 
     const dateStr = format(new Date(date), "dd/MM/yyyy");
-    doc.text(`FAZENDA: ${farm?.name.toUpperCase()}`, 10, 36);
-    doc.text(`DATA: ${dateStr}`, 140, 36);
-    doc.text(`CULTURA: ${farm?.cropType.toUpperCase()}`, 175, 36);
+    doc.text(`FAZENDA: ${farm?.name.toUpperCase()}`, 10, cursorY + 6.5);
+    doc.text(`DATA: ${dateStr}`, 140, cursorY + 6.5);
+    doc.text(`CULTURA: ${farm?.cropType.toUpperCase()}`, 175, cursorY + 6.5);
 
-    let startY = 45;
+    cursorY += 15; // Move down below the bar + padding
+
+    // --- SATELLITE IMAGE ---
+    if (latestReading?.satelliteImage) {
+      try {
+        const satData = await getBase64FromUrl(latestReading.satelliteImage);
+        // Draw satellite image. Let's make it span the width with padding.
+        const marginX = 10;
+        const imgW = 190;
+        const imgH = 60; // Fixed height, cropped ideally, but addImage will stretch if we don't calculate.
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
+        doc.text("IMAGEM ORBITAL (SATELLITE VIEW)", marginX, cursorY);
+        cursorY += 4;
+
+        doc.addImage(satData, 'JPEG', marginX, cursorY, imgW, imgH);
+
+        doc.setDrawColor(200);
+        doc.rect(marginX, cursorY, imgW, imgH, 'D'); // Border
+
+        cursorY += imgH + 10;
+      } catch (e) {
+        console.warn("Could not load satellite image for PDF");
+      }
+    }
 
     // --- AI ANALYSIS SECTION (Grid Layout) ---
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
     doc.setTextColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
-    doc.text("DIAGNÓSTICO E PREVISÃO (IA)", 10, startY);
-    startY += 8;
+    doc.text("DIAGNÓSTICO E PREVISÃO (IA)", 10, cursorY);
+    cursorY += 8;
 
     if (structuredAnalysis) {
       // 1. Diagnostic (Full Width)
@@ -406,22 +433,22 @@ export default function FarmDetails() {
 
       const diagWidth = 180;
       const diagLines = doc.splitTextToSize(structuredAnalysis.diagnostic || "-", diagWidth);
-      const lineHeight = 4;
-      const diagBoxHeight = (diagLines.length * lineHeight) + 15;
+      const diagBoxHeight = (diagLines.length * 4) + 15;
 
+      // Wrap if page 1 is full, though usually it fits. (Wait, cursorY at 110-120 + 30 ≈ 150. A4=297)
       doc.setFillColor(240, 253, 244);
       doc.setDrawColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
-      doc.rect(10, startY, 190, diagBoxHeight, 'FD');
+      doc.rect(10, cursorY, 190, diagBoxHeight, 'FD');
 
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 100, 0);
-      doc.text("DIAGNÓSTICO TÉCNICO:", 15, startY + 6);
+      doc.text("DIAGNÓSTICO TÉCNICO:", 15, cursorY + 6);
 
       doc.setFont("helvetica", "normal");
       doc.setTextColor(0, 0, 0);
-      doc.text(diagLines, 15, startY + 12);
+      doc.text(diagLines, 15, cursorY + 12);
 
-      startY += diagBoxHeight + 5;
+      cursorY += diagBoxHeight + 5;
 
       // GRID: Prediction (Left) + Recommendation (Right)
       const colW = 92;
@@ -431,53 +458,79 @@ export default function FarmDetails() {
       const recText = Array.isArray(structuredAnalysis.recommendation) ? structuredAnalysis.recommendation.join("; ") : structuredAnalysis.recommendation;
       const recLines = doc.splitTextToSize(recText || "-", colW - 10);
 
-      const predHeight = (predLines.length * lineHeight) + 15;
-      const recHeight = (recLines.length * lineHeight) + 15;
+      const predHeight = (predLines.length * 4) + 15;
+      const recHeight = (recLines.length * 4) + 15;
       const maxRowHeight = Math.max(predHeight, recHeight, 30);
 
       // Prediction (Left)
       doc.setFillColor(239, 246, 255);
       doc.setDrawColor(BRAND_SECONDARY[0], BRAND_SECONDARY[1], BRAND_SECONDARY[2]);
-      doc.rect(10, startY, colW, maxRowHeight, 'FD');
+      doc.rect(10, cursorY, colW, maxRowHeight, 'FD');
 
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 50, 150);
-      doc.text("PREVISÃO / CENÁRIO:", 15, startY + 6);
+      doc.text("PREVISÃO / CENÁRIO:", 15, cursorY + 6);
 
       doc.setFont("helvetica", "normal");
       doc.setTextColor(0, 0, 0);
-      doc.text(predLines, 15, startY + 12);
+      doc.text(predLines, 15, cursorY + 12);
 
       // Recommendation (Right)
       doc.setFillColor(255, 251, 235);
       doc.setDrawColor(245, 158, 11);
-      doc.rect(10 + colW + gap, startY, colW, maxRowHeight, 'FD');
+      doc.rect(10 + colW + gap, cursorY, colW, maxRowHeight, 'FD');
 
       doc.setFont("helvetica", "bold");
       doc.setTextColor(180, 83, 9);
-      doc.text("RECOMENDAÇÕES:", 15 + colW + gap, startY + 6);
+      doc.text("RECOMENDAÇÕES:", 15 + colW + gap, cursorY + 6);
 
       doc.setFont("helvetica", "normal");
       doc.setTextColor(0, 0, 0);
-      doc.text(recLines, 15 + colW + gap, startY + 12);
+      doc.text(recLines, 15 + colW + gap, cursorY + 12);
 
-      startY += maxRowHeight + 10;
+      cursorY += maxRowHeight + 10;
     } else {
       const splitText = doc.splitTextToSize(simpleContent.replace(/\*\*/g, ""), 190);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(50, 50, 50);
-      doc.text(splitText, 10, startY);
-      startY += (splitText.length * 4) + 10;
+      doc.text(splitText, 10, cursorY);
+      cursorY += (splitText.length * 4) + 10;
+    }
+
+    // --- PAGE 2: TABLE, CHART, ESG, GAUGES ---
+    // Instead of forcing it on page 1 and risking cut-off, we move to Page 2.
+    doc.addPage();
+    cursorY = 40;
+
+    // Draw Header on Page 2
+    if (logoData) {
+      if (headerBgData) {
+        doc.addImage(headerBgData, 'PNG', 0, 0, 210, 30, undefined, 'FAST');
+      } else {
+        doc.setFillColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
+        doc.rect(0, 0, 210, 30, 'F');
+      }
+      doc.addImage(logoData, 'PNG', 10, 5, logoW, logoH);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(16, 185, 129);
+      doc.text("RELATÓRIO DE INTELIGÊNCIA DE DADOS", 15 + logoW, 18);
+    }
+
+    // Watermark Page 2
+    if (logoData) {
+      doc.setGState(new (doc as any).GState({ opacity: 0.03 }));
+      doc.addImage(logoData, 'PNG', 55, 100, 100, 28, undefined, 'FAST', 45); // Rotated
+      doc.setGState(new (doc as any).GState({ opacity: 1.0 }));
     }
 
     // --- SPLIT SECTION: TABLE (Left) + CHART (Right) ---
-    const splitSectionY = startY;
-    let maxSectionHeight = 0;
-
     // 1. LEFT: COMPACT TABLE (Width ~90mm)
+    let maxTableChartH = 0;
+
     if (latestReading) {
       autoTable(doc, {
-        startY: splitSectionY,
+        startY: cursorY,
         tableWidth: 90,
         margin: { left: 10 },
         head: [['ÍNDICE', 'VALOR', 'STATUS']],
@@ -494,11 +547,11 @@ export default function FarmDetails() {
         columnStyles: { 0: { fontStyle: 'bold', halign: 'left' } }
       });
       // @ts-ignore
-      maxSectionHeight = Math.max(maxSectionHeight, doc.lastAutoTable.finalY - splitSectionY);
+      const tableFinalY = doc.lastAutoTable.finalY;
+      maxTableChartH = Math.max(maxTableChartH, tableFinalY - cursorY);
     }
 
     // 2. RIGHT: CHART (Width ~90mm)
-    // Filter last 30 days
     if (readings && readings.length > 1) {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -509,11 +562,12 @@ export default function FarmDetails() {
 
       if (chartData.length > 0) {
         const chartX = 110;
-        const chartY = splitSectionY;
+        const chartY = cursorY + 2; // slight shift
         const chartW = 90;
-        const chartH = 35; // Match approximate table height roughly
+        const chartH = 35;
 
         doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
         doc.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
         doc.text("VIGOR (NDVI) - 30 DIAS", chartX, chartY - 2);
 
@@ -540,71 +594,42 @@ export default function FarmDetails() {
         doc.text(format(new Date(chartData[0].date), "dd/MM"), chartX, chartY + chartH + 3);
         doc.text(format(new Date(chartData[chartData.length - 1].date), "dd/MM"), chartX + chartW - 5, chartY + chartH + 3, { align: 'right' });
 
-        maxSectionHeight = Math.max(maxSectionHeight, chartH + 10);
+        maxTableChartH = Math.max(maxTableChartH, chartH + 10);
       }
     }
 
-    startY += maxSectionHeight + 10;
+    cursorY += maxTableChartH + 15; // Move down after table/chart
 
-    // --- PAGE 2: FINANCIALS, ESG, GAUGES ---
-    doc.addPage();
+    // --- SPLIT SECTION: ESG (Left) + FINANCIALS (Right) ---
+    let esgFinY = cursorY;
+    let maxEsgFinHeight = 50;
 
-    // Draw Header on Page 2
-    if (logoData) {
-      if (headerBgData) {
-        doc.addImage(headerBgData, 'PNG', 0, 0, 210, 30, undefined, 'FAST');
-      } else {
-        doc.setFillColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
-        doc.rect(0, 0, 210, 30, 'F');
-      }
-      // Logo on Page 2
-      doc.addImage(logoData, 'PNG', 10, 5, logoW, logoH);
-
-      // Title
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(14);
-      doc.setTextColor(16, 185, 129); // Emerald-500
-      doc.text("RELATÓRIO DE INTELIGÊNCIA DE DADOS", 15 + logoW, 18);
-    }
-
-    // Watermark Page 2
-    if (logoData) {
-      doc.setGState(new (doc as any).GState({ opacity: 0.03 }));
-      doc.addImage(logoData, 'PNG', 55, 100, 100, 28, undefined, 'FAST', 45); // Rotated
-      doc.setGState(new (doc as any).GState({ opacity: 1.0 }));
-    }
-
-    let page2Y = 40; // Start below header
-
-    let maxBlockHeight = 50;
-
-    // --- LEFT COL: ESG / CARBON ---
-    // Repositioned to top of Page 2
+    // ESG / CARBON 
     if (latestReading?.carbonStock) {
       let esgH = 50;
 
-      // Calculate extra height for AI Text if exists
       let esgLines: string[] = [];
       if (structuredAnalysis && structuredAnalysis.esg && structuredAnalysis.esg !== '-') {
+        // Safe check for esg format since it might be long string
         esgLines = doc.splitTextToSize(structuredAnalysis.esg, 80);
         esgH += (esgLines.length * 4) + 10;
       }
 
-      maxBlockHeight = Math.max(maxBlockHeight, esgH);
+      maxEsgFinHeight = Math.max(maxEsgFinHeight, esgH);
 
-      doc.setFillColor(236, 253, 245); // Emerald-50
-      doc.setDrawColor(16, 185, 129); // Emerald-500
-      doc.rect(10, page2Y, 90, esgH, 'FD');
+      doc.setFillColor(236, 253, 245);
+      doc.setDrawColor(16, 185, 129);
+      doc.rect(10, esgFinY, 90, esgH, 'FD');
 
       doc.setFontSize(10);
       doc.setTextColor(16, 185, 129);
       doc.setFont("helvetica", "bold");
-      doc.text("SUSTENTABILIDADE (ESG)", 15, page2Y + 8);
+      doc.text("SUSTENTABILIDADE (ESG)", 15, esgFinY + 8);
 
       doc.setFontSize(9);
       doc.setTextColor(50);
 
-      let py = page2Y + 18;
+      let py = esgFinY + 18;
       const row = (label: string, val: string) => {
         doc.setFont("helvetica", "normal");
         doc.text(label, 15, py);
@@ -625,9 +650,9 @@ export default function FarmDetails() {
       doc.setFontSize(7);
       doc.setTextColor(100);
       doc.setFont("helvetica", "italic");
-      doc.text("*Estimativa baseada em biomassa via satélite.", 15, py + 5);
+      doc.text("*Estimativa baseada em biomassa via sat.", 15, py + 5);
 
-      // AI Narrative Block (If generated)
+      // AI Narrative Block
       if (esgLines.length > 0) {
         py += 12;
         doc.setFont("helvetica", "bold");
@@ -643,13 +668,12 @@ export default function FarmDetails() {
     }
 
     const colWidth = 90;
+    const roiX = 110;
 
-    // --- RIGHT COL: FINANCIALS ---
-    // Repositioned to top of Page 2
+    // FINANCIALS 
     if (config?.financials && config?.includeFinancials) {
       const { costPerHa, pricePerBag, yields } = config.financials;
 
-      // Fallback: If no zones, assume 100% Medium Yield
       let production = 0;
       if (zones.length > 0) {
         const highZone = zones.find(z => z.name.includes("Alta"))?.area_percentage || 0;
@@ -657,7 +681,6 @@ export default function FarmDetails() {
         const lowZone = zones.find(z => z.name.includes("Baixa"))?.area_percentage || 0;
         production = ((highZone * farm.sizeHa * yields.high) + (mediumZone * farm.sizeHa * yields.medium) + (lowZone * farm.sizeHa * yields.low));
       } else {
-        // Fallback: Assume Medium Yield for entire farm
         production = 1.0 * farm.sizeHa * yields.medium;
       }
 
@@ -666,21 +689,19 @@ export default function FarmDetails() {
       const netProfit = grossRevenue - totalCost;
       const roi = totalCost > 0 ? (netProfit / totalCost) * 100 : 0;
 
-      const roiX = 110;
-      const roiY = page2Y;
-
       doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
       doc.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
-      doc.text("ANÁLISE FINANCEIRA (ESTIMADA)", roiX, roiY - 2);
+      doc.text("ANÁLISE FINANCEIRA (ESTIMADA)", roiX, esgFinY - 2);
 
       doc.setDrawColor(200);
       doc.setFillColor(250, 250, 250);
-      doc.rect(roiX, roiY, colWidth, 50, 'FD');
+      doc.rect(roiX, esgFinY, colWidth, 50, 'FD');
 
       doc.setFontSize(9);
       doc.setTextColor(50);
 
-      let py = roiY + 10;
+      let py = esgFinY + 10;
       const row = (label: string, val: string, isBold = false) => {
         if (isBold) doc.setFont("helvetica", "bold"); else doc.setFont("helvetica", "normal");
         doc.text(label, roiX + 5, py);
@@ -700,35 +721,39 @@ export default function FarmDetails() {
       doc.setFontSize(14);
       doc.text(`ROI: ${roi.toFixed(0)}%`, roiX + colWidth / 2, py + 5, { align: 'center' });
     } else {
-      const notesX = 110;
-      doc.text("NOTAS:", notesX, page2Y - 2);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("NOTAS:", roiX, esgFinY - 2);
       doc.setDrawColor(200);
-      doc.rect(notesX, page2Y, colWidth, 50);
+      doc.rect(roiX, esgFinY, colWidth, 50);
     }
 
-    // Update Y for next section (Gauges)
-    const footerY = page2Y; // Keep variable name for subsequent code compatibility
+    cursorY += maxEsgFinHeight + 15; // Move down below ESG/FIN blocks
 
-    // --- LEFT COL: HORIZONTAL GAUGES (Data Intelligence) ---
-    // Moved below ESG/Financials to avoid overlap
+    // --- HORIZONTAL GAUGES (Data Intelligence) ---
+    // If we exceed page bounds, we create Page 3. But usually it fits.
+    // Safety check:
+    if (cursorY > 230) {
+      doc.addPage();
+      cursorY = 20; // reset
+    }
+
     if (latestReading) {
       const gaugeX = 10;
-      // Shift down dynamically based on tallest box + 10 padding
-      const gaugeY = footerY + maxBlockHeight + 10;
-      const gaugeW = 190; // Use full width now that it's below
+      const gaugeW = 190;
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
       doc.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
-      doc.text("ÍNDICES DE VIGOR (MÉDIA)", gaugeX, gaugeY);
+      doc.text("ÍNDICES DE VIGOR (MÉDIA)", gaugeX, cursorY);
 
-      let gy = gaugeY + 5;
+      let gy = cursorY + 5;
       const items = [
-        { label: "NDVI (Vigor)", val: latestReading.ndvi, min: 0, max: 1, stop1: [239, 68, 68], stop2: [234, 179, 8], stop3: [34, 197, 94] }, // Red -> Yellow -> Green
-        { label: "NDWI (Água)", val: latestReading.ndwi, min: -0.5, max: 0.5, stop1: [239, 68, 68], stop2: [59, 130, 246], stop3: [30, 64, 175] }, // Red -> Blue -> Dark Blue
+        { label: "NDVI (Vigor)", val: latestReading.ndvi, min: 0, max: 1, stop1: [239, 68, 68], stop2: [234, 179, 8], stop3: [34, 197, 94] },
+        { label: "NDWI (Água)", val: latestReading.ndwi, min: -0.5, max: 0.5, stop1: [239, 68, 68], stop2: [59, 130, 246], stop3: [30, 64, 175] },
         { label: "NDRE (Nutrição)", val: latestReading.ndre, min: 0, max: 1, stop1: [239, 68, 68], stop2: [234, 179, 8], stop3: [34, 197, 94] },
-        { label: "OTCI (Clorofila)", val: latestReading.otci || 0, min: 0, max: 5, stop1: [234, 179, 8], stop2: [34, 197, 94], stop3: [21, 128, 61] }, // Yellow -> Green -> Dark Green
-        { label: "LST (Temperatura)", val: latestReading.temperature || 0, min: 10, max: 40, stop1: [34, 197, 94], stop2: [234, 179, 8], stop3: [239, 68, 68] } // Green -> Yellow -> Red
+        { label: "OTCI (Clorofila)", val: latestReading.otci || 0, min: 0, max: 5, stop1: [234, 179, 8], stop2: [34, 197, 94], stop3: [21, 128, 61] },
+        { label: "LST (Temperatura)", val: latestReading.temperature || 0, min: 10, max: 40, stop1: [34, 197, 94], stop2: [234, 179, 8], stop3: [239, 68, 68] }
       ];
 
       items.forEach((item) => {
@@ -787,12 +812,12 @@ export default function FarmDetails() {
 
         gy += 12; // Spacing
       });
+      cursorY = gy + 10;
     }
 
     // --- GLOSSARY & METHODOLOGY ---
-    // --- GLOSSARY & METHODOLOGY ---
     // Shifted further down to accommodate Gauges
-    const glossaryY = footerY + 130; // 60 (ESG) + 70 (Gauges)
+    const glossaryY = cursorY;
 
     // Check if we have space on the page (A4 height ~297mm, Footer starts at 285)
     if (glossaryY < 240) {
