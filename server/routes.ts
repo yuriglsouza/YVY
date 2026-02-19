@@ -262,6 +262,30 @@ export async function registerRoutes(
     }
   });
 
+  // === SUBSCRIPTIONS (PayPal) ===
+  app.post("/api/subscriptions/upgrade", isAuthenticated, async (req, res) => {
+    const user = req.user as any;
+    const { orderId } = req.body;
+
+    if (!orderId) {
+      return res.status(400).json({ message: "Order ID mismatch" });
+    }
+
+    try {
+      // In a real app, verify orderId with PayPal API here.
+      // For MVP, we trust the client's successful capture.
+
+      const updatedUser = await storage.updateUser(user.id, {
+        subscriptionStatus: 'active',
+        subscriptionEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // +30 days
+      });
+
+      res.json({ message: "Subscription activated", user: updatedUser });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to upgrade subscription" });
+    }
+  });
+
   // --- CLIENTS (CRM) ---
   app.get("/api/clients", isAuthenticated, async (req, res) => {
     const clients = await storage.getClients();

@@ -8,6 +8,7 @@ import ClientList from "@/pages/ClientList";
 import Dashboard from "@/pages/Dashboard"; // Import Dashboard
 import FarmDetails from "@/pages/FarmDetails";
 import Settings from "@/pages/Settings"; // Import Settings
+import Plans from "@/pages/Plans"; // Import Plans
 import LoginPage from "@/pages/LoginPage"; // Import Login Page
 import { TooltipProvider } from "@/components/ui/tooltip"; // Restored
 import { useQuery } from "@tanstack/react-query";
@@ -46,6 +47,7 @@ function Router() {
       <Route path="/clients" component={() => <ProtectedRoute component={ClientList} />} />
       <Route path="/farms/:id" component={() => <ProtectedRoute component={FarmDetails} />} />
       <Route path="/settings" component={() => <ProtectedRoute component={Settings} />} />
+      <Route path="/plans" component={() => <ProtectedRoute component={Plans} />} />
       <Route component={NotFound} />
     </Switch>
   );
