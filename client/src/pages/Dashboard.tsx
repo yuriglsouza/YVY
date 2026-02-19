@@ -234,7 +234,7 @@ export default function Dashboard() {
 
           {/* Predictive Model Chart - Premium Only */}
           {farms && farms.length > 0 && (
-            <div className="relative">
+            <div className="relative col-span-1 lg:col-span-4">
               <PredictiveChartWrapper farms={farms} />
               {/* Premium Lock Overlay */}
               {/*@ts-ignore*/}
