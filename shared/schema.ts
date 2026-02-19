@@ -60,6 +60,8 @@ export const readings = pgTable("readings", {
   thermalImage: text("thermal_image"), // URL to Thermal map thumbnail (LST)
   imageBounds: jsonb("image_bounds"), // [[lat1, lon1], [lat2, lon2]]
   regionalNdvi: real("regional_ndvi"), // Average NDVI of surrounding area (5km radius)
+  carbonStock: real("carbon_stock"), // Estimated Carbon Stock (tonnes)
+  co2Equivalent: real("co2_equivalent"), // Estimated CO2e (tonnes)
 });
 
 export const insertReadingSchema = createInsertSchema(readings).omit({ id: true });

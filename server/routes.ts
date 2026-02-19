@@ -595,7 +595,9 @@ export async function registerRoutes(
           thermalImage: result.thermal_image,
 
           imageBounds: result.bounds, // Add bounds from python script
-          regionalNdvi: result.regional_ndvi // Add benchmark data
+          regionalNdvi: result.regional_ndvi, // Add benchmark data
+          carbonStock: result.carbon_stock,
+          co2Equivalent: result.co2_equivalent
         };
 
         await storage.createReading(newReading);

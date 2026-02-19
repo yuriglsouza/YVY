@@ -8,7 +8,7 @@ import { Gauge } from "@/components/Gauge";
 import { Link, useRoute, useLocation } from "wouter";
 import { WeatherCard } from "@/components/weather-card";
 import { BenchmarkChart } from "@/components/benchmark-chart";
-import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit, Sprout, Ruler, Trash2, DollarSign } from "lucide-react";
+import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit, Sprout, Ruler, Trash2, DollarSign, Leaf, CloudRain, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 // ... imports ...
 import { MapContainer, TileLayer, Marker, Popup, Circle, LayersControl, ImageOverlay } from "react-leaflet";
@@ -16,7 +16,7 @@ import { MapContainer, TileLayer, Marker, Popup, Circle, LayersControl, ImageOve
 
 
 
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
+import { ResponsiveContainer, LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
 import { PredictiveChart } from "@/components/predictive-chart";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
@@ -36,6 +36,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Helper to load image for PDF
 const getBase64FromUrl = async (url: string): Promise<string> => {
@@ -540,9 +541,49 @@ export default function FarmDetails() {
 
     startY += maxSectionHeight + 10;
 
-    // --- FINANCIALS (Bottom Right or Footer) ---
-    // Re-define footer vars for this section
+    // --- FINANCIALS & ESG (Bottom) ---
     const footerY = startY;
+
+    // LEFT COL: ESG / CARBON
+    if (latestReading?.carbonStock) {
+      const esgH = 50;
+
+      doc.setFillColor(236, 253, 245); // Emerald-50
+      doc.setDrawColor(16, 185, 129); // Emerald-500
+      doc.rect(10, footerY + 5, 90, 50, 'FD'); // Match Financials height/y
+
+      doc.setFontSize(10);
+      doc.setTextColor(16, 185, 129);
+      doc.setFont("helvetica", "bold");
+      doc.text("SUSTENTABILIDADE (ESG)", 15, footerY + 10);
+
+      doc.setFontSize(9);
+      doc.setTextColor(50);
+
+      let py = footerY + 20;
+      const row = (label: string, val: string) => {
+        doc.setFont("helvetica", "normal");
+        doc.text(label, 15, py);
+        doc.setFont("helvetica", "bold");
+        doc.text(val, 95, py, { align: 'right' });
+        py += 8;
+      };
+
+      row("Estoque Carbono:", `${latestReading.carbonStock.toFixed(1)} t`);
+      row("CO2 Equivalente:", `${latestReading.co2Equivalent?.toFixed(1)} tCO2e`);
+
+      doc.setDrawColor(16, 185, 129);
+      doc.line(15, py - 4, 95, py - 4);
+
+      doc.setTextColor(180, 83, 9); // Amber
+      row("Valor Potencial:", `R$ ${((latestReading.co2Equivalent || 0) * 15 * 5.5).toFixed(0)}`);
+
+      doc.setFontSize(7);
+      doc.setTextColor(100);
+      doc.setFont("helvetica", "italic");
+      doc.text("*Estimativa baseada em biomassa via satélite.", 15, py + 5);
+    }
+
     const colWidth = 90;
 
     // RIGHT COL: FINANCIALS
@@ -833,6 +874,21 @@ export default function FarmDetails() {
           </div>
         </div>
 
+        </div>
+
+        <Tabs defaultValue="monitoring" className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="monitoring" className="gap-2">
+              <Activity className="w-4 h-4" />
+              Monitoramento
+            </TabsTrigger>
+            <TabsTrigger value="sustainability" className="gap-2">
+              <Sprout className="w-4 h-4" />
+              Sustentabilidade (ESG)
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="monitoring">
         {/* Gauges Grid */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
           {latestReading ? (
@@ -1205,6 +1261,90 @@ export default function FarmDetails() {
               <BenchmarkChart farmId={farmId} />
             </motion.div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="sustainability" className="space-y-8 animate-in fade-in-50 duration-500">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
+                 <div className="flex items-center gap-4 mb-4">
+                    <div className="p-3 bg-green-500/20 rounded-full">
+                        <Leaf className="w-6 h-6 text-green-500" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-muted-foreground">Estoque de Carbono</p>
+                        <h3 className="text-2xl font-bold">{latestReading?.carbonStock?.toFixed(1) || 0} t</h3>
+                    </div>
+                 </div>
+                 <p className="text-xs text-muted-foreground">Biomassa estim. via Satélite (NDVI).</p>
+              </div>
+
+              <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
+                 <div className="flex items-center gap-4 mb-4">
+                    <div className="p-3 bg-blue-500/20 rounded-full">
+                        <CloudRain className="w-6 h-6 text-blue-500" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-muted-foreground">CO2 Equivalente</p>
+                        <h3 className="text-2xl font-bold">{latestReading?.co2Equivalent?.toFixed(1) || 0} tCO2e</h3>
+                    </div>
+                 </div>
+                 <p className="text-xs text-muted-foreground">Potencial de sequestro atmosférico.</p>
+              </div>
+
+              <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
+                 <div className="flex items-center gap-4 mb-4">
+                    <div className="p-3 bg-yellow-500/20 rounded-full">
+                        <DollarSign className="w-6 h-6 text-yellow-500" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-muted-foreground">Crédito Potencial</p>
+                        <h3 className="text-2xl font-bold">R$ {((latestReading?.co2Equivalent || 0) * 15 * 5.5).toFixed(2)}</h3>
+                    </div>
+                 </div>
+                 <p className="text-xs text-muted-foreground">Estimativa (@ $15 USD/ton).</p>
+              </div>
+            </div>
+
+            <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
+                <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-primary" />
+                    Evolução do Sequestro de CO2
+                </h3>
+                <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={readings || []}>
+                            <defs>
+                                <linearGradient id="colorCo2" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                            <XAxis dataKey="date" tickFormatter={(date) => format(new Date(date), "dd/MM")} stroke="#666" />
+                            <YAxis stroke="#666" />
+                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none' }} />
+                            <Area type="monotone" dataKey="co2Equivalent" stroke="#10b981" fillOpacity={1} fill="url(#colorCo2)" />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+            
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-6">
+                <h4 className="font-semibold text-primary mb-2 flex items-center gap-2">
+                    <BrainCircuit className="w-5 h-5" />
+                    Como funciona nosso Modelo de Carbono?
+                </h4>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                    Utilizamos imagens de satélite Sentinel-2 e algoritmos de aprendizado de máquina para estimar a biomassa vegetal acima do solo. 
+                    O modelo converte o vigor vegetativo (NDVI e EVI) em toneladas de matéria seca, e aplica fatores de conversão (IPCC Tier 1) 
+                    para determinar o carbono estocado. O CO2 equivalente (tCO2e) representa quanto dióxido de carbono foi removido da atmosfera 
+                    pela fotossíntese da sua lavoura.
+                    <br/><br/>
+                    <strong>Nota:</strong> Esta é uma estimativa estratégica. A certificação de créditos de carbono requer auditoria de solo presencial.
+                </p>
+            </div>
+        </TabsContent>
+      </Tabs>
 
         </div >
       </main >

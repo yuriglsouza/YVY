@@ -305,10 +305,30 @@ def analyze_farm(roi, start_date, end_date, size_ha):
             except Exception as e:
                  sys.stderr.write(f"Warning: Failed to generate thermal thumb URL: {e}\n")
 
+        # Carbon Calculation (Estimativa Simplificada)
+        # 1. Recuperar área da ROI em Hectares
+        area_ha = roi.area().divide(10000).getInfo()
+        
+        # 2. Obter NDVI Médio
+        mean_ndvi = val_s2.get('ndvi', 0) if val_s2.get('ndvi') is not None else 0
+        
+        # 3. Heurística: Biomassa (t/ha) = 180 * NDVI - 40 (clamped at 0)
+        # Baseado em correlações genéricas para vegetação mista
+        biomass_t_ha = max(0, 180 * mean_ndvi - 40)
+        
+        # 4. Biomassa Total
+        total_biomass = biomass_t_ha * area_ha
+        
+        # 5. Estoque de Carbono (aprox 47% da biomassa seca)
+        carbon_stock = total_biomass * 0.47
+        
+        # 6. CO2 Equivalente (Carbono * 3.67)
+        co2_equivalent = carbon_stock * 3.67
+
         # Tratar casos onde não há imagem (valores None/Null)
         result = {
             "date": end_date_str,
-            "ndvi": val_s2.get('ndvi', 0) if val_s2.get('ndvi') is not None else 0,
+            "ndvi": mean_ndvi,
             "ndwi": val_s2.get('ndwi', 0) if val_s2.get('ndwi') is not None else 0,
             "ndre": val_s2.get('ndre', 0) if val_s2.get('ndre') is not None else 0,
             "rvi": val_s1.get('rvi', 0) if val_s1.get('rvi') is not None else 0,
@@ -319,7 +339,9 @@ def analyze_farm(roi, start_date, end_date, size_ha):
             "satellite_image": thumb_url,
             "thermal_image": thermal_url,
             "bounds": bounds_overlay, # Adicionando Bounds
-            "regional_ndvi": regional_ndvi # Benchmark Data
+            "regional_ndvi": regional_ndvi, # Benchmark Data
+            "carbon_stock": carbon_stock,
+            "co2_equivalent": co2_equivalent
         }
         
         print(json.dumps(result))
