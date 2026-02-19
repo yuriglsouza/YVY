@@ -344,8 +344,20 @@ export async function registerRoutes(
 
   // --- ALERTS ---
   app.get("/api/alerts", isAuthenticated, async (req, res) => {
-    const alerts = await storage.getAlerts();
-    res.json(alerts);
+    const user = req.user as any;
+    const allAlerts = await storage.getAlerts();
+
+    // Admin sees all alerts
+    if (user.role === 'admin') {
+      return res.json(allAlerts);
+    }
+
+    // Normal user sees only alerts for their farms
+    const userFarms = await storage.getFarmsByUserId(user.id);
+    const userFarmIds = new Set(userFarms.map(f => f.id));
+
+    const userAlerts = allAlerts.filter(a => userFarmIds.has(a.farmId));
+    res.json(userAlerts);
   });
 
   app.post("/api/alerts/:id/read", isAuthenticated, async (req, res) => {

@@ -92,6 +92,7 @@ export function useRefreshReadings() {
       queryClient.invalidateQueries({ queryKey: [api.readings.list.path, id] });
       queryClient.invalidateQueries({ queryKey: [api.readings.latest.path, id] });
       queryClient.invalidateQueries({ queryKey: [api.farms.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["alerts"] }); // Trigger notifications bell
     },
   });
 }
