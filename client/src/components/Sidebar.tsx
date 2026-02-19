@@ -10,13 +10,17 @@ interface SidebarProps {
   className?: string;
 }
 
+import { useUser } from "@/hooks/use-user";
+
 export function SidebarContent() {
   const [location] = useLocation();
+  const { data: user } = useUser();
 
   const links = [
     { href: "/", label: "Painel", icon: LayoutDashboard },
     { href: "/farms", label: "Minhas Fazendas", icon: Sprout },
-    { href: "/clients", label: "Clientes", icon: Users },
+    // Only show Clients to Admin
+    ...(user?.role === 'admin' ? [{ href: "/clients", label: "Clientes", icon: Users }] : []),
     { href: "/settings", label: "Configurações", icon: Settings },
   ];
 
@@ -86,6 +90,14 @@ export function SidebarContent() {
       </div>
 
       <div className="mt-auto p-6 border-t border-border/40">
+        <div className="mb-4 px-2">
+          <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Conta</p>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+            <span className="text-sm font-medium text-foreground capitalize">{user?.role === 'admin' ? 'Administrador 👑' : 'Usuário (Plano Free)'}</span>
+          </div>
+        </div>
+
         <button className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors duration-200">
           <LogOut className="w-5 h-5" />
           <span className="font-medium">Sair</span>

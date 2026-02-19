@@ -15,6 +15,7 @@ import { eq, desc, sql } from "drizzle-orm";
 export interface IStorage {
   // Farms
   getFarms(): Promise<Farm[]>;
+  getFarmsByUserId(userId: number): Promise<Farm[]>; // Added
   getFarm(id: number): Promise<Farm | undefined>;
   createFarm(farm: InsertFarm): Promise<Farm>;
 
@@ -55,6 +56,14 @@ export interface IStorage {
 export class DatabaseStorage implements IStorage {
   async getFarms(): Promise<Farm[]> {
     return await db!.select().from(farms);
+  }
+
+  async getFarmsByUserId(userId: number): Promise<Farm[]> {
+    return await db!.select().from(farms).where(eq(farms.userId, userId));
+  }
+
+  async getFarmsByUserId(userId: number): Promise<Farm[]> {
+    return await db!.select().from(farms).where(eq(farms.userId, userId));
   }
 
   async getFarm(id: number): Promise<Farm | undefined> {
@@ -121,7 +130,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db!.insert(users).values(insertUser).returning();
+    const role = insertUser.email === process.env.ADMIN_EMAIL ? "admin" : (insertUser.role ?? "user");
+
+    const [user] = await db!.insert(users).values({ ...insertUser, role }).returning();
+
+    // Auto-create Client entry for CRM if not admin
+    if (role !== 'admin') {
+      const clientData = {
+        name: user.name || "Novo Usuário",
+        email: user.email,
+        notes: "Cadastrado via Google Login",
+        createdAt: new Date()
+      };
+      // Use insertClientSchema or raw insert depending on needs, simplifying here
+      await db!.insert(clients).values(clientData);
+    }
+
     return user;
   }
 
@@ -223,6 +247,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.farms.values());
   }
 
+  async getFarmsByUserId(userId: number): Promise<Farm[]> {
+    return Array.from(this.farms.values()).filter(f => f.userId === userId);
+  }
+
   async getFarm(id: number): Promise<Farm | undefined> {
     return this.farms.get(id);
   }
@@ -232,6 +260,7 @@ export class MemStorage implements IStorage {
     const farm: Farm = {
       ...insertFarm,
       id,
+      userId: insertFarm.userId ?? null, // Handle undefined
       imageUrl: insertFarm.imageUrl || null,
       clientId: insertFarm.clientId || null
     };
@@ -267,15 +296,37 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.userIdCounter++;
+    const role = insertUser.email === process.env.ADMIN_EMAIL ? "admin" : (insertUser.role ?? "user");
+
     const user: User = {
       ...insertUser,
       id,
       googleId: insertUser.googleId || null,
       name: insertUser.name || null,
       avatarUrl: insertUser.avatarUrl || null,
+      password: insertUser.password || null,
+      role,
+      subscriptionStatus: insertUser.subscriptionStatus ?? "trial",
+      subscriptionEnd: insertUser.subscriptionEnd ?? null,
       receiveAlerts: insertUser.receiveAlerts ?? true
     };
     this.users.set(id, user);
+
+    // Auto-create Client entry for CRM if not admin
+    if (role !== 'admin') {
+      const clientId = this.clientIdCounter++;
+      const client: Client = {
+        id: clientId,
+        name: user.name || "Novo Usuário",
+        email: user.email,
+        phone: null,
+        company: null,
+        notes: "Cadastrado via Google Login",
+        createdAt: new Date()
+      };
+      this.clients.set(clientId, client);
+    }
+
     return user;
   }
 
@@ -341,6 +392,7 @@ export class MemStorage implements IStorage {
       otci: insertReading.otci ?? null,
       satelliteImage: insertReading.satelliteImage ?? null,
       thermalImage: insertReading.thermalImage ?? null,
+      regionalNdvi: insertReading.regionalNdvi ?? null,
       imageBounds: (insertReading.imageBounds ?? null) as any
     };
     this.readings.set(id, reading);

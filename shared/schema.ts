@@ -7,15 +7,36 @@ import { relations } from "drizzle-orm";
 export * from "./models/chat.js";
 
 // === FARMS ===
+// === USERS (Settings & Auth) ===
+// Moved up because Farms need to reference Users
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  email: text("email").unique().notNull(),
+  password: text("password"), // For local auth if needed, or just link to Google
+  googleId: text("google_id").unique(),
+  name: text("name"),
+  avatarUrl: text("avatar_url"),
+  role: text("role").default("user").notNull(), // 'admin' | 'user'
+  subscriptionStatus: text("subscription_status").default("trial"), // 'active', 'trial', 'expired'
+  subscriptionEnd: timestamp("subscription_end"),
+  receiveAlerts: boolean("receive_alerts").default(true).notNull(),
+});
+
+export const insertUserSchema = createInsertSchema(users).omit({ id: true });
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+
+// === FARMS ===
 export const farms = pgTable("farms", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id), // Owner
   name: text("name").notNull(),
   latitude: real("latitude").notNull(),
   longitude: real("longitude").notNull(),
   sizeHa: real("size_ha").notNull(),
   cropType: text("crop_type").notNull(),
-  imageUrl: text("image_url"), // Placeholder for satellite image
-  clientId: integer("client_id"), // Link to Client (CRM)
+  imageUrl: text("image_url"),
+  clientId: integer("client_id"),
 });
 
 export const insertFarmSchema = createInsertSchema(farms).omit({ id: true });
@@ -56,20 +77,6 @@ export const reports = pgTable("reports", {
 export const insertReportSchema = createInsertSchema(reports).omit({ id: true, date: true });
 export type Report = typeof reports.$inferSelect;
 export type InsertReport = z.infer<typeof insertReportSchema>;
-
-// === USERS (Settings) ===
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  email: text("email").unique().notNull(), // Made unique
-  googleId: text("google_id").unique(), // For OAuth
-  name: text("name"), // Display name from Google
-  avatarUrl: text("avatar_url"), // Profile picture
-  receiveAlerts: boolean("receive_alerts").default(true).notNull(),
-});
-
-export const insertUserSchema = createInsertSchema(users).omit({ id: true });
-export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
 
 // === CLIENTS (CRM) ===
 export const clients = pgTable("clients", {

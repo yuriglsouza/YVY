@@ -216,6 +216,52 @@ export async function registerRoutes(
     res.status(401).json({ message: "Not authenticated" });
   };
 
+  // === FARMS (Protected) ===
+  app.get("/api/farms", isAuthenticated, async (req, res) => {
+    const user = req.user as any;
+    try {
+      let farms;
+      if (user.role === 'admin') {
+        farms = await storage.getFarms();
+      } else {
+        farms = await storage.getFarmsByUserId(user.id);
+      }
+      res.json(farms);
+    } catch (e) {
+      res.status(500).json({ message: "Error fetching farms" });
+    }
+  });
+
+  app.get("/api/farms/:id", isAuthenticated, async (req, res) => {
+    const user = req.user as any;
+    const id = parseInt(req.params.id);
+    const farm = await storage.getFarm(id);
+    if (!farm) return res.status(404).json({ message: "Farm not found" });
+
+    // Security Check
+    if (user.role !== 'admin' && farm.userId !== user.id) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    res.json(farm);
+  });
+
+  app.post("/api/farms", isAuthenticated, async (req, res) => {
+    const user = req.user as any;
+    try {
+      const farmData = insertFarmSchema.parse({
+        ...req.body,
+        userId: user.id
+      });
+      const farm = await storage.createFarm(farmData);
+      res.status(201).json(farm);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // --- CLIENTS (CRM) ---
   app.get("/api/clients", isAuthenticated, async (req, res) => {
     const clients = await storage.getClients();

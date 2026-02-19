@@ -13,14 +13,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"; // Restored
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 
-// Auth Context / Hook
-function useUser() {
-  return useQuery({
-    queryKey: ["/api/user"],
-    retry: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-}
+import { useUser } from "@/hooks/use-user";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { data: user, isLoading, error } = useUser();
