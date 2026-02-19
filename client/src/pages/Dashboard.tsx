@@ -21,6 +21,14 @@ import {
   AreaChart,
   Area
 } from "recharts";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useState } from "react";
 
 const COLORS = ['#22C55E', '#EAB308', '#dc2626'];
 
@@ -30,7 +38,15 @@ type FarmWithReading = Farm & { latestReading?: Reading };
 
 export default function Dashboard() {
   const { data: user } = useUser();
-  const { data: farms, isLoading, error } = useFarms() as { data: FarmWithReading[], isLoading: boolean, error: any };
+  const { data: allFarms, isLoading, error } = useFarms() as { data: (FarmWithReading & { ownerEmail?: string })[], isLoading: boolean, error: any };
+  const [selectedOwner, setSelectedOwner] = useState<string | null>(null);
+
+  const farms = selectedOwner
+    ? allFarms?.filter(f => f.ownerEmail === selectedOwner)
+    : allFarms;
+
+  // Extract unique owners for the filter
+  const uniqueOwners = Array.from(new Set(allFarms?.map(f => f.ownerEmail).filter(Boolean) as string[]));
 
   if (isLoading) {
     return (
@@ -87,7 +103,28 @@ export default function Dashboard() {
               Visão global de operações e integridade da frota.
             </p>
           </div>
-          <CreateFarmDialog />
+          <div className="flex gap-4">
+            {/* Admin Filter */}
+            {user?.role === 'admin' && (
+              <Select
+                value={selectedOwner || "all"}
+                onValueChange={(val) => setSelectedOwner(val === "all" ? null : val)}
+              >
+                <SelectTrigger className="w-[200px] bg-background border-input">
+                  <SelectValue placeholder="Filtrar por Dono" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Donos</SelectItem>
+                  {uniqueOwners.map((owner) => (
+                    <SelectItem key={owner} value={owner}>
+                      {owner}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <CreateFarmDialog />
+          </div>
         </header>
 
         {/* KPIs Row */}

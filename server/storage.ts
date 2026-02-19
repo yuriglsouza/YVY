@@ -15,6 +15,7 @@ import { eq, desc, sql } from "drizzle-orm";
 export interface IStorage {
   // Farms
   getFarms(): Promise<Farm[]>;
+  getFarmsWithOwners(): Promise<(Farm & { ownerName: string | null; ownerEmail: string | null })[]>; // Added
   getFarmsByUserId(userId: number): Promise<Farm[]>; // Added
   getFarm(id: number): Promise<Farm | undefined>;
   createFarm(farm: InsertFarm): Promise<Farm>;
@@ -59,6 +60,22 @@ export class DatabaseStorage implements IStorage {
     return await Promise.all(farmsList.map(async (farm) => {
       const latestReading = await this.getLatestReading(farm.id);
       return { ...farm, latestReading };
+    }));
+  }
+
+  async getFarmsWithOwners(): Promise<(Farm & { ownerName: string | null; ownerEmail: string | null })[]> {
+    const results = await db!
+      .select({
+        farm: farms,
+        ownerName: users.name,
+        ownerEmail: users.email
+      })
+      .from(farms)
+      .leftJoin(users, eq(farms.userId, users.id));
+
+    return await Promise.all(results.map(async ({ farm, ownerName, ownerEmail }) => {
+      const latestReading = await this.getLatestReading(farm.id);
+      return { ...farm, latestReading, ownerName, ownerEmail };
     }));
   }
 
@@ -249,6 +266,17 @@ export class MemStorage implements IStorage {
 
   async getFarms(): Promise<Farm[]> {
     return Array.from(this.farms.values());
+  }
+
+  async getFarmsWithOwners(): Promise<(Farm & { ownerName: string | null; ownerEmail: string | null })[]> {
+    return Array.from(this.farms.values()).map(farm => {
+      const user = this.users.get(farm.userId || 0);
+      return {
+        ...farm,
+        ownerName: user?.name || null,
+        ownerEmail: user?.email || null
+      };
+    });
   }
 
   async getFarmsByUserId(userId: number): Promise<Farm[]> {

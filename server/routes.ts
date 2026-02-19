@@ -222,7 +222,7 @@ export async function registerRoutes(
     try {
       let farms;
       if (user.role === 'admin') {
-        farms = await storage.getFarms();
+        farms = await storage.getFarmsWithOwners();
       } else {
         farms = await storage.getFarmsByUserId(user.id);
       }
