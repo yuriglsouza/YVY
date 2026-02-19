@@ -576,6 +576,8 @@ export default function FarmDetails() {
 
     let page2Y = 40; // Start below header
 
+    let maxBlockHeight = 50;
+
     // --- LEFT COL: ESG / CARBON ---
     // Repositioned to top of Page 2
     if (latestReading?.carbonStock) {
@@ -587,6 +589,8 @@ export default function FarmDetails() {
         esgLines = doc.splitTextToSize(structuredAnalysis.esg, 80);
         esgH += (esgLines.length * 4) + 10;
       }
+
+      maxBlockHeight = Math.max(maxBlockHeight, esgH);
 
       doc.setFillColor(236, 253, 245); // Emerald-50
       doc.setDrawColor(16, 185, 129); // Emerald-500
@@ -709,8 +713,8 @@ export default function FarmDetails() {
     // Moved below ESG/Financials to avoid overlap
     if (latestReading) {
       const gaugeX = 10;
-      // Shift down by 60 units (ESG height + padding) to clear the previous section
-      const gaugeY = footerY + 60;
+      // Shift down dynamically based on tallest box + 10 padding
+      const gaugeY = footerY + maxBlockHeight + 10;
       const gaugeW = 190; // Use full width now that it's below
 
       doc.setFont("helvetica", "bold");
