@@ -5,6 +5,7 @@ import { PredictiveChartWrapper } from "@/components/predictive-chart-wrapper";
 import { Link } from "wouter";
 import { Loader2, Sprout, AlertTriangle, Droplets, Activity } from "lucide-react";
 import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
 import {
   ResponsiveContainer,
   BarChart,

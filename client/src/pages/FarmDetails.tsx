@@ -8,7 +8,7 @@ import { Gauge } from "@/components/Gauge";
 import { Link, useRoute, useLocation } from "wouter";
 import { WeatherCard } from "@/components/weather-card";
 import { BenchmarkChart } from "@/components/benchmark-chart";
-import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit, Sprout, Ruler, Trash2 } from "lucide-react";
+import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit, Sprout, Ruler, Trash2, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 // ... imports ...
 import { MapContainer, TileLayer, Marker, Popup, Circle, LayersControl, ImageOverlay } from "react-leaflet";
@@ -774,7 +774,16 @@ export default function FarmDetails() {
               </div>
             </div>
             <div className="flex gap-2">
-              <FinancialAnalysisDialog zones={zones} farmSizeHa={farm.sizeHa} />
+              {/*@ts-ignore*/}
+              {(user?.role === 'admin' || user?.subscriptionStatus === 'active') ? (
+                <FinancialAnalysisDialog zones={zones} farmSizeHa={farm.sizeHa} />
+              ) : (
+                <Link href="/plans">
+                  <Button variant="outline" className="border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 gap-2">
+                    <DollarSign className="w-4 h-4" /> Análise Financeira (Premium)
+                  </Button>
+                </Link>
+              )}
               <Button
                 onClick={async () => {
                   if (confirm("Tem certeza que deseja excluir esta fazenda? Esta ação não pode ser desfeita.")) {
@@ -987,7 +996,25 @@ export default function FarmDetails() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.15 }}
             >
-              <PredictiveChart farmId={farmId} />
+              {/*@ts-ignore*/}
+              {(user?.role === 'admin' || user?.subscriptionStatus === 'active') ? (
+                <PredictiveChart farmId={farmId} />
+              ) : (
+                <div className="h-64 flex flex-col items-center justify-center bg-muted/10 border border-dashed border-border rounded-xl">
+                  <div className="p-3 bg-emerald-500/10 rounded-full mb-3">
+                    <BrainCircuit className="w-8 h-8 text-emerald-500" />
+                  </div>
+                  <h3 className="font-bold text-lg mb-1">Agrônomo IA (Premium)</h3>
+                  <p className="text-muted-foreground text-sm mb-4 text-center max-w-xs">
+                    Previsões de safra e análise avançada de produtividade.
+                  </p>
+                  <Link href="/plans">
+                    <Button variant="default" className="bg-emerald-500 hover:bg-emerald-600 text-black">
+                      Desbloquear IA
+                    </Button>
+                  </Link>
+                </div>
+              )}
             </motion.div>
 
 
