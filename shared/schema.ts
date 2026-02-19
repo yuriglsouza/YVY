@@ -6,7 +6,7 @@ import { relations } from "drizzle-orm";
 
 
 // Export Chat Models from Integration
-export * from "./models/chat.js";
+export * from "./models/chat";
 
 // === FARMS ===
 // === USERS (Settings & Auth) ===
