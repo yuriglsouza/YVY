@@ -386,6 +386,8 @@ if __name__ == "__main__":
     parser.add_argument('--lat', type=float, required=True, help='Latitude da fazenda')
     parser.add_argument('--lon', type=float, required=True, help='Longitude da fazenda')
     parser.add_argument('--size', type=float, required=True, help='Tamanho em Hectares')
+    parser.add_argument('--start', type=str, help='Data inicial (YYYY-MM-DD)')
+    parser.add_argument('--end', type=str, help='Data final (YYYY-MM-DD)')
     
     args = parser.parse_args()
     
@@ -396,7 +398,14 @@ if __name__ == "__main__":
     point = ee.Geometry.Point([args.lon, args.lat])
     roi = point.buffer(radius_m)
     
-    end_date = datetime.datetime.now()
-    start_date = end_date - datetime.timedelta(days=30)
+    if args.end:
+        end_date = datetime.datetime.strptime(args.end, '%Y-%m-%d')
+    else:
+        end_date = datetime.datetime.now()
+
+    if args.start:
+        start_date = datetime.datetime.strptime(args.start, '%Y-%m-%d')
+    else:
+        start_date = end_date - datetime.timedelta(days=30)
 
     analyze_farm(roi, start_date, end_date, args.size)
