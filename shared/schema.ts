@@ -3,8 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
 
-// Export Chat Models from Integration
-export * from "./models/chat.js";
+
 
 // === FARMS ===
 // === USERS (Settings & Auth) ===
