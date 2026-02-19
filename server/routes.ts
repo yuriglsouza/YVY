@@ -33,7 +33,14 @@ function generateMockReadings(farmId: number, count = 10) {
 
 // AI Analysis Service
 // AI Analysis Service
-async function generateAgronomistReport(reading: Reading, prediction?: { date: string, value: number } | null): Promise<{ content: string, formalContent: string }> {
+async function generateAgronomistReport(
+  reading: Reading,
+  prediction?: { date: string, value: number } | null,
+  climateForecast?: {
+    currentTemp: number;
+    forecastSummary: string;
+  } | null
+): Promise<{ content: string, formalContent: string }> {
   if (!process.env.GEMINI_API_KEY) {
     return {
       content: "Assistente de IA não configurado. Por favor, configure a chave da API do Gemini para receber análises.",
@@ -68,15 +75,17 @@ async function generateAgronomistReport(reading: Reading, prediction?: { date: s
       - Seja assertivo nas previsões e diagnósticos.
       - Foque em produtividade e rentabilidade.
 
-      Dados Atuais:
+      Dados Atuais da Fazenda:
     - Data: ${reading.date}
     - NDVI(Vigor): ${reading.ndvi.toFixed(3)}
     - NDWI(Água): ${reading.ndwi.toFixed(3)}
     - NDRE(Clorofila/Nitrogênio): ${reading.ndre.toFixed(3)}
     - OTCI(Pigmentação): ${reading.otci ? reading.otci.toFixed(3) : 'N/A'}
-    - Temperatura: ${reading.temperature ? reading.temperature.toFixed(1) + '°C' : 'N/A'}
+    - Temperatura de Superfície: ${reading.temperature ? reading.temperature.toFixed(1) + '°C' : 'N/A'}
       
-      ${prediction ? `Previsão de Produtividade (IA): Tendência aponta para NDVI ${prediction.value.toFixed(2)} em ${prediction.date}.` : ''}
+      ${climateForecast ? `Dados Climáticos da Região (Open-Meteo):\n    - Temp Atual: ${climateForecast.currentTemp.toFixed(1)}°C\n    - Previsão Próximos 7 Dias: ${climateForecast.forecastSummary}\n    => OBRIGATÓRIO: Leve MUITO a sério essa Previsão do Tempo 7 dias para embasar suas recomendações no relatório. Se haverá chuva, economize na irrigação. Se haverá seca/calor, prescreva ações preventivas fortes.` : ''}
+
+      ${prediction ? `Previsão de Produtividade (IA ML): Tendência aponta para NDVI ${prediction.value.toFixed(2)} em ${prediction.date}.` : ''}
     `;
 
     const result = await model.generateContent(prompt);
@@ -137,8 +146,52 @@ async function generateAgronomistReport(reading: Reading, prediction?: { date: s
   }
 }
 
+// Helper to fetch climate forecast from Open-Meteo
+async function fetchClimateForecast(latitude: number, longitude: number) {
+  try {
+    const params = new URLSearchParams({
+      latitude: latitude.toString(),
+      longitude: longitude.toString(),
+      current: "temperature_2m,rain",
+      daily: "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max",
+      timezone: "auto"
+    });
+    const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`);
+    if (weatherRes.ok) {
+      const wData = await weatherRes.json();
+      const days = wData.daily.time ? wData.daily.time.slice(1, 6) : [];
+      let summary = "Previsão Diária:\\n";
+
+      let maxTempWeek = -100;
+      let totalRainWeek = 0;
+
+      days.forEach((date: string, idx: number) => {
+        const dataIdx = idx + 1;
+        const max = wData.daily.temperature_2m_max[dataIdx];
+        const min = wData.daily.temperature_2m_min[dataIdx];
+        const rain = wData.daily.precipitation_sum[dataIdx];
+        const prob = wData.daily.precipitation_probability_max[dataIdx];
+        summary += `- Dia ${date}: Min ${min}°C / Máx ${max}°C | Chuva: ${rain}mm (Prob: ${prob}%)\\n`;
+
+        if (max > maxTempWeek) maxTempWeek = max;
+        totalRainWeek += rain;
+      });
+
+      return {
+        currentTemp: wData.current?.temperature_2m || 0,
+        forecastSummary: summary,
+        maxTempWeek,
+        totalRainWeek
+      };
+    }
+  } catch (e) {
+    console.warn("Failed to fetch climate data", e);
+  }
+  return null;
+}
+
 async function checkAndSendAlerts(reading: Reading, farmId: number) {
-  // TODO: Alert the specific client/user owning the farm
+  // Alert the specific client/user owning the farm
   const user = await storage.getUser(1);
   if (!user || !user.receiveAlerts) return;
 
@@ -146,62 +199,82 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
   const farm = await storage.getFarm(farmId);
   const farmName = farm?.name || `Fazenda #${farmId}`;
 
-  // 1. NDVI Stress
+  // 1. Satellite: NDVI Stress
   if (reading.ndvi < 0.4) {
     alerts.push({
       type: "ESTRESSE VEGETATIVO",
-      msg: `NDVI baixo (${reading.ndvi.toFixed(2)}). Possível estresse hídrico ou nutricional.`
+      msg: `NDVI baixo (${reading.ndvi.toFixed(2)}). Possível estresse hídrico ou nutricional diagnosticado pelo satélite.`
     });
   }
 
-  // 2. Drought (NDWI)
+  // 2. Satellite: Drought (NDWI)
   if (reading.ndwi < -0.15) {
     alerts.push({
-      type: "RISCO DE SECA",
-      msg: `NDWI muito baixo (${reading.ndwi.toFixed(2)}). Solo com pouca umidade.`
+      type: "DÉFICIT HÍDRICO",
+      msg: `NDWI muito baixo (${reading.ndwi.toFixed(2)}). Solo com pouca umidade na última leitura.`
     });
   }
 
-  // 3. Heat Stress
+  // 3. Satellite: Surface Heat Stress
   if (reading.temperature && reading.temperature > 32) {
     alerts.push({
-      type: "ALTA TEMPERATURA",
+      type: "AQUECIMENTO SUPERFICIAL",
       msg: `Temperatura de superfície atingiu ${reading.temperature.toFixed(1)}°C. Risco de abortamento floral.`
     });
   }
 
+  // 4. PREVISÃO DO TEMPO: Integração Open-Meteo
+  if (farm) {
+    const climate = await fetchClimateForecast(farm.latitude, farm.longitude);
+    if (climate) {
+      if (climate.maxTempWeek > 37) {
+        alerts.push({
+          type: "🔥 ONDA DE CALOR (PREVISÃO)",
+          msg: `Previsão de temperaturas extremas chegando a ${climate.maxTempWeek}°C nos próximos dias.`
+        });
+      }
+      if (climate.totalRainWeek === 0 && reading.ndwi < 0) {
+        alerts.push({
+          type: "🏜️ ALERTA DE SECA SEVERA (PREVISÃO)",
+          msg: `Não há previsão de chuva (0mm) para os próximos 5 dias, e o balanço hídrico já está negativo.`
+        });
+      }
+    }
+  }
+
   if (alerts.length > 0) {
-    console.log(`⚠️ Detected ${alerts.length} critical issues for ${farmName}`);
+    console.log(`⚠️ Detected ${alerts.length} critical issues/forecasts for ${farmName}`);
 
     // Persist alerts to DB
     for (const alert of alerts) {
       await storage.logAlert(farmId, alert.type, alert.msg, user.email);
     }
 
-    const subject = `🚨 Alerta Crítico: ${farmName}`;
+    const subject = `🚨 Alerta de Monitoramento Agrícola: ${farmName}`;
     const html = `
-      <h2>⚠️ Alerta de Monitoramento - SYAZ Orbital</h2>
-      <p>Detectamos condições críticas na <b>${farmName}</b> na leitura de ${reading.date}.</p>
+      <h2>⚠️ Alerta de Risco Operacional - SYAZ Orbital</h2>
+      <p>Detectamos condições críticas baseadas nos satélites e na previsão do tempo para a <b>${farmName}</b>.</p>
       <ul>
         ${alerts.map(a => `<li><b>${a.type}:</b> ${a.msg}</li>`).join('')}
       </ul>
-      <p>Acesse a plataforma para ver os mapas detalhados.</p>
+      <p>Acesse a plataforma para planejar as ações de mitigação.</p>
       <hr>
-      <small>Você recebeu este email porque ativou os alertas na SYAZ Orbital.</small>
+      <small>Você recebeu este alerta preventivo pois ativou as notificações inteligentes na SYAZ Orbital.</small>
     `;
 
     const sent = await sendEmail({
       to: user.email,
       subject,
-      text: alerts.map(a => `${a.type}: ${a.msg}`).join('\n'),
+      text: alerts.map(a => `${a.type}: ${a.msg}`).join('\\n'),
       html
     });
 
     if (sent) {
-      console.log(`Email sent to ${user.email}`);
+      console.log(`Climate/Satellite Email sent to ${user.email}`);
     }
   }
 }
+
 
 export async function registerRoutes(
   httpServer: Server,
@@ -555,18 +628,27 @@ export async function registerRoutes(
   app.post(api.reports.generate.path, async (req, res) => {
     const farmId = Number(req.params.id);
     const reading = await storage.getLatestReading(farmId);
+    const farm = await storage.getFarm(farmId);
 
-    if (!reading) {
+    if (!reading || !farm) {
       return res.status(404).json({ message: "No readings available to analyze" });
     }
 
+    // 1. Prediction Data
     const predictionDate = new Date();
     predictionDate.setDate(predictionDate.getDate() + 30); // Predict 30 days out
     const dateStr = predictionDate.toISOString().split('T')[0];
     const predOutput = await getPrediction(farmId, dateStr);
     const predValue = predOutput.result !== undefined ? predOutput.result : null;
 
-    const reportData = await generateAgronomistReport(reading, predValue !== null ? { date: dateStr, value: predValue } : null);
+    // 2. Climate Forecast Data
+    const climateForecast = await fetchClimateForecast(farm.latitude, farm.longitude);
+
+    const reportData = await generateAgronomistReport(
+      reading,
+      predValue !== null ? { date: dateStr, value: predValue } : null,
+      climateForecast
+    );
 
     const report = await storage.createReport({
       farmId,
@@ -685,6 +767,7 @@ export async function registerRoutes(
           const result = JSON.parse(stdout);
           await handleSuccess(result);
         } catch (parseError) {
+          console.error(`[Satellite Fallback] JSON Parse Error. STDOUT was: ${stdout}`);
           await fallbackToMock("Valid JSON not returned by script");
         }
       });
