@@ -257,10 +257,15 @@ export default function FarmDetails() {
     // Custom or Default Branding
     const consultant = config?.consultantName ? `Consultor: ${config.consultantName}` : "";
 
+    let logoData: string | null = null;
+    let headerBgData: string | null = null;
+    let logoW = 0;
+    let logoH = 0;
+
     // --- HEADER ---
     try {
       const headerBgUrl = '/header_bg.png';
-      const headerBgData = await getBase64FromUrl(headerBgUrl);
+      headerBgData = await getBase64FromUrl(headerBgUrl);
 
       const bgImg = new Image();
       bgImg.src = headerBgUrl;
@@ -325,7 +330,7 @@ export default function FarmDetails() {
     // Add Logo & Header Text
     try {
       const logoUrl = '/logo.png';
-      const logoData = await getBase64FromUrl(logoUrl);
+      logoData = await getBase64FromUrl(logoUrl);
 
       const img = new Image();
       img.src = logoUrl;
@@ -337,8 +342,8 @@ export default function FarmDetails() {
       let h = img.height;
       const ratio = Math.min(maxWidth / w, maxHeight / h);
 
-      const logoW = w * ratio;
-      const logoH = h * ratio;
+      logoW = w * ratio;
+      logoH = h * ratio;
       doc.addImage(logoData, 'PNG', 10, 5, logoW, logoH);
 
       // Header Title (Next to Logo)
@@ -545,29 +550,27 @@ export default function FarmDetails() {
     doc.addPage();
 
     // Draw Header on Page 2
-    if (logo) {
-      if (headerBg) {
-        doc.addImage(headerBg, 'PNG', 0, 0, 210, 30, undefined, 'FAST');
+    if (logoData) {
+      if (headerBgData) {
+        doc.addImage(headerBgData, 'PNG', 0, 0, 210, 30, undefined, 'FAST');
       } else {
         doc.setFillColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
         doc.rect(0, 0, 210, 30, 'F');
       }
-      // Logo Aspect Ratio logic for Page 2
-      const logoW = 35;
-      const logoH = logoW / 3.5; // Approx aspect ratio
-      doc.addImage(logo, 'PNG', 10, 15 - (logoH / 2), logoW, logoH);
+      // Logo on Page 2
+      doc.addImage(logoData, 'PNG', 10, 5, logoW, logoH);
 
       // Title
       doc.setFont("helvetica", "bold");
       doc.setFontSize(14);
       doc.setTextColor(16, 185, 129); // Emerald-500
-      doc.text("RELATÓRIO DE INTELIGÊNCIA DE DADOS", 50, 19);
+      doc.text("RELATÓRIO DE INTELIGÊNCIA DE DADOS", 15 + logoW, 18);
     }
 
     // Watermark Page 2
-    if (logo) {
+    if (logoData) {
       doc.setGState(new (doc as any).GState({ opacity: 0.03 }));
-      doc.addImage(logo, 'PNG', 55, 100, 100, 28, undefined, 'FAST', 45); // Rotated
+      doc.addImage(logoData, 'PNG', 55, 100, 100, 28, undefined, 'FAST', 45); // Rotated
       doc.setGState(new (doc as any).GState({ opacity: 1.0 }));
     }
 
