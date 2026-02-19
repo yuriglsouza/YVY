@@ -1261,7 +1261,8 @@ export default function FarmDetails() {
               <BenchmarkChart farmId={farmId} />
             </motion.div>
           </div>
-        </TabsContent>
+        </div>
+      </TabsContent>
 
         <TabsContent value="sustainability" className="space-y-8 animate-in fade-in-50 duration-500">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
