@@ -649,11 +649,12 @@ export default function FarmDetails() {
     }
 
     // --- LEFT COL: HORIZONTAL GAUGES (Data Intelligence) ---
-    // Fills the empty space opposite to Financials/Notes
+    // Moved below ESG/Financials to avoid overlap
     if (latestReading) {
       const gaugeX = 10;
-      const gaugeY = footerY;
-      const gaugeW = 90;
+      // Shift down by 60 units (ESG height + padding) to clear the previous section
+      const gaugeY = footerY + 60;
+      const gaugeW = 190; // Use full width now that it's below
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
@@ -728,7 +729,9 @@ export default function FarmDetails() {
     }
 
     // --- GLOSSARY & METHODOLOGY ---
-    const glossaryY = footerY + 60;
+    // --- GLOSSARY & METHODOLOGY ---
+    // Shifted further down to accommodate Gauges
+    const glossaryY = footerY + 130; // 60 (ESG) + 70 (Gauges)
 
     // Check if we have space on the page (A4 height ~297mm, Footer starts at 285)
     if (glossaryY < 240) {
