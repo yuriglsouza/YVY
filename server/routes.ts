@@ -676,7 +676,8 @@ export async function registerRoutes(
       console.log(`Executing Local Script: ${command}`);
 
       exec(command, async (error, stdout, stderr) => {
-        if (error) {
+        // Warning: Python often writes deprecated warnings to stderr. We should only fail if stdout is completely empty/invalid.
+        if (error && !stdout) {
           await fallbackToMock(stderr || error.message);
           return;
         }
