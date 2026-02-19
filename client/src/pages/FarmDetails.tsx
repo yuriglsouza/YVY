@@ -1312,7 +1312,9 @@ export default function FarmDetails() {
               </h3>
               <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={readings || []}>
+                  <AreaChart data={readings
+                    ?.filter(r => r.co2Equivalent && r.co2Equivalent > 0)
+                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) || []}>
                     <defs>
                       <linearGradient id="colorCo2" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
