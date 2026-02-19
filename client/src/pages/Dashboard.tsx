@@ -1,4 +1,5 @@
 import { useFarms } from "@/hooks/use-farms";
+import { useUser } from "@/hooks/use-user"; // Added import
 import { Sidebar, MobileNav } from "@/components/Sidebar";
 import { CreateFarmDialog } from "@/components/CreateFarmDialog";
 import { PredictiveChartWrapper } from "@/components/predictive-chart-wrapper";
@@ -28,6 +29,7 @@ import { type Farm, type Reading } from "@shared/schema";
 type FarmWithReading = Farm & { latestReading?: Reading };
 
 export default function Dashboard() {
+  const { data: user } = useUser();
   const { data: farms, isLoading, error } = useFarms() as { data: FarmWithReading[], isLoading: boolean, error: any };
 
   if (isLoading) {
