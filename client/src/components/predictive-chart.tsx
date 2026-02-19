@@ -22,6 +22,7 @@ interface PredictionResponse {
     farmId: number;
     date: string;
     prediction: number;
+    yieldTons?: number;
     unit: string;
 }
 
@@ -34,14 +35,18 @@ export function PredictiveChart({ farmId, headerSlot }: PredictiveChartProps) {
     // Default forecast date: 1 month from now
     const [targetDate, setTargetDate] = useState(format(addMonths(new Date(), 1), "yyyy-MM-dd"));
 
+    // Scenario Modifiers
+    const [rainModifier, setRainModifier] = useState<number>(0);
+    const [tempModifier, setTempModifier] = useState<number>(0);
+
     // 1. Fetch Real Historical Data
     const { data: readings } = useReadings(farmId);
 
     // 2. Prediction Query
     const { data: predictionData, isLoading, error, refetch } = useQuery({
-        queryKey: ["prediction", farmId, targetDate],
+        queryKey: ["prediction", farmId, targetDate, rainModifier, tempModifier],
         queryFn: async () => {
-            const res = await fetch(`/api/farms/${farmId}/prediction?date=${targetDate}`);
+            const res = await fetch(`/api/farms/${farmId}/prediction?date=${targetDate}&rainModifier=${rainModifier}&tempModifier=${tempModifier}`);
             if (!res.ok) {
                 const text = await res.text();
                 throw new Error(text || "Prediction failed");
@@ -106,6 +111,30 @@ export function PredictiveChart({ farmId, headerSlot }: PredictiveChartProps) {
                 </div>
             </CardHeader>
             <CardContent>
+                {/* Scenario Simulation Controls */}
+                <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30 p-4 rounded-lg border border-primary/5">
+                    <div>
+                        <h4 className="text-sm font-medium mb-3 text-muted-foreground flex items-center gap-2">
+                            <span className="text-blue-400">🌧️</span> Cenário de Chuva
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                            <Button size="sm" variant={rainModifier === -1 ? "default" : "outline"} onClick={() => setRainModifier(-1)} className={rainModifier === -1 ? "bg-amber-600 hover:bg-amber-700 text-white" : ""}>Seca</Button>
+                            <Button size="sm" variant={rainModifier === 0 ? "default" : "outline"} onClick={() => setRainModifier(0)} className={rainModifier === 0 ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}>Normal</Button>
+                            <Button size="sm" variant={rainModifier === 1 ? "default" : "outline"} onClick={() => setRainModifier(1)} className={rainModifier === 1 ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}>Chuva Ideal</Button>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-medium mb-3 text-muted-foreground flex items-center gap-2">
+                            <span className="text-orange-400">🌡️</span> Cenário de Temperatura
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                            <Button size="sm" variant={tempModifier === -2 ? "default" : "outline"} onClick={() => setTempModifier(-2)} className={tempModifier === -2 ? "bg-cyan-600 hover:bg-cyan-700 text-white" : ""}>-2°C (Frio)</Button>
+                            <Button size="sm" variant={tempModifier === 0 ? "default" : "outline"} onClick={() => setTempModifier(0)}>Média Histórica</Button>
+                            <Button size="sm" variant={tempModifier === 2 ? "default" : "outline"} onClick={() => setTempModifier(2)} className={tempModifier === 2 ? "bg-red-600 hover:bg-red-700 text-white" : ""}>+2°C (Onda Calor)</Button>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Error Banner */}
                 {error && (
                     <div className="mb-4 p-3 rounded bg-destructive/10 border border-destructive/20 flex items-center gap-2 text-destructive text-sm">
@@ -169,16 +198,32 @@ export function PredictiveChart({ farmId, headerSlot }: PredictiveChartProps) {
                 </div>
 
                 {predictionData && (
-                    <div className="mt-4 p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-between">
-                        <div>
-                            <h4 className="text-yellow-500 font-bold uppercase text-xs tracking-wider">Previsão Realizada</h4>
-                            <p className="text-muted-foreground text-sm">
-                                Para a data <b>{format(new Date(predictionData.date), "dd/MM/yyyy")}</b>, o modelo estima um NDVI de:
-                            </p>
+                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-4 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-between">
+                            <div>
+                                <h4 className="text-primary font-bold uppercase text-xs tracking-wider">NDVI Previsto</h4>
+                                <p className="text-muted-foreground text-sm">
+                                    Para <b>{format(new Date(predictionData.date), "dd/MM/yyyy")}</b>
+                                </p>
+                            </div>
+                            <div className="text-3xl font-mono font-bold text-foreground">
+                                {predictionData.prediction.toFixed(3)}
+                            </div>
                         </div>
-                        <div className="text-3xl font-mono font-bold text-foreground">
-                            {predictionData.prediction.toFixed(3)}
-                        </div>
+
+                        {predictionData.yieldTons !== undefined && predictionData.yieldTons > 0 && (
+                            <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
+                                <div>
+                                    <h4 className="text-emerald-500 font-bold uppercase text-xs tracking-wider">Estimativa de Colheita</h4>
+                                    <p className="text-muted-foreground text-sm">
+                                        Projeção baseada no cenário atual
+                                    </p>
+                                </div>
+                                <div className="text-2xl font-mono font-bold text-foreground">
+                                    {predictionData.yieldTons.toFixed(1)} <span className="text-sm text-emerald-500/70">Ton</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </CardContent>

@@ -713,7 +713,7 @@ export async function registerRoutes(
 
 
   // Helper for Prediction
-  async function getPrediction(farmId: number, date: string): Promise<{ result?: number; error?: string }> {
+  async function getPrediction(farmId: number, date: string, tempModifier: number = 0, rainModifier: number = 0, sizeHa: number = 0): Promise<{ result?: number; yieldTons?: number; error?: string }> {
 
     // 1. Try External Python Service (Stateless)
     if (process.env.PYTHON_SERVICE_URL) {
@@ -738,14 +738,17 @@ export async function registerRoutes(
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             history,
-            target_date: date
+            target_date: date,
+            temp_modifier: tempModifier,
+            rain_modifier: rainModifier,
+            size_ha: sizeHa
           })
         });
 
         if (response.ok) {
           const data = await response.json();
           if (data.prediction !== undefined) {
-            return { result: data.prediction };
+            return { result: data.prediction, yieldTons: data.yield_tons || 0 };
           }
           if (data.error) {
             return { error: `Python Service Error: ${data.error}` };
@@ -773,7 +776,7 @@ export async function registerRoutes(
       const { exec } = await import("child_process");
       const path = await import("path");
       const scriptPath = path.join(process.cwd(), "scripts", "predict.py");
-      const command = `python3 "${scriptPath}" --farm-id ${farmId} --date ${date}`;
+      const command = `python3 "${scriptPath}" --farm-id ${farmId} --date ${date} --temp-modifier ${tempModifier} --rain-modifier ${rainModifier} --size ${sizeHa}`;
 
       return new Promise((resolve) => {
         exec(command, (error, stdout, stderr) => {
@@ -782,12 +785,18 @@ export async function registerRoutes(
             resolve({ error: "Local script failed (Python missing?)" });
             return;
           }
-          const match = stdout.match(/([\d\.]+)\s*$/);
-          const prediction = match ? parseFloat(match[1]) : null;
-          if (prediction !== null) {
-            resolve({ result: prediction });
-          } else {
-            resolve({ error: "No prediction output" });
+          try {
+            // Find JSON in stdout in case of trailing lines
+            const match = stdout.match(/(\{.*\})/);
+            if (match) {
+              const parsed = JSON.parse(match[1]);
+              if (parsed.error) resolve({ error: parsed.error });
+              else resolve({ result: parsed.prediction, yieldTons: parsed.yield_tons });
+            } else {
+              resolve({ error: "Invalid prediction output" });
+            }
+          } catch (e) {
+            resolve({ error: "Failed to parse prediction output" });
           }
         });
       });
@@ -801,15 +810,28 @@ export async function registerRoutes(
   app.get("/api/farms/:id/prediction", async (req, res) => {
     const farmId = Number(req.params.id);
     const date = req.query.date as string;
+    const tempModifier = req.query.tempModifier ? parseFloat(req.query.tempModifier as string) : 0;
+    const rainModifier = req.query.rainModifier ? parseFloat(req.query.rainModifier as string) : 0;
 
     if (!date) {
       return res.status(400).json({ message: "Date query parameter is required (YYYY-MM-DD)" });
     }
 
-    const output = await getPrediction(farmId, date);
+    const farm = await storage.getFarm(farmId);
+    if (!farm) {
+      return res.status(404).json({ message: "Fazenda não encontrada" });
+    }
+
+    const output = await getPrediction(farmId, date, tempModifier, rainModifier, farm.sizeHa || 0);
 
     if (output.result !== undefined) {
-      res.json({ farmId, date, prediction: output.result, unit: "NDVI" });
+      res.json({
+        farmId,
+        date,
+        prediction: output.result,
+        yieldTons: output.yieldTons || 0,
+        unit: "NDVI"
+      });
     } else {
       // Send the specific error message to the frontend
       res.status(500).json({ message: output.error || "Failed to generate prediction" });
