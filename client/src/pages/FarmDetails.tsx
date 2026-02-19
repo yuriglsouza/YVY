@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { ReportConfigDialog, ReportConfig } from "@/components/report-config-dialog";
 import { FinancialAnalysisDialog } from "@/components/financial-analysis-dialog";
+import { useUser } from "@/hooks/use-user"; // Add hook
 
 // Fix for leaflet marker icons
 import L from "leaflet";

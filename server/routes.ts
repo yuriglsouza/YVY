@@ -248,6 +248,16 @@ export async function registerRoutes(
   app.post("/api/farms", isAuthenticated, async (req, res) => {
     const user = req.user as any;
     try {
+      // Enforce Plan Limits
+      if (user.role !== 'admin' && user.subscriptionStatus !== 'active') {
+        const currentFarms = await storage.getFarmsByUserId(user.id);
+        if (currentFarms.length >= 1) {
+          return res.status(403).json({
+            message: "Limite do Plano Gratuito atingido. Faça o upgrade para adicionar mais fazendas."
+          });
+        }
+      }
+
       const farmData = insertFarmSchema.parse({
         ...req.body,
         userId: user.id

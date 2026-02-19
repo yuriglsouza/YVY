@@ -229,9 +229,29 @@ export default function Dashboard() {
 
           {/* Predictive Model Chart */}
 
-          {/* Predictive Model Chart */}
+          {/* Predictive Model Chart - Premium Only */}
           {farms && farms.length > 0 && (
-            <PredictiveChartWrapper farms={farms} />
+            <div className="relative">
+              <PredictiveChartWrapper farms={farms} />
+              {/* Premium Lock Overlay */}
+              {/*@ts-ignore*/}
+              {user?.role !== 'admin' && user?.subscriptionStatus !== 'active' && (
+                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center border border-white/10 rounded-xl">
+                  <div className="p-4 rounded-full bg-emerald-500/20 mb-4">
+                    <Sprout className="w-8 h-8 text-emerald-500" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">Análise Preditiva Avançada (IA)</h3>
+                  <p className="text-muted-foreground mb-6 max-w-md text-center">
+                    Preveja a produtividade da safra com nossa Inteligência Artificial exclusiva.
+                  </p>
+                  <Link href="/plans">
+                    <Button variant="default" className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold">
+                      Desbloquear Premium
+                    </Button>
+                  </Link>
+                </div>
+              )}
+            </div>
           )}
 
         </motion.div>
