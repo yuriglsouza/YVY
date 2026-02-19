@@ -397,10 +397,9 @@ export default function FarmDetails() {
     if (latestReading?.satelliteImage) {
       try {
         const satData = await getBase64FromUrl(latestReading.satelliteImage);
-        // Draw satellite image. Let's make it span the width with padding.
-        const marginX = 10;
-        const imgW = 190;
-        const imgH = 60; // Fixed height, cropped ideally, but addImage will stretch if we don't calculate.
+        // Draw satellite image. Sentinel-2 returns squares, let's keep it square to avoid stretching.
+        const imgSize = 75;
+        const marginX = (210 - imgSize) / 2; // Centralizado horizontalmente
 
         doc.setFont("helvetica", "bold");
         doc.setFontSize(10);
@@ -408,12 +407,12 @@ export default function FarmDetails() {
         doc.text("IMAGEM ORBITAL (SATELLITE VIEW)", marginX, cursorY);
         cursorY += 4;
 
-        doc.addImage(satData, 'JPEG', marginX, cursorY, imgW, imgH);
+        doc.addImage(satData, 'JPEG', marginX, cursorY, imgSize, imgSize);
 
         doc.setDrawColor(200);
-        doc.rect(marginX, cursorY, imgW, imgH, 'D'); // Border
+        doc.rect(marginX, cursorY, imgSize, imgSize, 'D'); // Border
 
-        cursorY += imgH + 10;
+        cursorY += imgSize + 10;
       } catch (e) {
         console.warn("Could not load satellite image for PDF");
       }
@@ -605,7 +604,7 @@ export default function FarmDetails() {
     let maxEsgFinHeight = 50;
 
     // ESG / CARBON 
-    if (latestReading?.carbonStock) {
+    if (latestReading && (latestReading.carbonStock !== undefined || structuredAnalysis)) {
       let esgH = 50;
 
       let esgLines: string[] = [];
@@ -638,14 +637,17 @@ export default function FarmDetails() {
         py += 8;
       };
 
-      row("Estoque Carbono:", `${latestReading.carbonStock.toFixed(1)} t`);
-      row("CO2 Equivalente:", `${latestReading.co2Equivalent?.toFixed(1)} tCO2e`);
+      const cStock = latestReading.carbonStock ?? 0;
+      const co2Eq = latestReading.co2Equivalent ?? 0;
+
+      row("Estoque Carbono:", `${cStock.toFixed(1)} t`);
+      row("CO2 Equivalente:", `${co2Eq.toFixed(1)} tCO2e`);
 
       doc.setDrawColor(16, 185, 129);
       doc.line(15, py - 4, 95, py - 4);
 
       doc.setTextColor(180, 83, 9); // Amber
-      row("Valor Potencial:", `R$ ${((latestReading.co2Equivalent || 0) * 15 * 5.5).toFixed(0)}`);
+      row("Valor Potencial:", `R$ ${(co2Eq * 15 * 5.5).toFixed(0)}`);
 
       doc.setFontSize(7);
       doc.setTextColor(100);
