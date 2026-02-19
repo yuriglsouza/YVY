@@ -541,26 +541,56 @@ export default function FarmDetails() {
 
     startY += maxSectionHeight + 10;
 
-    // --- FINANCIALS & ESG (Bottom) ---
-    const footerY = startY;
+    // --- PAGE 2: FINANCIALS, ESG, GAUGES ---
+    doc.addPage();
 
-    // LEFT COL: ESG / CARBON
+    // Draw Header on Page 2
+    if (logo) {
+      if (headerBg) {
+        doc.addImage(headerBg, 'PNG', 0, 0, 210, 30, undefined, 'FAST');
+      } else {
+        doc.setFillColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
+        doc.rect(0, 0, 210, 30, 'F');
+      }
+      // Logo Aspect Ratio logic for Page 2
+      const logoW = 35;
+      const logoH = logoW / 3.5; // Approx aspect ratio
+      doc.addImage(logo, 'PNG', 10, 15 - (logoH / 2), logoW, logoH);
+
+      // Title
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(16, 185, 129); // Emerald-500
+      doc.text("RELATÓRIO DE INTELIGÊNCIA DE DADOS", 50, 19);
+    }
+
+    // Watermark Page 2
+    if (logo) {
+      doc.setGState(new (doc as any).GState({ opacity: 0.03 }));
+      doc.addImage(logo, 'PNG', 55, 100, 100, 28, undefined, 'FAST', 45); // Rotated
+      doc.setGState(new (doc as any).GState({ opacity: 1.0 }));
+    }
+
+    let page2Y = 40; // Start below header
+
+    // --- LEFT COL: ESG / CARBON ---
+    // Repositioned to top of Page 2
     if (latestReading?.carbonStock) {
       const esgH = 50;
 
       doc.setFillColor(236, 253, 245); // Emerald-50
       doc.setDrawColor(16, 185, 129); // Emerald-500
-      doc.rect(10, footerY + 5, 90, 50, 'FD'); // Match Financials height/y
+      doc.rect(10, page2Y, 90, 50, 'FD');
 
       doc.setFontSize(10);
       doc.setTextColor(16, 185, 129);
       doc.setFont("helvetica", "bold");
-      doc.text("SUSTENTABILIDADE (ESG)", 15, footerY + 10);
+      doc.text("SUSTENTABILIDADE (ESG)", 15, page2Y + 8);
 
       doc.setFontSize(9);
       doc.setTextColor(50);
 
-      let py = footerY + 20;
+      let py = page2Y + 18;
       const row = (label: string, val: string) => {
         doc.setFont("helvetica", "normal");
         doc.text(label, 15, py);
@@ -586,8 +616,8 @@ export default function FarmDetails() {
 
     const colWidth = 90;
 
-    // RIGHT COL: FINANCIALS
-    // Relaxed Check: Show if config.financials exists AND includeFinancials is true (even if zones are empty)
+    // --- RIGHT COL: FINANCIALS ---
+    // Repositioned to top of Page 2
     if (config?.financials && config?.includeFinancials) {
       const { costPerHa, pricePerBag, yields } = config.financials;
 
@@ -609,20 +639,20 @@ export default function FarmDetails() {
       const roi = totalCost > 0 ? (netProfit / totalCost) * 100 : 0;
 
       const roiX = 110;
-      const roiY = footerY;
+      const roiY = page2Y;
 
       doc.setFontSize(10);
       doc.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2]);
-      doc.text("ANÁLISE FINANCEIRA (ESTIMADA)", roiX, roiY);
+      doc.text("ANÁLISE FINANCEIRA (ESTIMADA)", roiX, roiY - 2);
 
       doc.setDrawColor(200);
       doc.setFillColor(250, 250, 250);
-      doc.rect(roiX, roiY + 5, colWidth, 50, 'FD');
+      doc.rect(roiX, roiY, colWidth, 50, 'FD');
 
       doc.setFontSize(9);
       doc.setTextColor(50);
 
-      let py = roiY + 15;
+      let py = roiY + 10;
       const row = (label: string, val: string, isBold = false) => {
         if (isBold) doc.setFont("helvetica", "bold"); else doc.setFont("helvetica", "normal");
         doc.text(label, roiX + 5, py);
@@ -643,10 +673,13 @@ export default function FarmDetails() {
       doc.text(`ROI: ${roi.toFixed(0)}%`, roiX + colWidth / 2, py + 5, { align: 'center' });
     } else {
       const notesX = 110;
-      doc.text("NOTAS:", notesX, footerY);
+      doc.text("NOTAS:", notesX, page2Y - 2);
       doc.setDrawColor(200);
-      doc.rect(notesX, footerY + 5, colWidth, 50);
+      doc.rect(notesX, page2Y, colWidth, 50);
     }
+
+    // Update Y for next section (Gauges)
+    const footerY = page2Y; // Keep variable name for subsequent code compatibility
 
     // --- LEFT COL: HORIZONTAL GAUGES (Data Intelligence) ---
     // Moved below ESG/Financials to avoid overlap
