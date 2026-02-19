@@ -68,7 +68,8 @@ async function generateAgronomistReport(
           "structuredAnalysis": {
             "diagnostic": "Análise diagnóstica TÉCNICA e APROFUNDADA dos índices (NDVI, NDWI, NDRE), identificando variações sutis e causas prováveis.",
             "prediction": "Previsão de cenário baseada na tendência e dados históricos.",
-            "recommendation": "Lista de ações práticas sugeridas para o manejo."
+            "recommendation": "Lista de ações práticas sugeridas para o manejo.",
+            "esg": "Se informados dados de Estoque de Carbono ou Retenção de CO2, redija um breve parágrafo exaltando essa métrica como pilar de sustentabilidade (ESG) e valor ambiental. Caso contrário, deixe como '-'."
           }
         }
 

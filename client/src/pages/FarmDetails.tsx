@@ -579,11 +579,18 @@ export default function FarmDetails() {
     // --- LEFT COL: ESG / CARBON ---
     // Repositioned to top of Page 2
     if (latestReading?.carbonStock) {
-      const esgH = 50;
+      let esgH = 50;
+
+      // Calculate extra height for AI Text if exists
+      let esgLines: string[] = [];
+      if (structuredAnalysis && structuredAnalysis.esg && structuredAnalysis.esg !== '-') {
+        esgLines = doc.splitTextToSize(structuredAnalysis.esg, 80);
+        esgH += (esgLines.length * 4) + 10;
+      }
 
       doc.setFillColor(236, 253, 245); // Emerald-50
       doc.setDrawColor(16, 185, 129); // Emerald-500
-      doc.rect(10, page2Y, 90, 50, 'FD');
+      doc.rect(10, page2Y, 90, esgH, 'FD');
 
       doc.setFontSize(10);
       doc.setTextColor(16, 185, 129);
@@ -615,6 +622,20 @@ export default function FarmDetails() {
       doc.setTextColor(100);
       doc.setFont("helvetica", "italic");
       doc.text("*Estimativa baseada em biomassa via satélite.", 15, py + 5);
+
+      // AI Narrative Block (If generated)
+      if (esgLines.length > 0) {
+        py += 12;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(16, 185, 129);
+        doc.text("Parecer Ambiental (IA):", 15, py);
+
+        py += 5;
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(50, 50, 50);
+        doc.text(esgLines, 15, py);
+      }
     }
 
     const colWidth = 90;
