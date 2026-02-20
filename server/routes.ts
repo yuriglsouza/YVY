@@ -16,14 +16,20 @@ function generateMockReadings(farmId: number, count = 10) {
     const date = new Date(now);
     date.setDate(date.getDate() - i * 7); // Weekly readings
     const baseCarbon = 20 + Math.random() * 50; // 20 - 70 tonnes
+    const cloudCover = Math.random() < 0.3 ? 0.7 + Math.random() * 0.3 : Math.random() * 0.4; // 30% chance of thick clouds
+
+    // If clouds > 60%, optical indices degrade, but RVI (radar) remains steady
+    const OpticalBlock = cloudCover > 0.6 ? 0.4 : 1;
+
     readings.push({
       farmId,
       date: date.toISOString().split('T')[0],
-      ndvi: 0.2 + Math.random() * 0.6, // 0.2 - 0.8
-      ndwi: -0.2 + Math.random() * 0.4, // -0.2 - 0.2
-      ndre: 0.2 + Math.random() * 0.5,
-      rvi: 0.5 + Math.random() * 1.0,
-      temperature: 20 + Math.random() * 15, // 20 - 35 Celsius
+      ndvi: (0.2 + Math.random() * 0.6) * OpticalBlock,
+      ndwi: (-0.2 + Math.random() * 0.4) * OpticalBlock,
+      ndre: (0.2 + Math.random() * 0.5) * OpticalBlock,
+      rvi: 0.5 + Math.random() * 1.0, // Radar traverses clouds untouched
+      temperature: 20 + Math.random() * 15,
+      cloudCover: cloudCover,
       otci: 0.5 + Math.random() * 2.5, // 0.5 - 3.0 (Typical OTCI range)
       carbonStock: baseCarbon,
       co2Equivalent: baseCarbon * 3.67,
@@ -252,6 +258,14 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
         });
       }
     }
+  }
+
+  // 5. Satellite SAR (Radar fallback) due to clouds
+  if (reading.cloudCover !== undefined && reading.cloudCover !== null && reading.cloudCover > 0.6) {
+    alerts.push({
+      type: "☁️ ALERTA SAR (RADAR ATIVO)",
+      msg: `Cobertura de nuvens severa (${(reading.cloudCover * 100).toFixed(0)}%). O satélite Sentinel-2 foi obstruído. O algoritmo acionou o Sentinel-1 (Radar SAR) usando RVI para manter seu monitoramento operante.`
+    });
   }
 
   if (alerts.length > 0) {

@@ -3,10 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
 
-
-
-// Export Chat Models from Integration
-export * from "./models/chat.js";
+// No external models to export for now
 
 // === FARMS ===
 // === USERS (Settings & Auth) ===
@@ -56,6 +53,7 @@ export const readings = pgTable("readings", {
   rvi: real("rvi").notNull(),   // Radar Vegetation Index
   otci: real("otci"),           // Sentinel-3 Chlorophyll Index
   temperature: real("temperature"), // Land Surface Temperature (Celsius)
+  cloudCover: real("cloud_cover").default(0), // Percentage of cloud cover (0-1)
   satelliteImage: text("satellite_image"), // URL to RGB thumbnail
   thermalImage: text("thermal_image"), // URL to Thermal map thumbnail (LST)
   imageBounds: jsonb("image_bounds"), // [[lat1, lon1], [lat2, lon2]]

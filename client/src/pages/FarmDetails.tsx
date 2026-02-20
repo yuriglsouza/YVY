@@ -8,8 +8,9 @@ import { Gauge } from "@/components/Gauge";
 import { Link, useRoute, useLocation } from "wouter";
 import { WeatherCard } from "@/components/weather-card";
 import { BenchmarkChart } from "@/components/benchmark-chart";
-import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit, Sprout, Ruler, Trash2, DollarSign, Leaf, CloudRain, Activity, ClipboardCheck } from "lucide-react";
+import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit, Sprout, Ruler, Trash2, DollarSign, Leaf, CloudRain, Activity, ClipboardCheck, Cloud, Radio, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 // ... imports ...
 import { MapContainer, TileLayer, Marker, Popup, Circle, LayersControl, ImageOverlay } from "react-leaflet";
 // ...
@@ -19,6 +20,7 @@ import { MapContainer, TileLayer, Marker, Popup, Circle, LayersControl, ImageOve
 import { ResponsiveContainer, LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
 import { PredictiveChart } from "@/components/predictive-chart";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -842,6 +844,25 @@ export default function FarmDetails() {
                   <Ruler className="w-3 h-3" /> {farm.sizeHa} ha
                 </span>
               </div>
+              <div className="flex flex-col gap-1 mt-4 sm:mt-0">
+                <p className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Calendar className="w-4 h-4" /> Última Verificação
+                </p>
+                <div className="flex flex-col gap-2">
+                  <p className="font-semibold text-lg">
+                    {latestReading ? format(new Date(latestReading.date), "dd 'de' MMMM, yyyy", { locale: ptBR }) : "Sem dados"}
+                  </p>
+                  {latestReading?.cloudCover !== undefined && latestReading.cloudCover !== null && latestReading.cloudCover > 0.6 && (
+                    <Badge variant="secondary" className="w-fit bg-slate-800 text-slate-100 hover:bg-slate-700 flex items-center gap-1.5 shadow-sm">
+                      <Cloud className="w-3 h-3 text-slate-400" />
+                      Nuvens ({(latestReading.cloudCover * 100).toFixed(0)}%)
+                      <span className="text-emerald-400 mx-1">•</span>
+                      <Radio className="w-3 h-3 text-emerald-400" />
+                      Radar SAR Ativo
+                    </Badge>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="flex gap-2">
               {/*@ts-ignore*/}
@@ -926,7 +947,7 @@ export default function FarmDetails() {
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card p-6 rounded-2xl border border-border shadow-sm">
                     <Gauge
                       value={latestReading.ndvi}
-                      label="NDVI"
+                      label={(latestReading.cloudCover ?? 0) > 0.6 ? "NDVI (Obstruído ☁️)" : "NDVI"}
                       {...getGaugeStatus(latestReading.ndvi, 'NDVI')}
                     />
                   </motion.div>
@@ -954,12 +975,14 @@ export default function FarmDetails() {
                     />
                   </motion.div>
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-                    <Gauge
-                      value={latestReading.rvi}
-                      label="RVI (Radar)"
-                      max={3}
-                      {...getGaugeStatus(latestReading.rvi, 'RVI')}
-                    />
+                    <div className={cn("relative", (latestReading.cloudCover ?? 0) > 0.6 ? "ring-2 ring-emerald-500 rounded-full" : "")}>
+                      <Gauge
+                        value={latestReading.rvi}
+                        label={(latestReading.cloudCover ?? 0) > 0.6 ? "RVI (Alerta SAR📡)" : "RVI (Radar)"}
+                        max={3}
+                        {...getGaugeStatus(latestReading.rvi, 'RVI')}
+                      />
+                    </div>
                   </motion.div>
                   {/* LST Last */}
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="bg-card p-6 rounded-2xl border border-border shadow-sm">

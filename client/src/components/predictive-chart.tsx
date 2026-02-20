@@ -62,14 +62,18 @@ export function PredictiveChart({ farmId, headerSlot }: PredictiveChartProps) {
     const sortedReadings = [...(readings || [])].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     const chartData = sortedReadings.map(r => ({
-        date: r.date, // Assuming YYYY-MM-DD or ISO string
-        ndvi: r.ndvi
+        date: r.date,
+        ndvi: r.ndvi,
+        rvi: r.rvi,
+        cloudCover: r.cloudCover ?? 0
     }));
 
     if (predictionData) {
         chartData.push({
             date: predictionData.date,
-            ndvi: predictionData.prediction
+            ndvi: predictionData.prediction,
+            rvi: chartData.length > 0 ? chartData[chartData.length - 1].rvi : 0, // Assume maintain last radar
+            cloudCover: 0 // Predictions don't predict cloud block yet
         });
     }
 
@@ -165,7 +169,13 @@ export function PredictiveChart({ farmId, headerSlot }: PredictiveChartProps) {
                                     labelFormatter={(label) => {
                                         try { return format(new Date(label), "dd MMM yyyy"); } catch { return label; }
                                     }}
-                                    formatter={(value: number) => [value.toFixed(3), "NDVI"]}
+                                    formatter={(value: number, name: string, props: any) => {
+                                        if (name === "ndvi" && props?.payload?.cloudCover > 0.6) {
+                                            return [`${value.toFixed(3)} (Bloqueado ☁️)`, "NDVI"];
+                                        }
+                                        if (name === "rvi") return [`${value.toFixed(3)} 📡`, "Radar (RVI)"];
+                                        return [value.toFixed(3), name.toUpperCase()];
+                                    }}
                                 />
                                 {/* Historical Line */}
                                 <Line
@@ -175,6 +185,17 @@ export function PredictiveChart({ farmId, headerSlot }: PredictiveChartProps) {
                                     strokeWidth={3}
                                     dot={{ r: 4, fill: "#22C55E" }}
                                     activeDot={{ r: 6 }}
+                                    name="ndvi"
+                                />
+                                {/* Radar SAR Line */}
+                                <Line
+                                    type="monotone"
+                                    dataKey="rvi"
+                                    stroke="#10b981"
+                                    strokeWidth={2}
+                                    strokeDasharray="5 5"
+                                    dot={{ r: 3, fill: "#10b981" }}
+                                    name="rvi"
                                 />
 
                                 {/* Prediction Dot */}
