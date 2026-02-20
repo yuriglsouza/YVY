@@ -724,8 +724,16 @@ export default function FarmDetails() {
       doc.setFontSize(10);
       doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
       doc.setFont("helvetica", "normal");
-      const cs = latestReading?.carbonStock ?? 0;
-      const co = latestReading?.co2Equivalent ?? 0;
+      const calcCarbonFallback = (reading: any) => {
+        if (reading?.carbonStock && reading.carbonStock > 0) return reading.carbonStock;
+        const baseNdvi = Math.max(0, reading?.ndvi || 0);
+        return (farm?.sizeHa || 0) * baseNdvi * 45.5;
+      };
+      const cs = calcCarbonFallback(latestReading);
+      const co = (latestReading?.co2Equivalent && latestReading.co2Equivalent > 0)
+        ? latestReading.co2Equivalent
+        : cs * 3.67;
+
       doc.text("Estoque Carbono:", margin + 5, cy + 12);
       doc.setFont("helvetica", "bold");
       doc.text(`${cs.toFixed(1)} t`, margin + mdW - 5, cy + 12, { align: 'right' });
