@@ -712,11 +712,12 @@ export default function FarmDetails() {
     doc.setFont("helvetica", "bold");
     doc.text(`${co.toFixed(1)} tCO2e`, margin + mdW - 5, cy + 17, { align: 'right' });
 
-    let eL = ["O manejo sustentável da área resulta em balanço", "de carbono positivo, alinhado aos protocolos ESG", "internacionais observados pela SYAZ IA."];
+    let defaultEsg = "A área monitorada apresenta indicativos sólidos de manejo sustentável, mantendo um balanço de carbono estruturalmente positivo. As práticas atuais estão alinhadas rigorosamente aos principais protocolos ESG (Ambiental, Social e Governança) globais validados de forma autônoma pela SYAZ IA. Esse cenário promove a conservação contínua da biomassa e favorece destacadamente a elegibilidade operacional da fazenda para futuras emissões de certificações verdes e auditorias de compliance.";
+    let eL = doc.splitTextToSize(defaultEsg, mdW - 10);
     if (structuredAnalysis?.esg && structuredAnalysis.esg !== '-') {
       eL = doc.splitTextToSize(structuredAnalysis.esg, mdW - 10);
-      if (eL.length > 5) { eL = eL.slice(0, 5); eL[4] += '...'; } // Shrink to 5 lines
     }
+    if (eL.length > 6) { eL = eL.slice(0, 6); eL[5] += '...'; } // Shrink to 6 lines
     doc.setFont("helvetica", "italic");
     doc.setFontSize(8);
     doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
