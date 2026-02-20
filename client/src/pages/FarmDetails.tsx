@@ -1257,87 +1257,111 @@ export default function FarmDetails() {
           </TabsContent>
 
           <TabsContent value="sustainability" className="space-y-8 animate-in fade-in-50 duration-500">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="p-3 bg-green-500/20 rounded-full">
-                    <Leaf className="w-6 h-6 text-green-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Estoque de Carbono</p>
-                    <h3 className="text-2xl font-bold">{latestReading?.carbonStock?.toFixed(1) || 0} t</h3>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">Biomassa estim. via Satélite (NDVI).</p>
-              </div>
+            {(() => {
+              const calcCarbonStock = (reading: any) => {
+                if (reading?.carbonStock && reading.carbonStock > 0) return reading.carbonStock;
+                const baseNdvi = Math.max(0, reading?.ndvi || 0);
+                return (farm?.sizeHa || 0) * baseNdvi * 45.5;
+              };
+              const calcCo2 = (reading: any) => {
+                if (reading?.co2Equivalent && reading.co2Equivalent > 0) return reading.co2Equivalent;
+                return calcCarbonStock(reading) * 3.67;
+              };
 
-              <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="p-3 bg-blue-500/20 rounded-full">
-                    <CloudRain className="w-6 h-6 text-blue-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">CO2 Equivalente</p>
-                    <h3 className="text-2xl font-bold">{latestReading?.co2Equivalent?.toFixed(1) || 0} tCO2e</h3>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">Potencial de sequestro atmosférico.</p>
-              </div>
+              const currentCarbon = calcCarbonStock(latestReading);
+              const currentCo2 = calcCo2(latestReading);
+              const currentCredit = currentCo2 * 15 * 5.5;
 
-              <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="p-3 bg-yellow-500/20 rounded-full">
-                    <DollarSign className="w-6 h-6 text-yellow-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Crédito Potencial</p>
-                    <h3 className="text-2xl font-bold">R$ {((latestReading?.co2Equivalent || 0) * 15 * 5.5).toFixed(2)}</h3>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">Estimativa (@ $15 USD/ton).</p>
-              </div>
-            </div>
+              // Generate readings with co2 mapped for chart
+              const chartReadings = (readings || [])
+                .map(r => ({ ...r, displayCo2: calcCo2(r) }))
+                .filter(r => r.displayCo2 > 0)
+                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-            <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-              <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
-                <Activity className="w-5 h-5 text-primary" />
-                Evolução do Sequestro de CO2
-              </h3>
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={readings
-                    ?.filter(r => r.co2Equivalent && r.co2Equivalent > 0)
-                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) || []}>
-                    <defs>
-                      <linearGradient id="colorCo2" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                    <XAxis dataKey="date" tickFormatter={(date) => format(new Date(date), "dd/MM")} stroke="#666" />
-                    <YAxis stroke="#666" />
-                    <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none' }} />
-                    <Area type="monotone" dataKey="co2Equivalent" stroke="#10b981" fillOpacity={1} fill="url(#colorCo2)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+              return (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="p-3 bg-green-500/20 rounded-full">
+                          <Leaf className="w-6 h-6 text-green-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Estoque de Carbono</p>
+                          <h3 className="text-2xl font-bold">{currentCarbon.toFixed(1)} t</h3>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Biomassa estim. via Satélite (NDVI).</p>
+                    </div>
 
-            <div className="bg-primary/5 border border-primary/20 rounded-xl p-6">
-              <h4 className="font-semibold text-primary mb-2 flex items-center gap-2">
-                <BrainCircuit className="w-5 h-5" />
-                Como funciona nosso Modelo de Carbono?
-              </h4>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Utilizamos imagens de satélite Sentinel-2 e algoritmos de aprendizado de máquina para estimar a biomassa vegetal acima do solo.
-                O modelo converte o vigor vegetativo (NDVI e EVI) em toneladas de matéria seca, e aplica fatores de conversão (IPCC Tier 1)
-                para determinar o carbono estocado. O CO2 equivalente (tCO2e) representa quanto dióxido de carbono foi removido da atmosfera
-                pela fotossíntese da sua lavoura.
-                <br /><br />
-                <strong>Nota:</strong> Esta é uma estimativa estratégica. A certificação de créditos de carbono requer auditoria de solo presencial.
-              </p>
-            </div>
+                    <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="p-3 bg-blue-500/20 rounded-full">
+                          <CloudRain className="w-6 h-6 text-blue-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">CO2 Equivalente</p>
+                          <h3 className="text-2xl font-bold">{currentCo2.toFixed(1)} tCO2e</h3>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Potencial de sequestro atmosférico.</p>
+                    </div>
+
+                    <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="p-3 bg-yellow-500/20 rounded-full">
+                          <DollarSign className="w-6 h-6 text-yellow-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Crédito Potencial</p>
+                          <h3 className="text-2xl font-bold">R$ {currentCredit.toFixed(2)}</h3>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Estimativa (@ $15 USD/ton).</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
+                    <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-primary" />
+                      Evolução do Sequestro de CO2
+                    </h3>
+                    <div className="h-[300px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartReadings}>
+                          <defs>
+                            <linearGradient id="colorCo2" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                              <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                          <XAxis dataKey="date" tickFormatter={(date) => format(new Date(date), "dd/MM")} stroke="#666" />
+                          <YAxis stroke="#666" />
+                          <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none' }} />
+                          <Area type="monotone" dataKey="displayCo2" stroke="#10b981" fillOpacity={1} fill="url(#colorCo2)" name="tCO2e" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  <div className="bg-primary/5 border border-primary/20 rounded-xl p-6">
+                    <h4 className="font-semibold text-primary mb-2 flex items-center gap-2">
+                      <BrainCircuit className="w-5 h-5" />
+                      Como funciona nosso Modelo de Carbono?
+                    </h4>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      Utilizamos imagens de satélite Sentinel-2 e algoritmos de aprendizado de máquina para estimar a biomassa vegetal acima do solo.
+                      O modelo converte o vigor vegetativo (NDVI e EVI) em toneladas de matéria seca, e aplica fatores de conversão (IPCC Tier 1)
+                      para determinar o carbono estocado. O CO2 equivalente (tCO2e) representa quanto dióxido de carbono foi removido da atmosfera
+                      pela fotossíntese da sua lavoura.
+                      <br /><br />
+                      <strong>Nota:</strong> Esta é uma estimativa estratégica. A certificação de créditos de carbono requer auditoria de solo presencial.
+                    </p>
+                  </div>
+                </>
+              );
+            })()}
           </TabsContent>
         </Tabs>
 
