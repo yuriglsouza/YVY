@@ -349,10 +349,23 @@ export default function FarmDetails() {
         doc.setDrawColor(cBorder[0], cBorder[1], cBorder[2]);
         doc.setLineWidth(0.5);
         doc.rect(leftCx, leftCy, imgSize, imgSize, 'S');
-      } catch (e) { }
+      } catch (e) {
+        doc.setFillColor(cLightGray[0], cLightGray[1], cLightGray[2]);
+        doc.rect(leftCx, leftCy, imgSize, imgSize, 'F');
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
+        const fw = doc.getTextWidth("Satellite Image Not Available");
+        doc.text("Satellite Image Not Available", leftCx + (imgSize - fw) / 2, leftCy + (imgSize / 2));
+      }
     } else {
       doc.setFillColor(cLightGray[0], cLightGray[1], cLightGray[2]);
       doc.rect(leftCx, leftCy, imgSize, imgSize, 'F');
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
+      const fw = doc.getTextWidth("Satellite Image Not Available");
+      doc.text("Satellite Image Not Available", leftCx + (imgSize - fw) / 2, leftCy + (imgSize / 2));
     }
     leftCy += imgSize + 5;
 
@@ -561,21 +574,21 @@ export default function FarmDetails() {
       ];
 
       // Layout: 3 Top, 2 Bottom
-      const cw = (contentWidth - 10) / 3;
-      const ch = 32;
+      const cw = (contentWidth - 14) / 3;
+      const ch = 38;
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
       doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
-      doc.text("MÉTRICAS PRINCIPAIS", margin, cy + 4);
-      cy += 8;
+      doc.text("MÉTRICAS PRINCIPAIS", margin, cy + 6);
+      cy += 12;
 
       gList.forEach((m, i) => {
         const row = Math.floor(i / 3);
         const col = i % 3;
         // if 2nd row and only 2 items, center them or just left align (left align is cleaner)
-        const cx = margin + (col * (cw + 5));
-        const ccy = cy + (row * (ch + 5));
+        const cx = margin + (col * (cw + 7));
+        const ccy = cy + (row * (ch + 6));
 
         // Soft shadow sim
         doc.setFillColor(245, 245, 245);
@@ -603,27 +616,27 @@ export default function FarmDetails() {
         doc.roundedRect(cx, ccy, cw, ch, 2, 2, 'S');
 
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
+        doc.setFontSize(10);
         doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
-        doc.text(m.label, cx + 8, ccy + 6);
+        doc.text(m.label, cx + 8, ccy + 8);
 
         // Value
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(20);
+        doc.setFontSize(22);
         doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
-        doc.text(m.val.toFixed(2) + m.u, cx + 8, ccy + 18);
+        doc.text(m.val.toFixed(2) + m.u, cx + 8, ccy + 22);
 
         // Simple Progress Bar (3mm height)
-        const barW = cw - 12;
+        const barW = cw - 16;
         doc.setFillColor(cLightGray[0], cLightGray[1], cLightGray[2]);
-        doc.rect(cx + 8, ccy + 24, barW, 3, 'F');
+        doc.rect(cx + 8, ccy + 30, barW, 4, 'F');
 
         doc.setFillColor(barColor[0], barColor[1], barColor[2]);
-        doc.rect(cx + 8, ccy + 24, barW * p, 3, 'F');
+        doc.rect(cx + 8, ccy + 30, barW * p, 4, 'F');
       });
-      cy += (ch * 2) + 15;
+      cy += (ch * 2) + 20;
     } else {
-      cy += 80;
+      cy += 95;
     }
 
     // 3. SECTION 3: HISTÓRICO NDVI (Full width Chart)
@@ -633,13 +646,13 @@ export default function FarmDetails() {
       const chD = [...readings].filter(r => new Date(r.date) >= tdAgo).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
       if (chD.length > 0) {
-        const cH = 60;
+        const cH = 62;
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
         doc.text("VIGOR (NDVI) – ÚLTIMOS 30 DIAS", margin, cy + 4);
 
-        const gY = cy + 8;
+        const gY = cy + 10;
         doc.setDrawColor(cBorder[0], cBorder[1], cBorder[2]);
         doc.setLineWidth(0.2);
         doc.line(margin, gY, margin + contentWidth, gY);
