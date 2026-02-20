@@ -24,10 +24,13 @@ export function setupAuth(app: Express) {
         }
     };
 
+    // In preview environments (Replit, Ngrok, etc), the app sits behind an HTTPS proxy.
+    // We MUST trust the proxy unconditionally so Passport matches the callback protocol (HTTPS).
+    app.set("trust proxy", 1);
+
     if (app.get("env") === "production") {
-        app.set("trust proxy", 1); // trust first proxy
         sessionSettings.cookie!.secure = true; // serve secure cookies
-        sessionSettings.cookie!.sameSite = 'none'; // Required for cross-origin if frontend/backend separated or behind proxy
+        sessionSettings.cookie!.sameSite = 'none'; // Required for cross-origin if frontend/backend separated
     }
 
     app.use(session(sessionSettings));
