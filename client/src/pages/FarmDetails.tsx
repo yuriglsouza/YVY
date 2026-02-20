@@ -305,7 +305,8 @@ export default function FarmDetails() {
       doc.text(consultant, pageWidth - margin, startY + 12, { align: "right" });
 
       // Thin divider 0.5pt subtle under header
-      doc.setDrawColor(200, 200, 200); // Sutil cinza 
+      const cDiv = hex2rgb("#C8C8C8");
+      doc.setDrawColor(cDiv[0], cDiv[1], cDiv[2]); // Sutil cinza 
       doc.setLineWidth(0.2);
       doc.line(margin, startY + 18, pageWidth - margin, startY + 18);
 
@@ -327,7 +328,7 @@ export default function FarmDetails() {
 
     // Distribuindo em 3 Colunas reais
     doc.text(`FAZENDA: ${fName}`, margin + 5, cy + 10);
-    doc.text(`DATA: ${dtStr}  |  CULTURA: ${farm?.cropType.toUpperCase()}`, pageWidth / 2, cy + 10, { align: "center" });
+    doc.text(`DATA: ${dtStr}  |  CULTURA: ${(farm?.cropType || "").toUpperCase()}`, pageWidth / 2, cy + 10, { align: "center" });
     doc.text(`ÁREA: ${farm?.sizeHa} ha`, pageWidth - margin - 5, cy + 10, { align: "right" });
     cy += 16 + 8;
 
@@ -431,7 +432,8 @@ export default function FarmDetails() {
 
     // Soft Subtle Background for entire entire right column
     const remColumnHeight = pageHeight - margin - rightCy - 5;
-    doc.setFillColor(249, 250, 251); // Gray 50 (Tailwind) / Muito Frio e Elegante
+    const cSoftBg = hex2rgb("#F9FAFB");
+    doc.setFillColor(cSoftBg[0], cSoftBg[1], cSoftBg[2]); // Gray 50 (Tailwind) / Muito Frio e Elegante
     roundedRect(rightX - 3, rightCy - 3, rightW + 6, remColumnHeight + 6, 3);
 
     if (structuredAnalysis) {
