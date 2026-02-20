@@ -35,21 +35,7 @@ export default function LoginPage() {
                         Entrar com Google
                     </Button>
 
-                    <Button
-                        size="lg"
-                        variant="ghost"
-                        className="w-full text-xs text-muted-foreground border border-dashed border-border"
-                        onClick={async () => {
-                            try {
-                                const res = await fetch("/api/dev-login", { method: "POST" });
-                                if (res.ok) window.location.href = "/";
-                            } catch (e) {
-                                console.error(e);
-                            }
-                        }}
-                    >
-                        [DEV] Entrar Imediatamente (Bypass)
-                    </Button>
+
 
                     <div className="text-center text-xs text-muted-foreground pt-4">
                         <p>Acesso seguro e criptografado.</p>
