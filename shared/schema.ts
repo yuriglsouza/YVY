@@ -126,6 +126,23 @@ export const insertZoneSchema = createInsertSchema(zones).omit({ id: true });
 export type Zone = typeof zones.$inferSelect;
 export type InsertZone = z.infer<typeof insertZoneSchema>;
 
+// === TASKS (Actionable Insights) ===
+export const tasks = pgTable("tasks", {
+  id: serial("id").primaryKey(),
+  farmId: integer("farm_id").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  status: text("status").default("pending").notNull(), // 'pending', 'in_progress', 'completed'
+  priority: text("priority").default("medium").notNull(), // 'low', 'medium', 'high', 'critical'
+  dueDate: timestamp("due_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true, createdAt: true, updatedAt: true });
+export type Task = typeof tasks.$inferSelect;
+export type InsertTask = z.infer<typeof insertTaskSchema>;
+
 // === RELATIONS ===
 // (Optional but good for query helpers if we were using query builder extensively)
 // For now, simple ID references are fine.

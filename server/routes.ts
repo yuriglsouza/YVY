@@ -5,7 +5,7 @@ import { db } from "./db.js";
 import { api } from "../shared/routes.js";
 import { z } from "zod";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { type Reading, type InsertReading, insertFarmSchema, insertReadingSchema, insertReportSchema, insertUserSchema, insertClientSchema } from "../shared/schema.js"; // Added insertClientSchema
+import { type Reading, type InsertReading, insertFarmSchema, insertReadingSchema, insertReportSchema, insertUserSchema, insertClientSchema, insertTaskSchema } from "../shared/schema.js";
 import { sendEmail } from "./email.js";
 
 // Mock Satellite Data Generator
@@ -210,7 +210,8 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
   if (reading.ndvi < 0.4) {
     alerts.push({
       type: "ESTRESSE VEGETATIVO",
-      msg: `NDVI baixo (${reading.ndvi.toFixed(2)}). Possível estresse hídrico ou nutricional diagnosticado pelo satélite.`
+      msg: `NDVI baixo (${reading.ndvi.toFixed(2)}). Possível estresse hídrico ou nutricional diagnosticado pelo satélite.`,
+      taskTemplate: { title: "Vistoria de Vigor (Baixo NDVI)", description: `Anomalia NDVI de ${reading.ndvi.toFixed(2)}. Vá a campo e faça avaliação visual de nematoides, pragas ou restrição nutricional.`, priority: "high" }
     });
   }
 
@@ -218,7 +219,8 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
   if (reading.ndwi < -0.15) {
     alerts.push({
       type: "DÉFICIT HÍDRICO",
-      msg: `NDWI muito baixo (${reading.ndwi.toFixed(2)}). Solo com pouca umidade na última leitura.`
+      msg: `NDWI muito baixo (${reading.ndwi.toFixed(2)}). Solo com pouca umidade na última leitura.`,
+      taskTemplate: { title: "Inspeção de Estresse Hídrico", description: "Índice de evapotranspiração severo. Verifique a umidade do solo com trado e reavalie os tensores de irrigação urgentemente.", priority: "critical" }
     });
   }
 
@@ -226,7 +228,8 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
   if (reading.temperature && reading.temperature > 32) {
     alerts.push({
       type: "AQUECIMENTO SUPERFICIAL",
-      msg: `Temperatura de superfície atingiu ${reading.temperature.toFixed(1)}°C. Risco de abortamento floral.`
+      msg: `Temperatura de superfície atingiu ${reading.temperature.toFixed(1)}°C. Risco de abortamento floral.`,
+      taskTemplate: { title: "Risco de Abortamento Floral", description: "Superfície > 32ºC detectada pelo satélite termal. Considere pulverização de protetores foliares se houver florada agendada.", priority: "medium" }
     });
   }
 
@@ -237,13 +240,15 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
       if (climate.maxTempWeek > 37) {
         alerts.push({
           type: "🔥 ONDA DE CALOR (PREVISÃO)",
-          msg: `Previsão de temperaturas extremas chegando a ${climate.maxTempWeek}°C nos próximos dias.`
+          msg: `Previsão de temperaturas extremas chegando a ${climate.maxTempWeek}°C nos próximos dias.`,
+          taskTemplate: { title: "Preparação para Onda de Calor", description: `Previsão aponta pico de ${climate.maxTempWeek}ºC. Revise vazão do pivô e antecipe irrigações de salvamento.`, priority: "critical" }
         });
       }
       if (climate.totalRainWeek === 0 && reading.ndwi < 0) {
         alerts.push({
           type: "🏜️ ALERTA DE SECA SEVERA (PREVISÃO)",
-          msg: `Não há previsão de chuva (0mm) para os próximos 5 dias, e o balanço hídrico já está negativo.`
+          msg: `Não há previsão de chuva (0mm) para os próximos 5 dias, e o balanço hídrico já está negativo.`,
+          taskTemplate: { title: "Mitigação de Seca Prolongada", description: "Chuva zerada na próxima semana com déficit pré-existente. Acione plano de contingência hídrica.", priority: "high" }
         });
       }
     }
@@ -252,9 +257,21 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
   if (alerts.length > 0) {
     console.log(`⚠️ Detected ${alerts.length} critical issues/forecasts for ${farmName}`);
 
-    // Persist alerts to DB
+    // Persist alerts to DB and generate Tasks
     for (const alert of alerts) {
       await storage.logAlert(farmId, alert.type, alert.msg, user.email);
+      if (alert.taskTemplate) {
+        try {
+          await storage.createTask({
+            farmId,
+            title: alert.taskTemplate.title,
+            description: alert.taskTemplate.description,
+            priority: alert.taskTemplate.priority,
+            status: "pending",
+            dueDate: new Date(Date.now() + 48 * 60 * 60 * 1000) // 48h deadline
+          });
+        } catch (e) { console.error("Could not auto-generate task:", e) }
+      }
     }
 
     const subject = `🚨 Alerta de Monitoramento Agrícola: ${farmName}`;
@@ -444,6 +461,43 @@ export async function registerRoutes(
     const id = Number(req.params.id);
     await storage.markAlertRead(id);
     res.json({ success: true });
+  });
+
+  // --- TASKS (Actionable Insights) ---
+  app.get("/api/farms/:id/tasks", isAuthenticated, async (req, res) => {
+    const farmId = Number(req.params.id);
+    const tasks = await storage.getTasks(farmId);
+    res.json(tasks);
+  });
+
+  app.post("/api/farms/:id/tasks", isAuthenticated, async (req, res) => {
+    try {
+      const farmId = Number(req.params.id);
+      const input = insertTaskSchema.parse({ ...req.body, farmId });
+      const task = await storage.createTask(input);
+      res.status(201).json(task);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.patch("/api/tasks/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const input = insertTaskSchema.partial().parse(req.body);
+      const updated = await storage.updateTask(id, input);
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.delete("/api/tasks/:id", isAuthenticated, async (req, res) => {
+    const id = Number(req.params.id);
+    await storage.deleteTask(id);
+    res.status(204).end();
   });
 
   // Benchmark

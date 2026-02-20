@@ -5,7 +5,8 @@ import {
   type Reading, type InsertReading,
   type Report, type InsertReport,
   type User, type InsertUser,
-  type Client, type InsertClient
+  type Client, type InsertClient,
+  tasks, type Task, type InsertTask
 } from "../shared/schema.js";
 import { eq, desc, sql } from "drizzle-orm";
 // Import chat storage to include it in the exported interface if needed, 
@@ -52,6 +53,12 @@ export interface IStorage {
 
   // Updates
   updateFarm(id: number, farm: Partial<InsertFarm>): Promise<Farm>;
+
+  // Tasks
+  getTasks(farmId: number): Promise<Task[]>;
+  createTask(task: InsertTask): Promise<Task>;
+  updateTask(id: number, task: Partial<InsertTask>): Promise<Task>;
+  deleteTask(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -198,12 +205,34 @@ export class DatabaseStorage implements IStorage {
   }
 
   async markAlertRead(id: number): Promise<void> {
-    await db!
-      .update(alerts)
-      .set({ read: true })
-      .where(eq(alerts.id, id));
+    await db!.update(alerts).set({ read: true }).where(eq(alerts.id, id));
   }
 
+  async getTasks(farmId: number): Promise<Task[]> {
+    return await db!
+      .select()
+      .from(tasks)
+      .where(eq(tasks.farmId, farmId))
+      .orderBy(desc(tasks.createdAt));
+  }
+
+  async createTask(insertTask: InsertTask): Promise<Task> {
+    const [task] = await db!.insert(tasks).values(insertTask).returning();
+    return task;
+  }
+
+  async updateTask(id: number, updateData: Partial<InsertTask>): Promise<Task> {
+    const [updated] = await db!
+      .update(tasks)
+      .set({ ...updateData, updatedAt: new Date() })
+      .where(eq(tasks.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteTask(id: number): Promise<void> {
+    await db!.delete(tasks).where(eq(tasks.id, id));
+  }
   async getClients(): Promise<Client[]> {
     return await db!.select().from(clients).orderBy(desc(clients.createdAt));
   }
@@ -249,11 +278,13 @@ export class MemStorage implements IStorage {
   private reports: Map<number, Report>;
   private users: Map<number, User>;
   private clients: Map<number, Client>;
+  private tasks: Map<number, Task>;
   private farmIdCounter = 1;
   private readingIdCounter = 1;
   private reportIdCounter = 1;
   private userIdCounter = 1;
   private clientIdCounter = 1;
+  private taskIdCounter = 1;
 
   constructor() {
     this.farms = new Map();
@@ -261,6 +292,7 @@ export class MemStorage implements IStorage {
     this.reports = new Map();
     this.users = new Map();
     this.clients = new Map();
+    this.tasks = new Map();
     // Seed initial data? Handled in routes.ts if empty.
   }
 
@@ -499,6 +531,40 @@ export class MemStorage implements IStorage {
     const updatedFarm = { ...farm, ...updateFarm };
     this.farms.set(id, updatedFarm);
     return updatedFarm;
+  }
+
+  async getTasks(farmId: number): Promise<Task[]> {
+    return Array.from(this.tasks.values())
+      .filter((t) => t.farmId === farmId)
+      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+
+  async createTask(insertTask: InsertTask): Promise<Task> {
+    const id = this.taskIdCounter++;
+    const task: Task = {
+      ...insertTask,
+      id,
+      status: insertTask.status || "pending",
+      priority: insertTask.priority || "medium",
+      description: insertTask.description ?? null,
+      dueDate: insertTask.dueDate ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.tasks.set(id, task);
+    return task;
+  }
+
+  async updateTask(id: number, updateTask: Partial<InsertTask>): Promise<Task> {
+    const task = this.tasks.get(id);
+    if (!task) throw new Error("Task not found");
+    const updated = { ...task, ...updateTask, updatedAt: new Date() } as Task;
+    this.tasks.set(id, updated);
+    return updated;
+  }
+
+  async deleteTask(id: number): Promise<void> {
+    this.tasks.delete(id);
   }
 }
 

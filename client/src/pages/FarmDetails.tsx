@@ -8,7 +8,7 @@ import { Gauge } from "@/components/Gauge";
 import { Link, useRoute, useLocation } from "wouter";
 import { WeatherCard } from "@/components/weather-card";
 import { BenchmarkChart } from "@/components/benchmark-chart";
-import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit, Sprout, Ruler, Trash2, DollarSign, Leaf, CloudRain, Activity } from "lucide-react";
+import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit, Sprout, Ruler, Trash2, DollarSign, Leaf, CloudRain, Activity, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 // ... imports ...
 import { MapContainer, TileLayer, Marker, Popup, Circle, LayersControl, ImageOverlay } from "react-leaflet";
@@ -25,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ReportConfigDialog, ReportConfig } from "@/components/report-config-dialog";
 import { FinancialAnalysisDialog } from "@/components/financial-analysis-dialog";
 import { useUser } from "@/hooks/use-user"; // Add hook
+import { TaskBoard } from "@/components/task-board";
 
 // Fix for leaflet marker icons
 import L from "leaflet";
@@ -911,6 +912,10 @@ export default function FarmDetails() {
               <Sprout className="w-4 h-4" />
               Sustentabilidade (ESG)
             </TabsTrigger>
+            <TabsTrigger value="tasks" className="gap-2 bg-emerald-500/10 text-emerald-600 data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+              <ClipboardCheck className="w-4 h-4" />
+              Ações Diárias (Verificação)
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="monitoring">
@@ -1395,6 +1400,10 @@ export default function FarmDetails() {
                 </>
               );
             })()}
+          </TabsContent>
+
+          <TabsContent value="tasks" className="animate-in fade-in-50 duration-500">
+            <TaskBoard farmId={farmId} />
           </TabsContent>
         </Tabs>
 
