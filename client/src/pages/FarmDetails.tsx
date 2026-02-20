@@ -254,6 +254,7 @@ export default function FarmDetails() {
       const cBlueCol = hex2rgb("#E8F1FB");
       const cOrangeCol = hex2rgb("#FFF2E6");
       const cEmerald = hex2rgb("#059669"); // Aumentar Contraste (antes era #10b981)
+      const cGrayFooter = hex2rgb("#F5F5F5");
       const cPrimaryText = hex2rgb("#111827");
       const cSecondaryText = hex2rgb("#6B7280");
       const cBorder = hex2rgb("#E5E7EB");
