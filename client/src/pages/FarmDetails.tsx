@@ -328,9 +328,11 @@ export default function FarmDetails() {
       let fName = farm?.name.toUpperCase() || "";
       if (fName.length > 25) fName = fName.substring(0, 22) + "..."; // Mais espaço agora
 
-      // Distribuindo em 3 Colunas reais
+      // Distribuindo em 3 Colunas reais e evitando colisão de FAZENDA longa
+      const col2X = margin + (contentWidth * 0.40); // Empurra a Data bem pro meio/direita para dar salão pra Fazenda
       doc.text(`FAZENDA: ${fName}`, margin + 5, cy + 10);
-      doc.text(`DATA: ${dtStr}  |  CULTURA: ${(farm?.cropType || "").toUpperCase()}`, pageWidth / 2, cy + 10, { align: "center" });
+      doc.text(`DATA: ${dtStr}`, col2X, cy + 10);
+      doc.text(`CULTURA: ${(farm?.cropType || "").toUpperCase()}`, col2X + 28, cy + 10);
       doc.text(`ÁREA: ${farm?.sizeHa} ha`, pageWidth - margin - 5, cy + 10, { align: "right" });
       cy += 16 + 8;
 
@@ -444,18 +446,18 @@ export default function FarmDetails() {
         roundedRect(rightX, rightCy, rightW, 70, 2);
 
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
+        doc.setFontSize(10); // Reduzido de 11 para caber na nova proporção rightW de 41%
         doc.setTextColor(cEmerald[0], cEmerald[1], cEmerald[2]);
-        doc.text("DIAGNÓSTICO TÉCNICO – ANÁLISE IA", rightX + 8, rightCy + 8);
+        doc.text("DIAGNÓSTICO TÉCNICO – ANÁLISE IA", rightX + 6, rightCy + 8); // Ajuste de padding de +8 para +6
 
-        let fs = 10;
-        let diagTxt = doc.splitTextToSize(structuredAnalysis.diagnostic || "-", rightW - 16);
+        let fs = 9; // Já começa menor pra caber na box reduzida
+        let diagTxt = doc.splitTextToSize(structuredAnalysis.diagnostic || "-", rightW - 12); // Menos perda de margem
         let lh = fs * 1.4 * 0.352;
 
         if (diagTxt.length * lh > 50) {
-          fs = 9;
+          fs = 8;
           lh = fs * 1.4 * 0.352;
-          diagTxt = doc.splitTextToSize(structuredAnalysis.diagnostic || "-", rightW - 16);
+          diagTxt = doc.splitTextToSize(structuredAnalysis.diagnostic || "-", rightW - 12);
           while (diagTxt.length * lh > 50 && diagTxt.length > 0) {
             diagTxt.pop();
             if (diagTxt.length > 0) diagTxt[diagTxt.length - 1] = diagTxt[diagTxt.length - 1].substring(0, 40) + '...';
@@ -465,7 +467,7 @@ export default function FarmDetails() {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(fs);
         doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
-        doc.text(diagTxt, rightX + 8, rightCy + 16);
+        doc.text(diagTxt, rightX + 6, rightCy + 16);
         rightCy += 70 + 8; // 8mm gap
 
         // Calculate remaining space in Right Column to balance modules
@@ -477,17 +479,17 @@ export default function FarmDetails() {
         roundedRect(rightX, rightCy, rightW, modH, 2);
 
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
+        doc.setFontSize(10);
         doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
-        doc.text("PREVISÃO / CENÁRIO", rightX + 8, rightCy + 8);
+        doc.text("PREVISÃO / CENÁRIO", rightX + 5, rightCy + 8);
 
         doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
-        const prTxtOrig = doc.splitTextToSize(structuredAnalysis.prediction || "-", rightW - 16);
+        const prTxtOrig = doc.splitTextToSize(structuredAnalysis.prediction || "-", rightW - 10);
         let pLimit = Math.floor((modH - 12) / (9 * 1.4 * 0.352));
         let prTxt = prTxtOrig.length > pLimit ? prTxtOrig.slice(0, pLimit) : prTxtOrig;
         if (prTxtOrig.length > pLimit && prTxt.length > 0) prTxt[pLimit - 1] += "...";
-        doc.text(prTxt, rightX + 8, rightCy + 15);
+        doc.text(prTxt, rightX + 5, rightCy + 15);
 
         rightCy += modH + 6;
 
@@ -496,20 +498,20 @@ export default function FarmDetails() {
         roundedRect(rightX, rightCy, rightW, modH, 2);
 
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
-        doc.text("RECOMENDAÇÕES ESTRATÉGICAS", rightX + 8, rightCy + 8);
+        doc.setFontSize(10);
+        doc.text("RECOMENDAÇÕES ESTRATÉGICAS", rightX + 5, rightCy + 8);
 
         doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
         const recRaw = Array.isArray(structuredAnalysis.recommendation) ? structuredAnalysis.recommendation : [structuredAnalysis.recommendation];
         const recBullets = recRaw.slice(0, 6).map((r: string) => `• ${r}`);
-        const reTxt = doc.splitTextToSize(recBullets.join('\n'), rightW - 16);
+        const reTxt = doc.splitTextToSize(recBullets.join('\n'), rightW - 10);
 
         let rLimit = Math.floor((modH - 12) / (9 * 1.4 * 0.352));
         let reTxtF = reTxt.length > rLimit ? reTxt.slice(0, rLimit) : reTxt;
         if (reTxt.length > rLimit && reTxtF.length > 0) reTxtF[rLimit - 1] += "...";
 
-        doc.text(reTxtF, rightX + 8, rightCy + 15);
+        doc.text(reTxtF, rightX + 5, rightCy + 15);
       }
 
       // --- PAGE 2: ANALYTICS & PERFORMANCE DASHBOARD ---
