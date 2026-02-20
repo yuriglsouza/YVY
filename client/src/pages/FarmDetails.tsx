@@ -262,6 +262,11 @@ export default function FarmDetails() {
       const cSecondaryText = hex2rgb("#6B7280");
       const cBorder = hex2rgb("#E5E7EB");
 
+      // Helper to draw rounded rects
+      const roundedRect = (x: number, y: number, w: number, h: number, r: number) => {
+        doc.roundedRect(x, y, w, h, r, r, 'F');
+      };
+
       let structuredAnalysis: any = null;
       let simpleContent = reportContent;
       try {
@@ -469,11 +474,6 @@ export default function FarmDetails() {
       // ================= RIGHT ZONE (EXECUTIVE ANALYSIS) =================
       let rightCy = cyCols;
 
-      // Helper to draw rounded rects
-      const roundedRect = (x: number, y: number, w: number, h: number, r: number) => {
-        doc.roundedRect(x, y, w, h, r, r, 'F');
-      };
-
       // Soft Subtle Background for entire entire right column
       const remColumnHeight = pageHeight - margin - rightCy - 5;
       const cSoftBg = hex2rgb("#F9FAFB");
@@ -494,8 +494,8 @@ export default function FarmDetails() {
       doc.text("AUDITORIA ESG: USO DO SOLO", rightX + 6, rightCy + 7);
 
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.text(isDeforested ? "Risco Crítico (Desmatamento Detectado)" : "Livre de Desmatamento (Elegível a Crédito)", rightX + 6, rightCy + 13);
+      doc.setFontSize(8.5);
+      doc.text(isDeforested ? "Risco de Embargo Ambiental (Desmatamento)" : "Livre de Desmatamento (Habilitado p/ Crédito)", rightX + 6, rightCy + 13);
 
       doc.setFont("helvetica", "italic");
       doc.setFontSize(7);
