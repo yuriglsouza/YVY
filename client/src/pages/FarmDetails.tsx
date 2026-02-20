@@ -681,7 +681,7 @@ export default function FarmDetails() {
         doc.setFont("helvetica", "normal");
         doc.text(format(new Date(chD[0].date), "dd/MM"), margin, gY + cH + 4);
         doc.text(format(new Date(chD[chD.length - 1].date), "dd/MM"), margin + contentWidth, gY + cH + 4, { align: 'right' });
-        cy += cH + 12;
+        cy += cH + 18;
       }
     } else {
       cy += 40;
@@ -689,7 +689,7 @@ export default function FarmDetails() {
 
     // 4. SECTION 4: ESG + FINANCE
     const mdW = (contentWidth - 10) / 2;
-    const mdH = 36;
+    const mdH = 48;
 
     // ESG
     doc.setFillColor(cLightGreen[0], cLightGreen[1], cLightGreen[2]);
@@ -715,7 +715,7 @@ export default function FarmDetails() {
     let eL = ["O manejo sustentável da área resulta em balanço", "de carbono positivo, alinhado aos protocolos ESG", "internacionais observados pela SYAZ IA."];
     if (structuredAnalysis?.esg && structuredAnalysis.esg !== '-') {
       eL = doc.splitTextToSize(structuredAnalysis.esg, mdW - 10);
-      if (eL.length > 3) { eL = eL.slice(0, 3); eL[2] += '...'; } // Shrink to 3 lines
+      if (eL.length > 5) { eL = eL.slice(0, 5); eL[4] += '...'; } // Shrink to 5 lines
     }
     doc.setFont("helvetica", "italic");
     doc.setFontSize(8);
