@@ -689,7 +689,7 @@ export default function FarmDetails() {
 
     // 4. SECTION 4: ESG + FINANCE
     const mdW = (contentWidth - 10) / 2;
-    const mdH = 48;
+    const mdH = 52;
 
     // ESG
     doc.setFillColor(cLightGreen[0], cLightGreen[1], cLightGreen[2]);
@@ -719,9 +719,9 @@ export default function FarmDetails() {
     }
     if (eL.length > 6) { eL = eL.slice(0, 6); eL[5] += '...'; } // Shrink to 6 lines
     doc.setFont("helvetica", "italic");
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
-    doc.text(eL, margin + 5, cy + 24);
+    doc.text(eL, margin + 5, cy + 24, { lineHeightFactor: 1.2 });
 
     // FINANCE
     const fiX = margin + mdW + 10;
