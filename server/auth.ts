@@ -24,9 +24,9 @@ export function setupAuth(app: Express) {
         }
     };
 
-    // In preview environments (Replit, Ngrok, etc), the app sits behind an HTTPS proxy.
-    // We MUST trust the proxy unconditionally so Passport matches the callback protocol (HTTPS).
-    app.set("trust proxy", 1);
+    // In serverless environments (Vercel) or Proxied Servers, we must trust all upstream proxies
+    // so Passport matches the callback protocol (HTTPS) accurately. Otherwise Google rejects with invalid_grant.
+    app.set("trust proxy", true);
 
     if (app.get("env") === "production") {
         sessionSettings.cookie!.secure = true; // serve secure cookies
@@ -113,10 +113,25 @@ export function setupAuth(app: Express) {
 
     app.get(
         "/auth/google/callback",
-        passport.authenticate("google", { failureRedirect: "/login" }),
-        (req, res) => {
-            // Successful authentication, redirect home.
-            res.redirect("/");
+        (req, res, next) => {
+            passport.authenticate("google", (err: any, user: any, info: any) => {
+                if (err) {
+                    console.error("OAuth Error:", err);
+                    // Instead of failing with 500 JSON, gracefully redirect to index so user can try again
+                    return res.redirect("/?error=oauth_failed");
+                }
+                if (!user) {
+                    return res.redirect("/?error=oauth_no_user");
+                }
+                req.logIn(user, (loginErr) => {
+                    if (loginErr) {
+                        console.error("Login Error:", loginErr);
+                        return res.redirect("/?error=login_failed");
+                    }
+                    // Successful authentication, redirect home.
+                    return res.redirect("/");
+                });
+            })(req, res, next);
         }
     );
 
