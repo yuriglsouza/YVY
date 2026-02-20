@@ -428,6 +428,42 @@ export default function FarmDetails() {
       doc.setFont("helvetica", "bold");
       doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
       doc.text(`10m / px`, margin + leftW - 5, leftCy, { align: 'right' });
+      leftCy += 15;
+
+      // ================= NOVO: MÓDULO ZOOTÉCNICO (PECUÁRIA) =================
+      const isPasture = farm?.cropType.toLowerCase().includes('pasto') || farm?.cropType.toLowerCase().includes('pastagem');
+      if (isPasture) {
+        doc.setFillColor(cLightGreen[0], cLightGreen[1], cLightGreen[2]);
+        roundedRect(margin, leftCy, leftW, 25, 2);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
+        doc.text("MÉTRICAS ZOOTÉCNICAS", margin + 5, leftCy + 6);
+
+        // Capacidade
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
+        doc.text("Capacidade de Lotação:", margin + 5, leftCy + 13);
+
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(cEmerald[0], cEmerald[1], cEmerald[2]);
+
+        const calcUa = Math.max(0, (latestReading?.ndvi || 0) * 3200 * (farm.sizeHa) * 0.5 / 360);
+        const calcMs = Math.max(0, (latestReading?.ndvi || 0) * 3200 * (farm.sizeHa) / 1000);
+
+        doc.text(`${calcUa.toFixed(0)} UA (30 dias)`, margin + leftW - 5, leftCy + 13, { align: 'right' });
+
+        // Materia Seca
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
+        doc.text("Matéria Seca Estimada:", margin + 5, leftCy + 20);
+
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
+        doc.text(`${calcMs.toFixed(1)} Ton`, margin + leftW - 5, leftCy + 20, { align: 'right' });
+      }
 
 
       // ================= RIGHT ZONE (EXECUTIVE ANALYSIS) =================
@@ -453,7 +489,7 @@ export default function FarmDetails() {
       roundedRect(rightX, rightCy, rightW, 20, 2);
 
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
+      doc.setFontSize(9); // Changed from 8 to 9
       doc.setTextColor(esgColor[0], esgColor[1], esgColor[2]);
       doc.text("AUDITORIA ESG: USO DO SOLO", rightX + 6, rightCy + 7);
 
