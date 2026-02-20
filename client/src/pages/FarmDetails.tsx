@@ -717,7 +717,7 @@ export default function FarmDetails() {
     if (structuredAnalysis?.esg && structuredAnalysis.esg !== '-') {
       eL = doc.splitTextToSize(structuredAnalysis.esg, mdW - 10);
     }
-    if (eL.length > 6) { eL = eL.slice(0, 6); eL[5] += '...'; } // Shrink to 6 lines
+    if (eL.length > 8) { eL = eL.slice(0, 8); eL[7] += '...'; } // Shrink to 8 lines
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7.5);
     doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
