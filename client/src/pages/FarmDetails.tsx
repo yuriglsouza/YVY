@@ -312,7 +312,7 @@ export default function FarmDetails() {
       return startY + 26;
     };
 
-    // --- PAGE 1: EXECUTIVE INTELLIGENCE OVERVIEW ---
+    // --- PAGE 1: FIXED MAP STRUCTURE ---
     let cy = drawHeader(0);
 
     // 2. FARM STATUS STRIP (16mm)
@@ -325,105 +325,165 @@ export default function FarmDetails() {
     doc.text(`FAZENDA: ${farm?.name.toUpperCase()}`, margin + 5, cy + 10);
     doc.text(`DATA: ${dtStr}  |  CULTURA: ${farm?.cropType.toUpperCase()}`, pageWidth / 2, cy + 10, { align: "center" });
     doc.text(`ÁREA: ${farm?.sizeHa} ha`, pageWidth - margin - 5, cy + 10, { align: "right" });
-    cy += 16 + 10;
+    cy += 16 + 8;
 
-    // 3. SATELLITE IMAGE MODULE (75x75)
+    const leftW = contentWidth * 0.45; // Approx 76.5mm
+    const rightW = contentWidth * 0.51; // Approx 86.7mm
+    const rightX = margin + contentWidth * 0.49; // Adding gap between cols
+
+    const cyCols = cy;
+
+    // ================= LEFT ZONE (MAP ANCHOR COLUMN) ================= 
+    let leftCy = cyCols;
+    const imgSize = 75;
+    const leftCx = margin + (leftW - imgSize) / 2;
+
     if (latestReading?.satelliteImage) {
       try {
         const sat = await getBase64FromUrl(latestReading.satelliteImage);
-        const imgSize = 75;
-        const cx = (pageWidth - imgSize) / 2;
-
-        // Soft Shadow (Simulated with light gray rectangle offset)
+        // Soft Shadow
         doc.setFillColor(245, 245, 245);
-        doc.rect(cx + 2, cy + 2, imgSize, imgSize, 'F');
-
-        doc.addImage(sat, 'JPEG', cx, cy, imgSize, imgSize);
+        doc.rect(leftCx + 2, leftCy + 2, imgSize, imgSize, 'F');
+        // Image & Border
+        doc.addImage(sat, 'JPEG', leftCx, leftCy, imgSize, imgSize);
         doc.setDrawColor(cBorder[0], cBorder[1], cBorder[2]);
         doc.setLineWidth(0.5);
-        doc.rect(cx, cy, imgSize, imgSize, 'S');
-
-        cy += 75 + 5;
-        doc.setFont("helvetica", "italic");
-        doc.setFontSize(9);
-        doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
-        doc.text("Captura Sentinel-2 Processada via SYAZ Engine", pageWidth / 2, cy, { align: "center" });
-        cy += 12;
+        doc.rect(leftCx, leftCy, imgSize, imgSize, 'S');
       } catch (e) { }
     } else {
-      cy += 75 + 17; // reserve space even if failed
+      doc.setFillColor(cLightGray[0], cLightGray[1], cLightGray[2]);
+      doc.rect(leftCx, leftCy, imgSize, imgSize, 'F');
     }
+    leftCy += imgSize + 5;
+
+    // Caption
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
+    doc.text("Sentinel-2 Capture | Processed by SYAZ Engine", margin + leftW / 2, leftCy, { align: "center" });
+    leftCy += 20;
+
+    // Technical Metadata Block
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
+    doc.text("METADADOS TÉCNICOS", margin, leftCy);
+    leftCy += 6;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
+
+    doc.text("Última atualização:", margin, leftCy);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
+    doc.text(`${dtStr}`, margin + leftW - 5, leftCy, { align: 'right' });
+    leftCy += 8;
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
+    doc.text("Área analisada:", margin, leftCy);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
+    doc.text(`${farm?.sizeHa} hectares`, margin + leftW - 5, leftCy, { align: 'right' });
+    leftCy += 8;
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
+    doc.text("Configuração Orbital:", margin, leftCy);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
+    doc.text(`Multi-Spectral`, margin + leftW - 5, leftCy, { align: 'right' });
+    leftCy += 8;
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
+    doc.text("Resolução espacial:", margin, leftCy);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
+    doc.text(`10m / px`, margin + leftW - 5, leftCy, { align: 'right' });
+
+
+    // ================= RIGHT ZONE (EXECUTIVE ANALYSIS) =================
+    let rightCy = cyCols;
 
     // Helper to draw rounded rects
     const roundedRect = (x: number, y: number, w: number, h: number, r: number) => {
       doc.roundedRect(x, y, w, h, r, r, 'F');
     };
 
-    // 4. AI DIAGNOSTIC BLOCK
     if (structuredAnalysis) {
+      // Box 1: AI Diagnostic (Max 70mm height)
       doc.setFillColor(cLightGreen[0], cLightGreen[1], cLightGreen[2]);
-      roundedRect(margin, cy, contentWidth, 75, 2); // Forced Max Height 75mm
+      roundedRect(rightX, rightCy, rightW, 70, 2);
 
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
-      doc.text("DIAGNÓSTICO TÉCNICO – ANÁLISE IA", margin + 10, cy + 10);
+      doc.setFontSize(11);
+      doc.setTextColor(cEmerald[0], cEmerald[1], cEmerald[2]);
+      doc.text("DIAGNÓSTICO TÉCNICO – ANÁLISE IA", rightX + 8, rightCy + 8);
 
-      let fs = 11;
-      let diagTxt = doc.splitTextToSize(structuredAnalysis.diagnostic || "-", contentWidth - 20);
+      let fs = 10;
+      let diagTxt = doc.splitTextToSize(structuredAnalysis.diagnostic || "-", rightW - 16);
       let lh = fs * 1.4 * 0.352;
 
-      if (diagTxt.length * lh > 55) {
-        fs = 10;
+      if (diagTxt.length * lh > 50) {
+        fs = 9;
         lh = fs * 1.4 * 0.352;
-        diagTxt = doc.splitTextToSize(structuredAnalysis.diagnostic || "-", contentWidth - 20);
-        while (diagTxt.length * lh > 55 && diagTxt.length > 0) {
+        diagTxt = doc.splitTextToSize(structuredAnalysis.diagnostic || "-", rightW - 16);
+        while (diagTxt.length * lh > 50 && diagTxt.length > 0) {
           diagTxt.pop();
-          if (diagTxt.length > 0) diagTxt[diagTxt.length - 1] = diagTxt[diagTxt.length - 1].substring(0, 50) + '...';
+          if (diagTxt.length > 0) diagTxt[diagTxt.length - 1] = diagTxt[diagTxt.length - 1].substring(0, 40) + '...';
         }
       }
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(fs);
-      doc.text(diagTxt, margin + 10, cy + 18);
-      cy += 75 + 10;
+      doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
+      doc.text(diagTxt, rightX + 8, rightCy + 16);
+      rightCy += 70 + 8; // 8mm gap
 
-      // 5. FORECAST + RECOMMENDATIONS GRID
-      const colW = (contentWidth - 12) / 2;
+      // Calculate remaining space in Right Column to balance modules
+      const remH = 297 - margin - rightCy; // filling until bottom margin
+      const modH = (remH - 6) / 2; // Two modules, 6mm gap between them
 
-      doc.setFontSize(10);
-      const prTxtOrig = doc.splitTextToSize(structuredAnalysis.prediction || "-", colW - 16);
-      let prTxt = prTxtOrig.length > 8 ? prTxtOrig.slice(0, 8) : prTxtOrig; // max 8 lines
-      if (prTxtOrig.length > 8) prTxt[7] += "...";
-
-      const recRaw = Array.isArray(structuredAnalysis.recommendation) ? structuredAnalysis.recommendation : [structuredAnalysis.recommendation];
-      const recBullets = recRaw.slice(0, 6).map((r: string) => `• ${r}`); // max 6 bullets
-      const reTxt = doc.splitTextToSize(recBullets.join('\n'), colW - 16);
-
-      const prH = 15 + prTxt.length * (10 * 1.4 * 0.352) + 5;
-      const reH = 15 + reTxt.length * (10 * 1.4 * 0.352) + 5;
-      // Clamp to page 1 bounds cleanly, bottom-align shorter one handled by uniform maxCol
-      const maxCol = Math.min(Math.max(prH, reH), 297 - margin - cy - 5);
-
-      // Left Box (Blue)
+      // Module 1: PREVISÃO / CENÁRIO
       doc.setFillColor(cBlueCol[0], cBlueCol[1], cBlueCol[2]);
-      roundedRect(margin, cy, colW, maxCol, 2);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.text("PREVISÃO / CENÁRIO", margin + 8, cy + 9);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.text(prTxt, margin + 8, cy + 17);
+      roundedRect(rightX, rightCy, rightW, modH, 2);
 
-      // Right Box (Amber)
-      doc.setFillColor(cOrangeCol[0], cOrangeCol[1], cOrangeCol[2]);
-      roundedRect(margin + colW + 12, cy, colW, maxCol, 2);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
-      doc.text("RECOMENDAÇÕES ESTRATÉGICAS", margin + colW + 20, cy + 9);
+      doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
+      doc.text("PREVISÃO / CENÁRIO", rightX + 8, rightCy + 8);
+
+      doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.text(reTxt, margin + colW + 20, cy + 17);
+      const prTxtOrig = doc.splitTextToSize(structuredAnalysis.prediction || "-", rightW - 16);
+      let pLimit = Math.floor((modH - 12) / (9 * 1.4 * 0.352));
+      let prTxt = prTxtOrig.length > pLimit ? prTxtOrig.slice(0, pLimit) : prTxtOrig;
+      if (prTxtOrig.length > pLimit && prTxt.length > 0) prTxt[pLimit - 1] += "...";
+      doc.text(prTxt, rightX + 8, rightCy + 15);
+
+      rightCy += modH + 6;
+
+      // Module 2: RECOMENDAÇÕES ESTRATÉGICAS
+      doc.setFillColor(cOrangeCol[0], cOrangeCol[1], cOrangeCol[2]);
+      roundedRect(rightX, rightCy, rightW, modH, 2);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text("RECOMENDAÇÕES ESTRATÉGICAS", rightX + 8, rightCy + 8);
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      const recRaw = Array.isArray(structuredAnalysis.recommendation) ? structuredAnalysis.recommendation : [structuredAnalysis.recommendation];
+      const recBullets = recRaw.slice(0, 6).map((r: string) => `• ${r}`);
+      const reTxt = doc.splitTextToSize(recBullets.join('\n'), rightW - 16);
+
+      let rLimit = Math.floor((modH - 12) / (9 * 1.4 * 0.352));
+      let reTxtF = reTxt.length > rLimit ? reTxt.slice(0, rLimit) : reTxt;
+      if (reTxt.length > rLimit && reTxtF.length > 0) reTxtF[rLimit - 1] += "...";
+
+      doc.text(reTxtF, rightX + 8, rightCy + 15);
     }
 
     // --- PAGE 2: ANALYTICS & PERFORMANCE DASHBOARD ---
@@ -523,6 +583,21 @@ export default function FarmDetails() {
 
         doc.setFillColor(255, 255, 255);
         roundedRect(cx, ccy, cw, ch, 2);
+
+        let p = (m.val - m.min) / (m.max - m.min);
+        p = Math.max(0, Math.min(1, p));
+        const isInv = m.label === "LST";
+        const cGood = isInv ? 1 - p : p;
+
+        let barColor = [220, 38, 38];
+        if (cGood > 0.6) barColor = cEmerald;
+        else if (cGood > 0.3) barColor = [251, 191, 36];
+
+        // Accent line on left border
+        doc.setFillColor(barColor[0], barColor[1], barColor[2]);
+        doc.roundedRect(cx, ccy, 3, ch, 2, 2, 'F');
+        doc.rect(cx + 1.5, ccy, 1.5, ch, 'F'); // square off the right side of accent
+
         doc.setDrawColor(cBorder[0], cBorder[1], cBorder[2]);
         doc.setLineWidth(0.3);
         doc.roundedRect(cx, ccy, cw, ch, 2, 2, 'S');
@@ -530,29 +605,21 @@ export default function FarmDetails() {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
         doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
-        doc.text(m.label, cx + 4, ccy + 6);
+        doc.text(m.label, cx + 8, ccy + 6);
 
         // Value
         doc.setFont("helvetica", "bold");
         doc.setFontSize(20);
         doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
-        doc.text(m.val.toFixed(2) + m.u, cx + 4, ccy + 18);
+        doc.text(m.val.toFixed(2) + m.u, cx + 8, ccy + 18);
 
-        // Simple Progress Bar (2mm height)
-        const barW = cw - 8;
+        // Simple Progress Bar (3mm height)
+        const barW = cw - 12;
         doc.setFillColor(cLightGray[0], cLightGray[1], cLightGray[2]);
-        doc.rect(cx + 4, ccy + 24, barW, 3, 'F');
+        doc.rect(cx + 8, ccy + 24, barW, 3, 'F');
 
-        let p = (m.val - m.min) / (m.max - m.min);
-        p = Math.max(0, Math.min(1, p));
-        // Simple Color rule
-        const isInv = m.label === "LST";
-        const cGood = isInv ? 1 - p : p;
-        if (cGood > 0.6) doc.setFillColor(cEmerald[0], cEmerald[1], cEmerald[2]);
-        else if (cGood > 0.3) doc.setFillColor(251, 191, 36);
-        else doc.setFillColor(220, 38, 38);
-
-        doc.rect(cx + 4, ccy + 24, barW * p, 3, 'F');
+        doc.setFillColor(barColor[0], barColor[1], barColor[2]);
+        doc.rect(cx + 8, ccy + 24, barW * p, 3, 'F');
       });
       cy += (ch * 2) + 15;
     } else {
@@ -566,7 +633,7 @@ export default function FarmDetails() {
       const chD = [...readings].filter(r => new Date(r.date) >= tdAgo).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
       if (chD.length > 0) {
-        const cH = 45;
+        const cH = 60;
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
@@ -690,7 +757,7 @@ export default function FarmDetails() {
       // Only 3 lines to guarantee fitting exactly Page 2 with padding
       const lbW = 12;
       const bW = contentWidth - lbW - 15;
-      const bH = 5;
+      const bH = 8;
 
       gList.forEach(g => {
         doc.setFontSize(8);
@@ -723,11 +790,11 @@ export default function FarmDetails() {
         const np = Math.max(0, Math.min(1, (g.val - g.min) / (g.max - g.min)));
         const mx = bX + (np * bW);
         doc.setFillColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
-        doc.triangle(mx - 1.5, cy - 1, mx + 1.5, cy - 1, mx, cy, 'F');
+        doc.triangle(mx - 2, cy - 2, mx + 2, cy - 2, mx, cy, 'F');
         doc.setDrawColor(255, 255, 255);
         doc.setLineWidth(0.5);
         doc.line(mx, cy, mx, cy + bH);
-        cy += bH + 3;
+        cy += bH + 4;
       });
     }
 
