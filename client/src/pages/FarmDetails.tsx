@@ -494,8 +494,8 @@ export default function FarmDetails() {
       doc.text("AUDITORIA ESG: USO DO SOLO", rightX + 6, rightCy + 7);
 
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(8.5);
-      doc.text(isDeforested ? "Risco de Embargo Ambiental (Desmatamento)" : "Livre de Desmatamento (Habilitado p/ Crédito)", rightX + 6, rightCy + 13);
+      doc.setFontSize(7.5); // Changed again to ensure it fits the box
+      doc.text(isDeforested ? "Risco de Embargo (Desmatamento Detectado)" : "Livre de Desmatamento (Elegível a Crédito)", rightX + 6, rightCy + 13);
 
       doc.setFont("helvetica", "italic");
       doc.setFontSize(7);
