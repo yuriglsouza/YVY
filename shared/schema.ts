@@ -36,6 +36,7 @@ export const farms = pgTable("farms", {
   cropType: text("crop_type").notNull(),
   imageUrl: text("image_url"),
   clientId: integer("client_id"),
+  isDeforested: boolean("is_deforested").default(false), // ESG Compliance Flag
 });
 
 export const insertFarmSchema = createInsertSchema(farms).omit({ id: true });

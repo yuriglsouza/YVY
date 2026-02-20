@@ -8,7 +8,7 @@ import { Gauge } from "@/components/Gauge";
 import { Link, useRoute, useLocation } from "wouter";
 import { WeatherCard } from "@/components/weather-card";
 import { BenchmarkChart } from "@/components/benchmark-chart";
-import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit, Sprout, Ruler, Trash2, DollarSign, Leaf, CloudRain, Activity, ClipboardCheck, Cloud, Radio, Calendar, Beef, Scale } from "lucide-react";
+import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit, Sprout, Ruler, Trash2, DollarSign, Leaf, CloudRain, Activity, ClipboardCheck, Cloud, Radio, Calendar, Beef, Scale, ShieldCheck, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 // ... imports ...
@@ -443,6 +443,31 @@ export default function FarmDetails() {
       const cSoftBg = hex2rgb("#F9FAFB");
       doc.setFillColor(cSoftBg[0], cSoftBg[1], cSoftBg[2]); // Gray 50 (Tailwind) / Muito Frio e Elegante
       roundedRect(rightX - 3, rightCy - 3, rightW + 6, remColumnHeight + 6, 3);
+
+      // ======================== NOVO: COMPLIANCE AMBIENTAL ========================
+      const isDeforested = farm?.isDeforested || false;
+      const esgColor = isDeforested ? hex2rgb("#EF4444") : hex2rgb("#10B981");
+      const esgBgColor = isDeforested ? hex2rgb("#FEE2E2") : hex2rgb("#D1FAE5");
+
+      doc.setFillColor(esgBgColor[0], esgBgColor[1], esgBgColor[2]);
+      roundedRect(rightX, rightCy, rightW, 20, 2);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(esgColor[0], esgColor[1], esgColor[2]);
+      doc.text("AUDITORIA ESG: USO DO SOLO", rightX + 6, rightCy + 7);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text(isDeforested ? "Risco Crítico (Desmatamento Detectado)" : "Livre de Desmatamento (Elegível a Crédito)", rightX + 6, rightCy + 13);
+
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7);
+      doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
+      doc.text(isDeforested ? "Polígono embargado p/ financiamentos (Moratória)." : "Conformidade Cód. Florestal confirmada pelo satélite.", rightX + 6, rightCy + 18);
+
+      rightCy += 20 + 6; // 6mm gap
+      // ============================================================================
 
       if (structuredAnalysis) {
         // Box 1: AI Diagnostic (Max 70mm height)
@@ -1345,8 +1370,30 @@ export default function FarmDetails() {
                 .filter(r => r.displayCo2 > 0)
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
+              // Compliance Variables
+              const isCompliant = !farm?.isDeforested;
+
               return (
                 <>
+                  {/* COMPLIANCE AUDIT PANEL */}
+                  <div className={`p-6 rounded-2xl border shadow-sm flex flex-col md:flex-row items-start md:items-center gap-6 ${isCompliant ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-destructive/5 border-destructive/20'}`}>
+                    <div className={`p-4 rounded-full ${isCompliant ? 'bg-emerald-500/20 text-emerald-500' : 'bg-destructive/20 text-destructive'}`}>
+                      {isCompliant ? <ShieldCheck className="w-10 h-10" /> : <ShieldAlert className="w-10 h-10" />}
+                    </div>
+                    <div className="flex-1">
+                      <h3 className={`text-xl font-bold mb-1 ${isCompliant ? 'text-emerald-500' : 'text-destructive'}`}>
+                        {isCompliant ? 'Certidão de Conformidade Ambiental Ativa' : 'Alerta Crítico: Risco de Embargo (Uso do Solo)'}
+                      </h3>
+                      <p className="text-muted-foreground text-sm leading-relaxed">
+                        {isCompliant ? (
+                          <>A inteligência artificial orbital da SYAZ Monitoramento garante que este polígono encontra-se <b>Livre de Desmatamento</b> e desprovido de sobreposição em áreas de conservação restrita. Propriedade 100% elegível para linhas de Crédito Rural (Plano Safra / Funcafé) e Acordos de Moratória da Soja.</>
+                        ) : (
+                          <>O satélite detectou <b>Supressão Recente de Vegetação Nativa</b> nos limites do polígono. Operações de crédito bancário e financiamento agrícola podem ser bloqueadas até a submissão formal das licenças (ASV) ao IBAMA/Órgão Ambiental.</>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
                       <div className="flex items-center gap-4 mb-4">

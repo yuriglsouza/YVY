@@ -268,6 +268,22 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
     });
   }
 
+  // 6. ESG Compliance: Deforestation Risk (Simulated 5% chance of detection for demo)
+  if (farm && !farm.isDeforested && Math.random() < 0.05) {
+    alerts.push({
+      type: "🚫 RISCO DE DESMATAMENTO / USO DO SOLO",
+      msg: `Atenção: A I.A. de visão computacional detectou supressão recente de vegetação nativa no polígono da propriedade. Risco de Embargo de Crédito (Bacen/Moratória).`,
+      taskTemplate: {
+        title: "Auditoria ESG Obrigatória",
+        description: "Supressão de vegetação detectada pelo satélite. Submeta imediatamente as licenças (ASV) ou justifique o evento para evitar bloqueio de financiamentos pelos bancos.",
+        priority: "critical"
+      }
+    });
+
+    // Update DB to mark farm as deforested (high risk)
+    await storage.updateFarm(farmId, { isDeforested: true });
+  }
+
   if (alerts.length > 0) {
     console.log(`⚠️ Detected ${alerts.length} critical issues/forecasts for ${farmName}`);
 
