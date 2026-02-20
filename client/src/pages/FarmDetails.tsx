@@ -322,7 +322,9 @@ export default function FarmDetails() {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     const dtStr = format(new Date(date), "dd/MM/yyyy");
-    doc.text(`FAZENDA: ${farm?.name.toUpperCase()}`, margin + 5, cy + 10);
+    let fName = farm?.name.toUpperCase() || "";
+    if (fName.length > 20) fName = fName.substring(0, 18) + "...";
+    doc.text(`FAZENDA: ${fName}`, margin + 5, cy + 10);
     doc.text(`DATA: ${dtStr}  |  CULTURA: ${farm?.cropType.toUpperCase()}`, pageWidth / 2, cy + 10, { align: "center" });
     doc.text(`ÁREA: ${farm?.sizeHa} ha`, pageWidth - margin - 5, cy + 10, { align: "right" });
     cy += 16 + 8;
@@ -505,16 +507,16 @@ export default function FarmDetails() {
 
     // 1. SECTION 1: OPERACIONAL CONSOLIDADO (Top 25%)
     doc.setFillColor(cLightGray[0], cLightGray[1], cLightGray[2]);
-    roundedRect(margin, cy, contentWidth, 35, 2);
+    roundedRect(margin, cy, contentWidth, 25, 2);
 
     // Left Accent Line
     doc.setFillColor(cEmerald[0], cEmerald[1], cEmerald[2]);
-    doc.rect(margin, cy, 3, 35, 'F');
+    doc.rect(margin, cy, 3, 25, 'F');
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
-    doc.text("STATUS OPERACIONAL CONSOLIDADO", margin + 10, cy + 8);
+    doc.text("STATUS OPERACIONAL CONSOLIDADO", margin + 10, cy + 6);
 
     const ndviScore = latestReading?.ndvi || 0;
     const gScore = (ndviScore * 100).toFixed(0);
@@ -524,17 +526,17 @@ export default function FarmDetails() {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
-    doc.text("Score Global", margin + 10, cy + 18);
+    doc.text("Score Global", margin + 10, cy + 14);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(22);
     doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
-    doc.text(`${gScore}`, margin + 10, cy + 28);
+    doc.text(`${gScore}`, margin + 10, cy + 22);
 
     // Col 2: Tendência
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
-    doc.text("Tendência (NDVI)", margin + 10 + w1, cy + 18);
+    doc.text("Tendência (NDVI)", margin + 10 + w1, cy + 14);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
     let trend = "Estável";
@@ -546,13 +548,13 @@ export default function FarmDetails() {
     doc.setTextColor(trend === "Alta" ? cEmerald[0] : trend === "Queda" ? 220 : cSecondaryText[0],
       trend === "Alta" ? cEmerald[1] : trend === "Queda" ? 38 : cSecondaryText[1],
       trend === "Alta" ? cEmerald[2] : trend === "Queda" ? 38 : cSecondaryText[2]);
-    doc.text(trend.toUpperCase(), margin + 10 + w1, cy + 26);
+    doc.text(trend.toUpperCase(), margin + 10 + w1, cy + 22);
 
     // Col 3: Risco Climático
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
-    doc.text("Risco Climático", margin + 10 + (w1 * 2), cy + 18);
+    doc.text("Risco Climático", margin + 10 + (w1 * 2), cy + 14);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
     const lst = latestReading?.temperature || 0;
@@ -560,8 +562,8 @@ export default function FarmDetails() {
     doc.setTextColor(climaR === "Baixo" ? cEmerald[0] : climaR === "Alto" ? 220 : 251,
       climaR === "Baixo" ? cEmerald[1] : climaR === "Alto" ? 38 : 191,
       climaR === "Baixo" ? cEmerald[2] : climaR === "Alto" ? 38 : 36);
-    doc.text(climaR.toUpperCase(), margin + 10 + (w1 * 2), cy + 26);
-    cy += 35 + 8;
+    doc.text(climaR.toUpperCase(), margin + 10 + (w1 * 2), cy + 22);
+    cy += 25 + 6;
 
     // 2. SECTION 2: MÉTRICAS PRINCIPAIS (Card Grid)
     if (latestReading) {
@@ -575,13 +577,13 @@ export default function FarmDetails() {
 
       // Layout: 3 Top, 2 Bottom
       const cw = (contentWidth - 14) / 3;
-      const ch = 38;
+      const ch = 28;
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
       doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
-      doc.text("MÉTRICAS PRINCIPAIS", margin, cy + 6);
-      cy += 12;
+      doc.text("MÉTRICAS PRINCIPAIS", margin, cy + 4);
+      cy += 6;
 
       gList.forEach((m, i) => {
         const row = Math.floor(i / 3);
@@ -609,7 +611,7 @@ export default function FarmDetails() {
         // Accent line on left border
         doc.setFillColor(barColor[0], barColor[1], barColor[2]);
         doc.roundedRect(cx, ccy, 3, ch, 2, 2, 'F');
-        doc.rect(cx + 1.5, ccy, 1.5, ch, 'F'); // square off the right side of accent
+        doc.rect(cx + 1.5, ccy, 1.5, ch, 'F');
 
         doc.setDrawColor(cBorder[0], cBorder[1], cBorder[2]);
         doc.setLineWidth(0.3);
@@ -618,71 +620,76 @@ export default function FarmDetails() {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(10);
         doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
-        doc.text(m.label, cx + 8, ccy + 8);
+        doc.text(m.label, cx + 8, ccy + 6);
 
         // Value
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(22);
+        doc.setFontSize(18);
         doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
-        doc.text(m.val.toFixed(2) + m.u, cx + 8, ccy + 22);
+        doc.text(m.val.toFixed(2) + m.u, cx + 8, ccy + 18);
 
-        // Simple Progress Bar (3mm height)
+        // Simple Progress Bar
         const barW = cw - 16;
         doc.setFillColor(cLightGray[0], cLightGray[1], cLightGray[2]);
-        doc.rect(cx + 8, ccy + 30, barW, 4, 'F');
+        doc.rect(cx + 8, ccy + 22, barW, 3, 'F');
 
         doc.setFillColor(barColor[0], barColor[1], barColor[2]);
-        doc.rect(cx + 8, ccy + 30, barW * p, 4, 'F');
+        doc.rect(cx + 8, ccy + 22, barW * p, 3, 'F');
       });
-      cy += (ch * 2) + 20;
+      cy += (ch * 2) + 12;
     } else {
-      cy += 95;
+      cy += 70;
     }
 
-    // 3. SECTION 3: HISTÓRICO NDVI (Full width Chart)
+    // 3. SECTION 3: HISTÓRICO NDVI (Full width Chart - Line)
     if (readings && readings.length > 1) {
       const tdAgo = new Date();
       tdAgo.setDate(tdAgo.getDate() - 30);
       const chD = [...readings].filter(r => new Date(r.date) >= tdAgo).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
       if (chD.length > 0) {
-        const cH = 62;
+        const cH = 35;
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
         doc.text("VIGOR (NDVI) – ÚLTIMOS 30 DIAS", margin, cy + 4);
 
-        const gY = cy + 10;
+        const gY = cy + 8;
         doc.setDrawColor(cBorder[0], cBorder[1], cBorder[2]);
         doc.setLineWidth(0.2);
         doc.line(margin, gY, margin + contentWidth, gY);
         doc.line(margin, gY + (cH / 2), margin + contentWidth, gY + (cH / 2));
         doc.line(margin, gY + cH, margin + contentWidth, gY + cH);
 
-        const bw = (contentWidth / chD.length) * 0.85; // Bold Modern Bars
-        const gp = (contentWidth / chD.length) * 0.15;
+        doc.setDrawColor(cBlueCol[0] - 25, cBlueCol[1] - 25, cBlueCol[2] - 10);
+        doc.setLineWidth(1);
 
+        const ptX = (idx: number) => margin + (idx * (contentWidth / Math.max(1, chD.length - 1)));
+        const ptY = (v: number) => gY + (cH - Math.min(Math.max((v / 1.0) * cH, 0), cH));
+
+        for (let i = 0; i < chD.length - 1; i++) {
+          doc.line(ptX(i), ptY(chD[i].ndvi), ptX(i + 1), ptY(chD[i + 1].ndvi));
+        }
+
+        doc.setFillColor(cBlueCol[0] - 25, cBlueCol[1] - 25, cBlueCol[2] - 10);
         chD.forEach((r, i) => {
-          const hh = Math.min(Math.max((r.ndvi / 1.0) * cH, 0), cH);
-          const bx = margin + (i * (bw + gp));
-          const by = gY + (cH - hh);
-          doc.setFillColor(cBlueCol[0] - 25, cBlueCol[1] - 25, cBlueCol[2] - 10); // slightly darker blue for executive look
-          doc.rect(bx, by, bw, hh, 'F');
+          doc.circle(ptX(i), ptY(r.ndvi), 1.2, 'F');
         });
+
         doc.setFontSize(8);
         doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
         doc.setFont("helvetica", "normal");
         doc.text(format(new Date(chD[0].date), "dd/MM"), margin, gY + cH + 4);
         doc.text(format(new Date(chD[chD.length - 1].date), "dd/MM"), margin + contentWidth, gY + cH + 4, { align: 'right' });
-        cy += cH + 16;
+        cy += cH + 12;
       }
     } else {
-      cy += 60;
+      cy += 40;
     }
 
     // 4. SECTION 4: ESG + FINANCE
     const mdW = (contentWidth - 10) / 2;
-    const mdH = 45;
+    const mdH = 36;
 
     // ESG
     doc.setFillColor(cLightGreen[0], cLightGreen[1], cLightGreen[2]);
@@ -690,30 +697,30 @@ export default function FarmDetails() {
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(cEmerald[0], cEmerald[1], cEmerald[2]);
-    doc.text("SUSTENTABILIDADE (ESG)", margin + 5, cy + 8);
+    doc.text("SUSTENTABILIDADE (ESG)", margin + 5, cy + 6);
 
     doc.setFontSize(10);
     doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
     doc.setFont("helvetica", "normal");
     const cs = latestReading?.carbonStock ?? 0;
     const co = latestReading?.co2Equivalent ?? 0;
-    doc.text("Estoque Carbono:", margin + 5, cy + 15);
+    doc.text("Estoque Carbono:", margin + 5, cy + 12);
     doc.setFont("helvetica", "bold");
-    doc.text(`${cs.toFixed(1)} t`, margin + mdW - 5, cy + 15, { align: 'right' });
+    doc.text(`${cs.toFixed(1)} t`, margin + mdW - 5, cy + 12, { align: 'right' });
     doc.setFont("helvetica", "normal");
-    doc.text("CO2 Eq.:", margin + 5, cy + 20);
+    doc.text("CO2 Eq.:", margin + 5, cy + 17);
     doc.setFont("helvetica", "bold");
-    doc.text(`${co.toFixed(1)} tCO2e`, margin + mdW - 5, cy + 20, { align: 'right' });
+    doc.text(`${co.toFixed(1)} tCO2e`, margin + mdW - 5, cy + 17, { align: 'right' });
 
     let eL = ["O manejo sustentável da área resulta em balanço", "de carbono positivo, alinhado aos protocolos ESG", "internacionais observados pela SYAZ IA."];
     if (structuredAnalysis?.esg && structuredAnalysis.esg !== '-') {
       eL = doc.splitTextToSize(structuredAnalysis.esg, mdW - 10);
-      if (eL.length > 4) { eL = eL.slice(0, 4); eL[3] += '...'; }
+      if (eL.length > 3) { eL = eL.slice(0, 3); eL[2] += '...'; } // Shrink to 3 lines
     }
     doc.setFont("helvetica", "italic");
     doc.setFontSize(8);
     doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
-    doc.text(eL, margin + 5, cy + 27);
+    doc.text(eL, margin + 5, cy + 24);
 
     // FINANCE
     const fiX = margin + mdW + 10;
@@ -722,7 +729,7 @@ export default function FarmDetails() {
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
-    doc.text("ANÁLISE FINANCEIRA", fiX + 5, cy + 8);
+    doc.text("ANÁLISE FINANCEIRA", fiX + 5, cy + 6);
 
     if (config?.financials && config?.includeFinancials) {
       const { costPerHa, pricePerBag, yields } = config.financials;
@@ -740,26 +747,26 @@ export default function FarmDetails() {
 
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text("Custo Total:", fiX + 5, cy + 15);
-      doc.text(`R$ ${(cT / 1000).toFixed(1)}k`, fiX + mdW - 5, cy + 15, { align: 'right' });
-      doc.text("Receita Bruta:", fiX + 5, cy + 20);
-      doc.text(`R$ ${(gR / 1000).toFixed(1)}k`, fiX + mdW - 5, cy + 20, { align: 'right' });
+      doc.text("Custo Total:", fiX + 5, cy + 12);
+      doc.text(`R$ ${(cT / 1000).toFixed(1)}k`, fiX + mdW - 5, cy + 12, { align: 'right' });
+      doc.text("Receita Bruta:", fiX + 5, cy + 17);
+      doc.text(`R$ ${(gR / 1000).toFixed(1)}k`, fiX + mdW - 5, cy + 17, { align: 'right' });
       doc.setFont("helvetica", "bold");
-      doc.text("Lucro Líquido:", fiX + 5, cy + 25);
-      doc.text(`R$ ${(nP / 1000).toFixed(1)}k`, fiX + mdW - 5, cy + 25, { align: 'right' });
-      doc.text("ROI:", fiX + 5, cy + 34);
-      doc.setFontSize(13);
+      doc.text("Lucro Líquido:", fiX + 5, cy + 22);
+      doc.text(`R$ ${(nP / 1000).toFixed(1)}k`, fiX + mdW - 5, cy + 22, { align: 'right' });
+      doc.text("ROI:", fiX + 5, cy + 28);
+      doc.setFontSize(12);
       doc.setTextColor(37, 99, 235); // Slight blue accent
-      doc.text(`${roi.toFixed(0)}%`, fiX + mdW - 5, cy + 34, { align: 'right' });
+      doc.text(`${roi.toFixed(0)}%`, fiX + mdW - 5, cy + 28, { align: 'right' });
     }
-    cy += mdH + 12;
+    cy += mdH + 6;
 
     // 5. SECTION 5: ÍNDICES DE VIGOR (MÉDIA HORIZONTAL BARS)
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
     doc.text("DISTRIBUIÇÃO ANALÍTICA E BALIZAS DE VIGOR", margin, cy);
-    cy += 5;
+    cy += 4;
 
     if (latestReading) {
       const gList = [
@@ -770,7 +777,7 @@ export default function FarmDetails() {
       // Only 3 lines to guarantee fitting exactly Page 2 with padding
       const lbW = 12;
       const bW = contentWidth - lbW - 15;
-      const bH = 8;
+      const bH = 5;
 
       gList.forEach(g => {
         doc.setFontSize(8);
@@ -803,11 +810,11 @@ export default function FarmDetails() {
         const np = Math.max(0, Math.min(1, (g.val - g.min) / (g.max - g.min)));
         const mx = bX + (np * bW);
         doc.setFillColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
-        doc.triangle(mx - 2, cy - 2, mx + 2, cy - 2, mx, cy, 'F');
+        doc.triangle(mx - 1.5, cy - 1.5, mx + 1.5, cy - 1.5, mx, cy, 'F');
         doc.setDrawColor(255, 255, 255);
         doc.setLineWidth(0.5);
         doc.line(mx, cy, mx, cy + bH);
-        cy += bH + 4;
+        cy += bH + 3;
       });
     }
 
