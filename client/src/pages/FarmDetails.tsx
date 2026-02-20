@@ -248,13 +248,12 @@ export default function FarmDetails() {
     const contentWidth = pageWidth - (margin * 2); // 170mm
 
     const cDarkHeader = hex2rgb("#0D1B2A");
-    const cEmerald = hex2rgb("#00B894");
     const cLightGray = hex2rgb("#F3F4F6");
     const cLightGreen = hex2rgb("#E6F6F1");
     const cBlueCol = hex2rgb("#E8F1FB");
     const cOrangeCol = hex2rgb("#FFF2E6");
-    const cGrayFooter = hex2rgb("#F5F5F5");
-    const cPrimaryText = hex2rgb("#111111");
+    const cEmerald = hex2rgb("#059669"); // Aumentar Contraste (antes era #10b981)
+    const cPrimaryText = hex2rgb("#111827");
     const cSecondaryText = hex2rgb("#6B7280");
     const cBorder = hex2rgb("#E5E7EB");
 
@@ -298,18 +297,19 @@ export default function FarmDetails() {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(14);
       const tt = "RELATÓRIO DE INTELIGÊNCIA DE DADOS";
-      doc.text(tt, (pageWidth - doc.getTextWidth(tt)) / 2, startY + 14);
+      doc.text(tt, (pageWidth - doc.getTextWidth(tt)) / 2, startY + 12); // Reduzindo espaçamento vertical
 
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
-      doc.text(consultant, pageWidth - margin, startY + 14, { align: "right" });
+      doc.text(consultant, pageWidth - margin, startY + 12, { align: "right" });
 
-      // Thin divider
-      doc.setDrawColor(cEmerald[0], cEmerald[1], cEmerald[2]);
-      doc.setLineWidth(0.5);
-      doc.line(margin, startY + 22, pageWidth - margin, startY + 22);
-      return startY + 26;
+      // Thin divider 0.5pt subtle under header
+      doc.setDrawColor(200, 200, 200); // Sutil cinza 
+      doc.setLineWidth(0.2);
+      doc.line(margin, startY + 18, pageWidth - margin, startY + 18);
+
+      return startY + 24;
     };
 
     // --- PAGE 1: FIXED MAP STRUCTURE ---
@@ -323,21 +323,23 @@ export default function FarmDetails() {
     doc.setFontSize(10);
     const dtStr = format(new Date(date), "dd/MM/yyyy");
     let fName = farm?.name.toUpperCase() || "";
-    if (fName.length > 20) fName = fName.substring(0, 18) + "...";
+    if (fName.length > 25) fName = fName.substring(0, 22) + "..."; // Mais espaço agora
+
+    // Distribuindo em 3 Colunas reais
     doc.text(`FAZENDA: ${fName}`, margin + 5, cy + 10);
     doc.text(`DATA: ${dtStr}  |  CULTURA: ${farm?.cropType.toUpperCase()}`, pageWidth / 2, cy + 10, { align: "center" });
     doc.text(`ÁREA: ${farm?.sizeHa} ha`, pageWidth - margin - 5, cy + 10, { align: "right" });
     cy += 16 + 8;
 
-    const leftW = contentWidth * 0.45; // Approx 76.5mm
-    const rightW = contentWidth * 0.51; // Approx 86.7mm
-    const rightX = margin + contentWidth * 0.49; // Adding gap between cols
+    const leftW = contentWidth * 0.55; // Aumentar peso de 45 pra 55%
+    const rightW = contentWidth * 0.41; // Diminue a width dos textos para ~40%
+    const rightX = margin + contentWidth * 0.59; // Alinha o início pela base
 
     const cyCols = cy;
 
     // ================= LEFT ZONE (MAP ANCHOR COLUMN) ================= 
     let leftCy = cyCols;
-    const imgSize = 75;
+    const imgSize = 90; // Aumentado de 75mm para 90mm (Muito mais presença)
     const leftCx = margin + (leftW - imgSize) / 2;
 
     if (latestReading?.satelliteImage) {
@@ -426,6 +428,11 @@ export default function FarmDetails() {
     const roundedRect = (x: number, y: number, w: number, h: number, r: number) => {
       doc.roundedRect(x, y, w, h, r, r, 'F');
     };
+
+    // Soft Subtle Background for entire entire right column
+    const remColumnHeight = pageHeight - margin - rightCy - 5;
+    doc.setFillColor(249, 250, 251); // Gray 50 (Tailwind) / Muito Frio e Elegante
+    roundedRect(rightX - 3, rightCy - 3, rightW + 6, remColumnHeight + 6, 3);
 
     if (structuredAnalysis) {
       // Box 1: AI Diagnostic (Max 70mm height)
