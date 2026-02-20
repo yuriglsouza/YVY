@@ -8,7 +8,7 @@ import { Gauge } from "@/components/Gauge";
 import { Link, useRoute, useLocation } from "wouter";
 import { WeatherCard } from "@/components/weather-card";
 import { BenchmarkChart } from "@/components/benchmark-chart";
-import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit, Sprout, Ruler, Trash2, DollarSign, Leaf, CloudRain, Activity, ClipboardCheck, Cloud, Radio, Calendar } from "lucide-react";
+import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit, Sprout, Ruler, Trash2, DollarSign, Leaf, CloudRain, Activity, ClipboardCheck, Cloud, Radio, Calendar, Beef, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 // ... imports ...
@@ -929,6 +929,12 @@ export default function FarmDetails() {
               <Activity className="w-4 h-4" />
               Monitoramento
             </TabsTrigger>
+            {(farm?.cropType.toLowerCase().includes('pasto') || farm?.cropType.toLowerCase().includes('pastagem')) && (
+              <TabsTrigger value="livestock" className="gap-2 bg-amber-500/10 text-amber-600 data-[state=active]:bg-amber-600 data-[state=active]:text-white">
+                <Beef className="w-4 h-4" />
+                Pecuária (Lotação)
+              </TabsTrigger>
+            )}
             <TabsTrigger value="sustainability" className="gap-2">
               <Sprout className="w-4 h-4" />
               Sustentabilidade (ESG)
@@ -1424,6 +1430,73 @@ export default function FarmDetails() {
               );
             })()}
           </TabsContent>
+
+          {(farm?.cropType.toLowerCase().includes('pasto') || farm?.cropType.toLowerCase().includes('pastagem')) && (
+            <TabsContent value="livestock" className="space-y-8 animate-in fade-in-50 duration-500">
+              {(() => {
+                const ndvi = latestReading?.ndvi || 0.1;
+                // Calculo Simplificado: 1 un NDVI ~ 3200 kg Matéria Seca/ha
+                const dryMatterKg = Math.max(0, ndvi) * 3200 * (farm?.sizeHa || 0);
+
+                // Suporte: 1 UA (450kg) consome ~12kg MS/dia. 30 dias = 360kg.
+                // Eficiencia de pastejo seguro consideramos 50%
+                const availableForage = dryMatterKg * 0.5;
+                const capacityUa = availableForage / 360;
+
+                const uaColor = ndvi < 0.3 ? "text-red-500" : ndvi > 0.6 ? "text-emerald-500" : "text-amber-500";
+                const bgUaColor = ndvi < 0.3 ? "bg-red-500/10" : ndvi > 0.6 ? "bg-emerald-500/10" : "bg-amber-500/10";
+
+                return (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className={`p-3 rounded-full ${bgUaColor}`}>
+                            <Beef className={`w-8 h-8 ${uaColor}`} />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Capacidade de Suporte</p>
+                            <h3 className="text-4xl font-black font-mono">{Math.max(0, capacityUa).toFixed(0)} <span className="text-xl text-muted-foreground">UA</span></h3>
+                          </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Lotação máxima segura sustentada por <b>30 dias</b>. (1 UA = 450kg de peso vivo).
+                        </p>
+                      </div>
+
+                      <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="p-3 bg-primary/10 rounded-full">
+                            <Scale className="w-8 h-8 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Matéria Seca Estimada</p>
+                            <h3 className="text-3xl font-bold">{(dryMatterKg / 1000).toFixed(1)} <span className="text-xl text-muted-foreground">Ton</span></h3>
+                          </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Biomassa comestível (forragem) mensurada através da leitura ótica do satélite (NDVI).
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-primary/5 border border-primary/20 rounded-xl p-6">
+                      <h4 className="font-semibold text-primary mb-2 flex items-center gap-2">
+                        <BrainCircuit className="w-5 h-5" />
+                        Como a IA calcula o pastejo?
+                      </h4>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        A cor verde da folhagem do pasto contém biomassa estrutural que podemos inferir do espaço.
+                        Nossa inteligência converte o índice NDVI da área mapeada em quilos de Matéria Seca (MS).
+                        Assumimos uma eficiência de pastejo segura de 50% (o gado come metade, a outra metade garante o rebrote)
+                        e dividimos o saldo pelo consumo de um mamífero adulto de 450kg (1 Unidade Animal) ao longo de 1 mês.
+                      </p>
+                    </div>
+                  </>
+                );
+              })()}
+            </TabsContent>
+          )}
 
           <TabsContent value="tasks" className="animate-in fade-in-50 duration-500">
             <TaskBoard farmId={farmId} />

@@ -79,7 +79,7 @@ function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmi
             id="cropType"
             {...form.register("cropType")}
             className="rounded-lg"
-            placeholder="ex: Milho"
+            placeholder="ex: Soja, Pastagem"
           />
         </div>
         <div className="grid gap-2">
