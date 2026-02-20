@@ -147,7 +147,7 @@ export function setupAuth(app: Express) {
     app.post("/api/dev-login", async (req, res, next) => {
         try {
             const email = "admin@yvy.com.br";
-            let user = Array.from((storage as any).users.values()).find((u: any) => u.email === email);
+            let user = await storage.getUserByEmail(email);
 
             if (!user) {
                 user = await storage.createUser({
