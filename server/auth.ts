@@ -128,8 +128,16 @@ export function setupAuth(app: Express) {
                         console.error("Login Error:", loginErr);
                         return res.redirect("/?error=login_failed");
                     }
-                    // Successful authentication, redirect home.
-                    return res.redirect("/");
+                    // Very Important for Serverless / Vercel:
+                    // Force session flush to Postgres before redirecting so the Lambda doesn't die.
+                    req.session.save((saveErr) => {
+                        if (saveErr) {
+                            console.error("Session Save Error:", saveErr);
+                            return res.redirect("/?error=session_failed");
+                        }
+                        // Successful authentication, redirect home.
+                        return res.redirect("/");
+                    });
                 });
             })(req, res, next);
         }
