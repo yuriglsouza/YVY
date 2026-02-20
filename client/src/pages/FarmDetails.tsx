@@ -929,7 +929,7 @@ export default function FarmDetails() {
         `${h.erro.toFixed(1)}%`
       ]);
 
-      (doc as any).autoTable({
+      autoTable(doc, {
         startY: cy,
         head: [['Safra', 'NDVI Médio', 'Produção Estimada', 'Produção Real', 'Erro Absoluto %']],
         body: histData,
@@ -1085,7 +1085,7 @@ export default function FarmDetails() {
         ["Várzea Leste", "0.41", "ZONA CRÍTICA"]
       ];
 
-      (doc as any).autoTable({
+      autoTable(doc, {
         startY: cy,
         head: [['Zon. / Talhão', 'NDVI', 'Risco']],
         body: znData,
