@@ -761,62 +761,7 @@ export default function FarmDetails() {
     }
     cy += mdH + 6;
 
-    // 5. SECTION 5: ÍNDICES DE VIGOR (MÉDIA HORIZONTAL BARS)
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
-    doc.text("DISTRIBUIÇÃO ANALÍTICA E BALIZAS DE VIGOR", margin, cy);
-    cy += 4;
 
-    if (latestReading) {
-      const gList = [
-        { label: "NDVI", val: latestReading.ndvi, min: 0, max: 1 },
-        { label: "NDWI", val: latestReading.ndwi, min: -0.5, max: 0.5 },
-        { label: "LST", val: latestReading.temperature || 0, min: 10, max: 40 }
-      ];
-      // Only 3 lines to guarantee fitting exactly Page 2 with padding
-      const lbW = 12;
-      const bW = contentWidth - lbW - 15;
-      const bH = 5;
-
-      gList.forEach(g => {
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
-        doc.text(g.label, margin, cy + 4);
-        doc.setFont("helvetica", "normal");
-        doc.text(g.val.toFixed(1), margin + contentWidth, cy + 4, { align: 'right' });
-
-        const bX = margin + lbW + 3;
-        const fp = g.label === "LST";
-        const ns = 30;
-        const dw = bW / ns;
-
-        for (let s = 0; s < ns; s++) {
-          const t = s / (ns - 1);
-          const et = fp ? 1 - t : t;
-          let r, gr, bl;
-          if (et < 0.5) {
-            const nt = et * 2;
-            r = 220 + (251 - 220) * nt; gr = 38 + (191 - 38) * nt; bl = 38 + (36 - 38) * nt;
-          } else {
-            const nt = (et - 0.5) * 2;
-            r = 251 + (22 - 251) * nt; gr = 191 + (163 - 191) * nt; bl = 36 + (74 - 36) * nt;
-          }
-          doc.setFillColor(r, gr, bl);
-          doc.rect(bX + (s * dw), cy, dw + 0.3, bH, 'F');
-        }
-
-        const np = Math.max(0, Math.min(1, (g.val - g.min) / (g.max - g.min)));
-        const mx = bX + (np * bW);
-        doc.setFillColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
-        doc.triangle(mx - 1.5, cy - 1.5, mx + 1.5, cy - 1.5, mx, cy, 'F');
-        doc.setDrawColor(255, 255, 255);
-        doc.setLineWidth(0.5);
-        doc.line(mx, cy, mx, cy + bH);
-        cy += bH + 3;
-      });
-    }
 
     // --- FOOTER EXCLUSIVO DA PÁGINA 2 ---
     const fY = pageHeight - margin - 20;
