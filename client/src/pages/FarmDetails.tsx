@@ -331,8 +331,9 @@ export default function FarmDetails() {
       // Distribuindo em 3 Colunas reais e evitando colisão de FAZENDA longa
       const col2X = margin + (contentWidth * 0.40); // Empurra a Data bem pro meio/direita para dar salão pra Fazenda
       doc.text(`FAZENDA: ${fName}`, margin + 5, cy + 10);
-      doc.text(`DATA: ${dtStr}`, col2X, cy + 10);
-      doc.text(`CULTURA: ${(farm?.cropType || "").toUpperCase()}`, col2X + 28, cy + 10);
+      const dataStr = `DATA: ${dtStr}`;
+      doc.text(dataStr, col2X, cy + 10);
+      doc.text(`CULTURA: ${(farm?.cropType || "").toUpperCase()}`, col2X + doc.getTextWidth(dataStr) + 4, cy + 10);
       doc.text(`ÁREA: ${farm?.sizeHa} ha`, pageWidth - margin - 5, cy + 10, { align: "right" });
       cy += 16 + 8;
 
@@ -446,7 +447,7 @@ export default function FarmDetails() {
         roundedRect(rightX, rightCy, rightW, 70, 2);
 
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(10); // Reduzido de 11 para caber na nova proporção rightW de 41%
+        doc.setFontSize(9); // Super reduzido de 11->10->9 para caber de vez na restrição fortíssima de 41% da direita
         doc.setTextColor(cEmerald[0], cEmerald[1], cEmerald[2]);
         doc.text("DIAGNÓSTICO TÉCNICO – ANÁLISE IA", rightX + 6, rightCy + 8); // Ajuste de padding de +8 para +6
 
