@@ -143,6 +143,37 @@ export function setupAuth(app: Express) {
         }
     );
 
+    // TEMPORARY DEV ROUTE TO BYPASS OAUTH
+    app.post("/api/dev-login", async (req, res, next) => {
+        try {
+            const email = "admin@yvy.com.br";
+            let user = Array.from((storage as any).users.values()).find((u: any) => u.email === email);
+
+            if (!user) {
+                user = await storage.createUser({
+                    email,
+                    googleId: "dev-test-123",
+                    name: "Admin (Modo Teste)",
+                    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Admin",
+                    receiveAlerts: true,
+                });
+                // Force admin role
+                user = await storage.updateUser((user as any).id, { role: 'admin' });
+            }
+
+            // @ts-ignore
+            req.logIn(user, (loginErr) => {
+                if (loginErr) return next(loginErr);
+                req.session.save((saveErr) => {
+                    if (saveErr) return next(saveErr);
+                    res.json({ message: "Logged in via dev-bypass", user });
+                });
+            });
+        } catch (err) {
+            next(err);
+        }
+    });
+
     app.post("/api/logout", (req, res, next) => {
         req.logout((err) => {
             if (err) return next(err);
