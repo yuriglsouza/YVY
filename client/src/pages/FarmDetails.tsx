@@ -689,16 +689,24 @@ export default function FarmDetails() {
 
     // 4. SECTION 4: ESG + FINANCE
     const mdW = (contentWidth - 10) / 2;
-    const mdH = 52;
 
-    // ESG
+    let defaultEsg = "A área monitorada apresenta indicativos sólidos de manejo sustentável, mantendo um balanço de carbono estruturalmente positivo. As práticas atuais estão alinhadas rigorosamente aos principais protocolos ESG (Ambiental, Social e Governança) globais validados de forma autônoma pela SYAZ IA. Esse cenário promove a conservação contínua da biomassa e favorece destacadamente a elegibilidade operacional da fazenda para futuras emissões de certificações verdes e auditorias de compliance.";
+    let eL = doc.splitTextToSize(defaultEsg, mdW - 10);
+    if (structuredAnalysis?.esg && structuredAnalysis.esg !== '-') {
+      eL = doc.splitTextToSize(structuredAnalysis.esg, mdW - 10);
+    }
+
+    // Altura Dinâmica da Caixa com base no número de linhas de eL
+    const linesH = eL.length * 3.5; // Espaçamento aproximado por linha
+    const mdH = 26 + linesH; // 26mm base (padding + labels Carbono) + altura do texto flexível
+
+    // ESG BOX
     doc.setFillColor(cLightGreen[0], cLightGreen[1], cLightGreen[2]);
     roundedRect(margin, cy, mdW, mdH, 2);
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(cEmerald[0], cEmerald[1], cEmerald[2]);
     doc.text("SUSTENTABILIDADE (ESG)", margin + 5, cy + 6);
-
     doc.setFontSize(10);
     doc.setTextColor(cPrimaryText[0], cPrimaryText[1], cPrimaryText[2]);
     doc.setFont("helvetica", "normal");
@@ -712,12 +720,6 @@ export default function FarmDetails() {
     doc.setFont("helvetica", "bold");
     doc.text(`${co.toFixed(1)} tCO2e`, margin + mdW - 5, cy + 17, { align: 'right' });
 
-    let defaultEsg = "A área monitorada apresenta indicativos sólidos de manejo sustentável, mantendo um balanço de carbono estruturalmente positivo. As práticas atuais estão alinhadas rigorosamente aos principais protocolos ESG (Ambiental, Social e Governança) globais validados de forma autônoma pela SYAZ IA. Esse cenário promove a conservação contínua da biomassa e favorece destacadamente a elegibilidade operacional da fazenda para futuras emissões de certificações verdes e auditorias de compliance.";
-    let eL = doc.splitTextToSize(defaultEsg, mdW - 10);
-    if (structuredAnalysis?.esg && structuredAnalysis.esg !== '-') {
-      eL = doc.splitTextToSize(structuredAnalysis.esg, mdW - 10);
-    }
-    if (eL.length > 8) { eL = eL.slice(0, 8); eL[7] += '...'; } // Shrink to 8 lines
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7.5);
     doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
