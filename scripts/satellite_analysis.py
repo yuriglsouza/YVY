@@ -7,7 +7,7 @@ import argparse
 
 # Inicializa o Earth Engine
 try:
-    ee.Initialize(project='yvyorbital')
+    ee.Initialize()
 except Exception as e:
     try:
         # Tenta autenticar se não estiver inicializado (pode exigir interação manual na primeira vez)
