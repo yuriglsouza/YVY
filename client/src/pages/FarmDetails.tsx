@@ -1040,8 +1040,10 @@ export default function FarmDetails() {
       doc.setFontSize(8);
       doc.setFont("helvetica", "italic");
       doc.setTextColor(cSecondaryText[0], cSecondaryText[1], cSecondaryText[2]);
-      doc.text(`Análise: O modelo preditivo para este polígono apresenta ${perfClass} baseada no teste retroativo R-Squared.`, margin, cy + 2);
-      cy += 12;
+      const analiseText = `Análise: O modelo preditivo para este polígono apresenta ${perfClass}, baseada no teste retroativo R-Squared (R² = ${r2.toFixed(3)}). Quanto menor o erro percentual (MAPE), maior a confiabilidade das projeções de safra para fins de crédito rural e seguro agrícola.`;
+      const analiseLines = doc.splitTextToSize(analiseText, contentWidth);
+      doc.text(analiseLines, margin, cy + 2);
+      cy += (analiseLines.length * 3.5) + 6;
 
       // SEÇÃO 4 & 5: BENCHMARK E ZONAS (Dividido ao meio)
       // Como sobrou pouco espaço na folha A4 vertical (em torno de 70mm), agruparemos lateralmente
@@ -1057,7 +1059,7 @@ export default function FarmDetails() {
       cy += 6;
 
       doc.setFillColor(cBlueCol[0], cBlueCol[1], cBlueCol[2]);
-      roundedRect(leftB, cy, hw, 40, 2);
+      roundedRect(leftB, cy, hw, 35, 2);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
       doc.text("Média Regional Prod. (Raio 50km):", leftB + 5, cy + 8);
@@ -1106,7 +1108,7 @@ export default function FarmDetails() {
       // --- FOOTER TÉCNICO OFICIAL (HASH / UTC) PÁG 3 ---
       const hashID = Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
       const utcStamp = new Date().toISOString();
-      const fY3 = pageHeight - margin - 20;
+      const fY3 = pageHeight - margin - 15;
       doc.setFillColor(cDarkHeader[0], cDarkHeader[1], cDarkHeader[2]); // Escuro e institucional
       roundedRect(margin, fY3, contentWidth, 20, 2);
 
