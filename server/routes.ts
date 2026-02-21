@@ -6,7 +6,7 @@ import { api } from "../shared/routes.js";
 import { z } from "zod";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { type Reading, type InsertReading, insertFarmSchema, insertReadingSchema, insertReportSchema, insertUserSchema, insertClientSchema, insertTaskSchema } from "../shared/schema.js";
-import { sendEmail } from "./email.js";
+import { sendEmail, buildAlertEmailHTML } from "./email.js";
 
 // Mock Satellite Data Generator
 function generateMockReadings(farmId: number, count = 10) {
@@ -310,16 +310,7 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
     }
 
     const subject = `🚨 Alerta de Monitoramento Agrícola: ${farmName}`;
-    const html = `
-      <h2>⚠️ Alerta de Risco Operacional - SYAZ Orbital</h2>
-      <p>Detectamos condições críticas baseadas nos satélites e na previsão do tempo para a <b>${farmName}</b>.</p>
-      <ul>
-        ${alerts.map(a => `<li><b>${a.type}:</b> ${a.msg}</li>`).join('')}
-      </ul>
-      <p>Acesse a plataforma para planejar as ações de mitigação.</p>
-      <hr>
-      <small>Você recebeu este alerta preventivo pois ativou as notificações inteligentes na SYAZ Orbital.</small>
-    `;
+    const html = buildAlertEmailHTML(farmName, alerts.map(a => ({ type: a.type, msg: a.msg })));
 
     const sent = await sendEmail({
       to: user.email,
