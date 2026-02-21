@@ -781,11 +781,11 @@ export async function registerRoutes(
           rvi: result.rvi,
           otci: result.otci,
           temperature: result.temperature,
+          cloudCover: result.cloud_cover ?? 0,
           satelliteImage: result.satellite_image,
           thermalImage: result.thermal_image,
-
-          imageBounds: result.bounds, // Add bounds from python script
-          regionalNdvi: result.regional_ndvi, // Add benchmark data
+          imageBounds: result.bounds,
+          regionalNdvi: result.regional_ndvi,
           carbonStock: result.carbon_stock,
           co2Equivalent: result.co2_equivalent
         };

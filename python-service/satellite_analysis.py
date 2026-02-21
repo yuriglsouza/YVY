@@ -222,7 +222,30 @@ def analyze_farm(roi, start_date, end_date, size_ha):
             maxPixels=1e9
         )
 
+        # Cloud Cover: média do CLOUDY_PIXEL_PERCENTAGE da coleção S2
+        s2_cloud = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
+            .filterDate(start_date_str, end_date_str) \
+            .filterBounds(roi)
+        cloud_cover = 0.0
+        try:
+            cloud_stats = s2_cloud.aggregate_mean('CLOUDY_PIXEL_PERCENTAGE').getInfo()
+            cloud_cover = (cloud_stats or 0) / 100.0  # Normalizar para 0-1
+        except Exception:
+            cloud_cover = 0.0
 
+        # Regional NDVI (5km context)
+        regional_ndvi = 0.0
+        try:
+            stats_regional = ndvi_img.reduceRegion(
+                reducer=ee.Reducer.mean(),
+                geometry=thermal_roi,
+                scale=50,
+                maxPixels=1e9
+            )
+            val_regional = stats_regional.getInfo()
+            regional_ndvi = val_regional.get('ndvi', 0) or 0
+        except Exception as e:
+            sys.stderr.write(f"Warning: Regional NDVI calc failed: {e}\n")
 
         # MODIS (LST)
         val_s3 = {'lst': None}
@@ -322,18 +345,34 @@ def analyze_farm(roi, start_date, end_date, size_ha):
             thermal_url = None
         
 
+        # Carbon Calculation
+        mean_ndvi = val_s2.get('ndvi', 0) if val_s2.get('ndvi') is not None else 0
+        area_ha = size_ha
+        try:
+            area_ha = roi.area().divide(10000).getInfo()
+        except Exception:
+            pass
+        biomass_t_ha = max(0, 180 * mean_ndvi - 40)
+        total_biomass = biomass_t_ha * area_ha
+        carbon_stock = total_biomass * 0.47
+        co2_equivalent = carbon_stock * 3.67
+
         # Tratar casos onde não há imagem (valores None/Null)
         result = {
             "date": end_date_str,
-            "ndvi": val_s2.get('ndvi', 0) if val_s2.get('ndvi') is not None else 0,
+            "ndvi": mean_ndvi,
             "ndwi": val_s2.get('ndwi', 0) if val_s2.get('ndwi') is not None else 0,
             "ndre": val_s2.get('ndre', 0) if val_s2.get('ndre') is not None else 0,
             "rvi": val_s1.get('rvi', 0) if val_s1.get('rvi') is not None else 0,
             "temperature": val_s3.get('lst', 0) if val_s3.get('lst') is not None else 0,
             "otci": val_otci.get('otci', 0) if val_otci.get('otci') is not None else 0,
+            "cloud_cover": cloud_cover,
             "satellite_image": thumb_url,
             "thermal_image": thermal_url,
-            "bounds": bounds_overlay # Adicionando Bounds
+            "bounds": bounds_overlay,
+            "regional_ndvi": regional_ndvi,
+            "carbon_stock": carbon_stock,
+            "co2_equivalent": co2_equivalent
         }
         
         print(json.dumps(result))
