@@ -209,13 +209,29 @@ async function fetchClimateForecast(latitude: number, longitude: number) {
 }
 
 async function checkAndSendAlerts(reading: Reading, farmId: number) {
-  // Alert the specific client/user owning the farm
-  const user = await storage.getUser(1);
-  if (!user || !user.receiveAlerts) return;
-
-  const alerts = [];
   const farm = await storage.getFarm(farmId);
   const farmName = farm?.name || `Fazenda #${farmId}`;
+
+  // Collect recipients: farm owner + admin
+  const recipients: { email: string; name: string }[] = [];
+
+  // 1. Farm owner
+  if (farm?.userId) {
+    const owner = await storage.getUser(farm.userId);
+    if (owner?.email && owner.receiveAlerts) {
+      recipients.push({ email: owner.email, name: owner.name || "Produtor" });
+    }
+  }
+
+  // 2. Admin (always receives a copy if configured)
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (adminEmail && !recipients.some(r => r.email === adminEmail)) {
+    recipients.push({ email: adminEmail, name: "Admin" });
+  }
+
+  if (recipients.length === 0) return;
+
+  const alerts = [];
 
   // 1. Satellite: NDVI Stress
   if (reading.ndvi < 0.4) {
@@ -294,7 +310,7 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
 
     // Persist alerts to DB and generate Tasks
     for (const alert of alerts) {
-      await storage.logAlert(farmId, alert.type, alert.msg, user.email);
+      await storage.logAlert(farmId, alert.type, alert.msg, recipients[0].email);
       if (alert.taskTemplate) {
         try {
           await storage.createTask({
@@ -311,16 +327,14 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
 
     const subject = `🚨 Alerta de Monitoramento Agrícola: ${farmName}`;
     const html = buildAlertEmailHTML(farmName, alerts.map(a => ({ type: a.type, msg: a.msg })));
+    const text = alerts.map(a => `${a.type}: ${a.msg}`).join('\n');
 
-    const sent = await sendEmail({
-      to: user.email,
-      subject,
-      text: alerts.map(a => `${a.type}: ${a.msg}`).join('\\n'),
-      html
-    });
-
-    if (sent) {
-      console.log(`Climate/Satellite Email sent to ${user.email}`);
+    // Send to all recipients (owner + admin)
+    for (const recipient of recipients) {
+      const sent = await sendEmail({ to: recipient.email, subject, text, html });
+      if (sent) {
+        console.log(`📧 Alert email sent to ${recipient.name} (${recipient.email})`);
+      }
     }
   }
 }
