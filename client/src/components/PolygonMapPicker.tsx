@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, type FormEvent } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw";
@@ -47,6 +47,35 @@ export function PolygonMapPicker({ onChange, initialCenter, initialPolygon }: Po
     const mapInstanceRef = useRef<L.Map | null>(null);
     const [areaHa, setAreaHa] = useState<number | null>(null);
     const [mapReady, setMapReady] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searching, setSearching] = useState(false);
+
+    const handleSearch = useCallback(async (e?: FormEvent) => {
+        e?.preventDefault();
+        if (!searchQuery.trim() || !mapInstanceRef.current) return;
+        setSearching(true);
+        try {
+            const res = await fetch(
+                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1`
+            );
+            const data = await res.json();
+            if (data.length > 0) {
+                const { lat, lon, boundingbox } = data[0];
+                if (boundingbox) {
+                    mapInstanceRef.current.fitBounds([
+                        [parseFloat(boundingbox[0]), parseFloat(boundingbox[2])],
+                        [parseFloat(boundingbox[1]), parseFloat(boundingbox[3])],
+                    ]);
+                } else {
+                    mapInstanceRef.current.flyTo([parseFloat(lat), parseFloat(lon)], 15, { duration: 1.5 });
+                }
+            }
+        } catch (err) {
+            console.error("Geocoding error:", err);
+        } finally {
+            setSearching(false);
+        }
+    }, [searchQuery]);
 
     const processLayer = useCallback((layer: L.Polygon) => {
         const latlngs = (layer.getLatLngs()[0] as L.LatLng[]);
@@ -184,6 +213,22 @@ export function PolygonMapPicker({ onChange, initialCenter, initialPolygon }: Po
 
     return (
         <div className="space-y-2">
+            <form onSubmit={handleSearch} className="flex gap-2">
+                <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="🔍 Buscar endereço, cidade ou fazenda..."
+                    className="flex-1 h-9 rounded-lg border border-border bg-background px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <button
+                    type="submit"
+                    disabled={searching || !searchQuery.trim()}
+                    className="h-9 px-4 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                >
+                    {searching ? "..." : "Ir"}
+                </button>
+            </form>
             <div
                 ref={mapContainerRef}
                 style={{ width: "100%", height: "300px", position: "relative", zIndex: 0 }}
