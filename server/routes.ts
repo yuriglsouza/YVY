@@ -1002,7 +1002,7 @@ export async function registerRoutes(
   }
 
 
-  async function getPrediction(farmId: number, date: string, tempModifier: number = 0, rainModifier: number = 0, sizeHa: number = 0): Promise<{ result?: number; yieldTons?: number; forecast?: any[]; trend?: string; error?: string }> {
+  async function getPrediction(farmId: number, date: string, tempModifier: number = 0, rainModifier: number = 0, sizeHa: number = 0, cropType: string = "Soja"): Promise<{ result?: number; yieldTons?: number; forecast?: any[]; trend?: string; error?: string }> {
 
     // 1. Try External Python Service (Stateless)
     if (process.env.PYTHON_SERVICE_URL) {
@@ -1034,7 +1034,8 @@ export async function registerRoutes(
             forecast_days: 30,
             temp_modifier: tempModifier,
             rain_modifier: rainModifier,
-            size_ha: sizeHa
+            size_ha: sizeHa,
+            crop_type: cropType
           }),
           signal: controller.signal
         });
@@ -1122,7 +1123,7 @@ export async function registerRoutes(
       return res.status(404).json({ message: "Fazenda não encontrada" });
     }
 
-    const output = await getPrediction(farmId, date, tempModifier, rainModifier, farm.sizeHa || 0);
+    const output = await getPrediction(farmId, date, tempModifier, rainModifier, farm.sizeHa || 0, farm.cropType || "Soja");
 
     if (output.result !== undefined) {
       res.json({

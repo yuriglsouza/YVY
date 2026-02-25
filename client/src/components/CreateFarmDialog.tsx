@@ -98,13 +98,29 @@ function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmi
 
       <div className="grid grid-cols-2 gap-4">
         <div className="grid gap-2">
-          <Label htmlFor="cropType">Tipo de Cultura</Label>
-          <Input
-            id="cropType"
-            {...form.register("cropType")}
-            className="rounded-lg"
-            placeholder="ex: Soja, Pastagem"
-          />
+          <Label>Tipo de Cultura</Label>
+          <Select
+            onValueChange={(value) => form.setValue("cropType", value)}
+            defaultValue={form.getValues("cropType") || undefined}
+            value={form.watch("cropType") || undefined}
+          >
+            <SelectTrigger className="rounded-lg">
+              <SelectValue placeholder="Selecione..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Soja">🌱 Soja</SelectItem>
+              <SelectItem value="Milho">🌽 Milho</SelectItem>
+              <SelectItem value="Café">☕ Café</SelectItem>
+              <SelectItem value="Cana-de-açúcar">🍬 Cana-de-açúcar</SelectItem>
+              <SelectItem value="Algodão">🧶 Algodão</SelectItem>
+              <SelectItem value="Trigo">🌾 Trigo</SelectItem>
+              <SelectItem value="Arroz">🍚 Arroz</SelectItem>
+              <SelectItem value="Feijão">🫘 Feijão</SelectItem>
+              <SelectItem value="Pastagem">🐄 Pastagem</SelectItem>
+              <SelectItem value="Eucalipto">🌳 Eucalipto</SelectItem>
+              <SelectItem value="Outro">📋 Outro</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="grid gap-2">
           <Label>Definir Área</Label>
@@ -196,6 +212,27 @@ function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmi
           <div>📐 Área: <span className="font-mono text-emerald-400 font-bold">{form.watch("sizeHa")} ha</span></div>
         </div>
       )}
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-2">
+          <Label htmlFor="plantingDate">📅 Data de Plantio</Label>
+          <Input
+            id="plantingDate"
+            type="date"
+            {...form.register("plantingDate")}
+            className="rounded-lg"
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="harvestDate">🌾 Data de Colheita</Label>
+          <Input
+            id="harvestDate"
+            type="date"
+            {...form.register("harvestDate")}
+            className="rounded-lg"
+          />
+        </div>
+      </div>
 
       <div className="grid gap-2">
         <Label htmlFor="imageUrl">URL da Imagem (Opcional)</Label>

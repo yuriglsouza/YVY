@@ -34,6 +34,8 @@ export const farms = pgTable("farms", {
   longitude: real("longitude").notNull(),
   sizeHa: real("size_ha").notNull(),
   cropType: text("crop_type").notNull(),
+  plantingDate: date("planting_date"),   // Início da safra
+  harvestDate: date("harvest_date"),     // Fim da safra
   imageUrl: text("image_url"),
   clientId: integer("client_id"),
   isDeforested: boolean("is_deforested").default(false), // ESG Compliance Flag

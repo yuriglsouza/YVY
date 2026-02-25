@@ -26,6 +26,22 @@ class PredictionRequest(BaseModel):
     temp_modifier: Optional[float] = 0
     rain_modifier: Optional[float] = 0
     size_ha: Optional[float] = 0
+    crop_type: Optional[str] = "Soja"
+
+# Yield reference table (kg/ha at NDVI=1.0 per crop type)
+CROP_YIELD_TABLE = {
+    "Soja": 5000,
+    "Milho": 10000,
+    "Café": 3000,
+    "Cana-de-açúcar": 80000,
+    "Algodão": 4500,
+    "Trigo": 4000,
+    "Arroz": 7000,
+    "Feijão": 3500,
+    "Pastagem": 15000,  # kg matéria seca/ha
+    "Eucalipto": 40000, # kg madeira/ha
+    "Outro": 5000,
+}
 
 def get_season(month: int) -> int:
     """Brazilian seasons: 0=Summer(Dec-Feb), 1=Fall(Mar-May), 2=Winter(Jun-Aug), 3=Spring(Sep-Nov)"""
@@ -144,9 +160,9 @@ async def predict_ndvi(req: PredictionRequest):
         # Overall prediction (average of forecast)
         avg_prediction = np.mean([f['ndvi'] for f in forecast])
         
-        # Yield estimation (kg/ha based on NDVI correlation)
-        # Reference: NDVI 0.8 ≈ 5000 kg/ha (soy), linear scaling
-        yield_per_ha = avg_prediction * 6250  # kg/ha
+        # Yield estimation based on crop type
+        max_yield_per_ha = CROP_YIELD_TABLE.get(req.crop_type or "Outro", 5000)
+        yield_per_ha = avg_prediction * max_yield_per_ha  # kg/ha
         yield_tons = (yield_per_ha * (req.size_ha or 100)) / 1000
         
         # Trend direction
