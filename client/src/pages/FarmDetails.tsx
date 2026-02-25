@@ -1416,11 +1416,34 @@ export default function FarmDetails() {
                       </div>
                     </div>
                     <div className="w-full h-[600px] overflow-hidden rounded-xl border border-border/50 relative group bg-black/95">
-                      <img
-                        src={showThermal ? (mapReading.thermalImage || mapReading.satelliteImage) : mapReading.satelliteImage}
-                        alt="Satellite View"
-                        className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
-                      />
+                      {showThermal ? (
+                        mapReading.thermalImage || mapReading.satelliteImage ? (
+                          <img
+                            src={mapReading.thermalImage || mapReading.satelliteImage}
+                            alt="Satellite View"
+                            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground/50">
+                            <Cloud className="w-12 h-12 mb-4 opacity-50" />
+                            <p>Imagem Térmica Indisponível</p>
+                          </div>
+                        )
+                      ) : (
+                        mapReading.satelliteImage ? (
+                          <img
+                            src={mapReading.satelliteImage}
+                            alt="Satellite View"
+                            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground/50">
+                            <Cloud className="w-12 h-12 mb-4 opacity-50" />
+                            <p>Imagem de Satélite Indisponível</p>
+                          </div>
+                        )
+                      )}
+
                       <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent text-white">
                         <div className="flex justify-between items-end">
                           <div>
