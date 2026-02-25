@@ -507,7 +507,7 @@ export async function registerRoutes(
   app.get("/api/force-cron", async (req: any, res: any) => {
     console.log("[Test Root] Forcing Cron Sync...");
     const farms = await storage.getFarms();
-    const adminEmail = process.env.ADMIN_EMAIL || "yuri.g.l.souza@gmail.com";
+    const adminEmail = process.env.ADMIN_EMAIL || "yuriglsouza@gmail.com";
 
     // Fire and forget so we don't timeout the HTTP request immediately
     (async () => {

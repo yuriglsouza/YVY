@@ -8,7 +8,7 @@ async function forceCronSync() {
     const farms = await storage.getFarms();
 
     // E-mail Admin/Godmode solicitado pelo dono
-    const adminEmail = process.env.ADMIN_EMAIL || "yuri.g.l.souza@gmail.com";
+    const adminEmail = process.env.ADMIN_EMAIL || "yuriglsouza@gmail.com";
 
     for (const farm of farms) {
         try {
