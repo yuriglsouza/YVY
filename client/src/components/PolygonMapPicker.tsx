@@ -28,80 +28,93 @@ interface PolygonMapPickerProps {
     initialPolygon?: [number, number][]; // [[lon,lat], ...] for edit mode
 }
 
+// Geodesic area fallback (Shoelace formula with Earth radius)
+function calculateGeodesicArea(latlngs: L.LatLng[]): number {
+    const R = 6378137;
+    const rad = Math.PI / 180;
+    let area = 0;
+    const n = latlngs.length;
+    for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n;
+        area += (latlngs[j].lng - latlngs[i].lng) * rad *
+            (2 + Math.sin(latlngs[i].lat * rad) + Math.sin(latlngs[j].lat * rad));
+    }
+    return Math.abs(area * R * R / 2);
+}
+
 export function PolygonMapPicker({ onChange, initialCenter, initialPolygon }: PolygonMapPickerProps) {
-    const mapRef = useRef<L.Map | null>(null);
     const mapContainerRef = useRef<HTMLDivElement>(null);
-    const drawnItemsRef = useRef<L.FeatureGroup | null>(null);
+    const mapInstanceRef = useRef<L.Map | null>(null);
     const [areaHa, setAreaHa] = useState<number | null>(null);
+    const [mapReady, setMapReady] = useState(false);
 
     const processLayer = useCallback((layer: L.Polygon) => {
         const latlngs = (layer.getLatLngs()[0] as L.LatLng[]);
 
-        // Calculate area in m² using geodesic area
-        const areaM2 = L.GeometryUtil
-            ? L.GeometryUtil.geodesicArea(latlngs)
-            : calculateGeodesicArea(latlngs);
+        // Calculate area
+        let areaM2: number;
+        try {
+            areaM2 = L.GeometryUtil.geodesicArea(latlngs);
+        } catch {
+            areaM2 = calculateGeodesicArea(latlngs);
+        }
 
         const ha = areaM2 / 10000;
         setAreaHa(ha);
 
-        // Calculate centroid
+        // Centroid
         let latSum = 0, lonSum = 0;
         latlngs.forEach(ll => { latSum += ll.lat; lonSum += ll.lng; });
         const centroid = { lat: latSum / latlngs.length, lon: lonSum / latlngs.length };
 
-        // Convert to GeoJSON order [lon, lat]
+        // GeoJSON order [lon, lat], close the ring
         const polygon: [number, number][] = latlngs.map(ll => [ll.lng, ll.lat]);
-        // Close the ring
-        if (polygon.length > 0 && (polygon[0][0] !== polygon[polygon.length - 1][0] || polygon[0][1] !== polygon[polygon.length - 1][1])) {
-            polygon.push([...polygon[0]] as [number, number]);
+        if (polygon.length > 0) {
+            const first = polygon[0];
+            const last = polygon[polygon.length - 1];
+            if (first[0] !== last[0] || first[1] !== last[1]) {
+                polygon.push([first[0], first[1]]);
+            }
         }
 
         onChange({ polygon, centroid, areaHa: ha });
     }, [onChange]);
 
-    // Geodesic area fallback (Shoelace formula with Earth radius)
-    function calculateGeodesicArea(latlngs: L.LatLng[]): number {
-        const R = 6378137; // Earth radius in meters
-        const rad = Math.PI / 180;
-        let area = 0;
-        const n = latlngs.length;
-        for (let i = 0; i < n; i++) {
-            const j = (i + 1) % n;
-            area += (latlngs[j].lng - latlngs[i].lng) * rad *
-                (2 + Math.sin(latlngs[i].lat * rad) + Math.sin(latlngs[j].lat * rad));
-        }
-        return Math.abs(area * R * R / 2);
-    }
-
     useEffect(() => {
-        if (!mapContainerRef.current || mapRef.current) return;
+        const container = mapContainerRef.current;
+        if (!container) return;
 
-        const center = initialCenter || [-15.79, -47.88]; // Default: Brasília
+        // Destroy previous map if it exists
+        if (mapInstanceRef.current) {
+            mapInstanceRef.current.remove();
+            mapInstanceRef.current = null;
+        }
 
-        const map = L.map(mapContainerRef.current, {
-            center: center as [number, number],
+        const center: [number, number] = initialCenter || [-15.79, -47.88];
+
+        // Create map
+        const map = L.map(container, {
+            center: center,
             zoom: 14,
             zoomControl: true,
         });
-        mapRef.current = map;
+        mapInstanceRef.current = map;
 
-        // Satellite tile layer
+        // Satellite tiles
         L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
             attribution: "Tiles © Esri",
             maxZoom: 19,
         }).addTo(map);
 
-        // Labels overlay
+        // Labels
         L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", {
             maxZoom: 19,
             pane: "shadowPane",
         }).addTo(map);
 
-        // Feature group for drawn items
+        // Feature group for drawings
         const drawnItems = new L.FeatureGroup();
         map.addLayer(drawnItems);
-        drawnItemsRef.current = drawnItems;
 
         // Draw control
         const drawControl = new (L.Control as any).Draw({
@@ -109,75 +122,63 @@ export function PolygonMapPicker({ onChange, initialCenter, initialPolygon }: Po
             draw: {
                 polygon: {
                     allowIntersection: false,
-                    shapeOptions: {
-                        color: "#10b981",
-                        weight: 3,
-                        fillColor: "#10b981",
-                        fillOpacity: 0.15,
-                    },
+                    shapeOptions: { color: "#10b981", weight: 3, fillColor: "#10b981", fillOpacity: 0.15 },
                 },
                 rectangle: {
-                    shapeOptions: {
-                        color: "#10b981",
-                        weight: 3,
-                        fillColor: "#10b981",
-                        fillOpacity: 0.15,
-                    },
+                    shapeOptions: { color: "#10b981", weight: 3, fillColor: "#10b981", fillOpacity: 0.15 },
                 },
                 circle: false,
                 circlemarker: false,
                 marker: false,
                 polyline: false,
             },
-            edit: {
-                featureGroup: drawnItems,
-                remove: true,
-            },
+            edit: { featureGroup: drawnItems, remove: true },
         });
         map.addControl(drawControl);
 
-        // Handle polygon creation
+        // Events
         map.on(L.Draw.Event.CREATED, (event: any) => {
             drawnItems.clearLayers();
-            const layer = event.layer;
-            drawnItems.addLayer(layer);
-            processLayer(layer as L.Polygon);
+            drawnItems.addLayer(event.layer);
+            processLayer(event.layer as L.Polygon);
         });
 
-        // Handle edit
         map.on(L.Draw.Event.EDITED, (event: any) => {
-            const layers = event.layers;
-            layers.eachLayer((layer: L.Polygon) => {
-                processLayer(layer);
-            });
+            event.layers.eachLayer((layer: L.Polygon) => processLayer(layer));
         });
 
-        // Handle delete
         map.on(L.Draw.Event.DELETED, () => {
             setAreaHa(null);
             onChange(null);
         });
 
-        // Load initial polygon if in edit mode
+        // Load existing polygon
         if (initialPolygon && initialPolygon.length > 0) {
             const latlngs = initialPolygon.map(([lon, lat]) => L.latLng(lat, lon));
             const poly = L.polygon(latlngs, {
-                color: "#10b981",
-                weight: 3,
-                fillColor: "#10b981",
-                fillOpacity: 0.15,
+                color: "#10b981", weight: 3, fillColor: "#10b981", fillOpacity: 0.15,
             });
             drawnItems.addLayer(poly);
             map.fitBounds(poly.getBounds(), { padding: [30, 30] });
             processLayer(poly);
         }
 
-        // Resize fix (dialog animation may affect map size)
-        setTimeout(() => map.invalidateSize(), 300);
+        // CRITICAL: Force resize after dialog animation completes
+        // Leaflet needs the container to have dimensions to render properly
+        const resizeInterval = setInterval(() => {
+            map.invalidateSize();
+        }, 100);
+
+        setTimeout(() => {
+            clearInterval(resizeInterval);
+            map.invalidateSize();
+            setMapReady(true);
+        }, 1000);
 
         return () => {
+            clearInterval(resizeInterval);
             map.remove();
-            mapRef.current = null;
+            mapInstanceRef.current = null;
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -185,9 +186,14 @@ export function PolygonMapPicker({ onChange, initialCenter, initialPolygon }: Po
         <div className="space-y-2">
             <div
                 ref={mapContainerRef}
-                className="w-full h-[300px] rounded-lg border border-border overflow-hidden"
-                style={{ zIndex: 0 }}
+                style={{ width: "100%", height: "300px", position: "relative", zIndex: 0 }}
+                className="rounded-lg border border-border overflow-hidden"
             />
+            {!mapReady && (
+                <div className="text-xs text-muted-foreground animate-pulse">
+                    🗺️ Carregando mapa de satélite...
+                </div>
+            )}
             {areaHa !== null && (
                 <div className="flex items-center gap-2 text-sm">
                     <span className="text-muted-foreground">Área calculada:</span>
