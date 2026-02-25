@@ -642,6 +642,22 @@ export async function registerRoutes(
 
         if (response.ok) {
           const zonesData = await response.json();
+
+          // Save zones to DB for history
+          try {
+            const zonesToSave = (zonesData.zones || zonesData).map((z: any) => ({
+              name: z.name || z.label || 'Zona',
+              color: z.color || '#22C55E',
+              coordinates: z.coordinates || z.points || [],
+              areaHa: z.area_percentage ? (farm.sizeHa * z.area_percentage / 100) : 0,
+              ndviAvg: z.ndvi_avg || z.ndviAvg || null,
+            }));
+            await storage.saveZones(farmId, zonesToSave);
+            console.log(`💾 Saved ${zonesToSave.length} zones to history for farm ${farmId}`);
+          } catch (saveErr) {
+            console.error("Failed to save zones to history:", saveErr);
+          }
+
           return res.json(zonesData);
         }
       } catch (e) {
@@ -674,6 +690,35 @@ export async function registerRoutes(
       console.error("generateZones internal error:", e);
       res.status(500).json({ message: "Internal Server Error" });
     }
+  });
+
+  // Zone History
+  app.get("/api/farms/:id/zones/history", async (req, res) => {
+    const farmId = Number(req.params.id);
+    const allZones = await storage.getZoneHistory(farmId);
+
+    // Group zones by generatedAt timestamp
+    const grouped: Record<string, any[]> = {};
+    for (const zone of allZones) {
+      const key = zone.generatedAt?.toISOString() || 'unknown';
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(zone);
+    }
+
+    // Convert to array sorted by date desc
+    const history = Object.entries(grouped).map(([dateStr, zones]) => ({
+      date: dateStr,
+      zones: zones.map(z => ({
+        id: z.id,
+        name: z.name,
+        color: z.color,
+        coordinates: z.coordinates,
+        areaHa: z.areaHa,
+        ndviAvg: z.ndviAvg,
+      }))
+    })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    res.json(history);
   });
 
   // Farms

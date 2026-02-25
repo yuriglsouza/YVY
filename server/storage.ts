@@ -1,11 +1,12 @@
 import { db } from "./db.js";
 import {
-  farms, readings, reports, users, alerts, clients,
+  farms, readings, reports, users, alerts, clients, zones,
   type Farm, type InsertFarm,
   type Reading, type InsertReading,
   type Report, type InsertReport,
   type User, type InsertUser,
   type Client, type InsertClient,
+  type Zone, type InsertZone,
   tasks, type Task, type InsertTask
 } from "../shared/schema.js";
 import { eq, desc, sql } from "drizzle-orm";
@@ -60,6 +61,10 @@ export interface IStorage {
   createTask(task: InsertTask): Promise<Task>;
   updateTask(id: number, task: Partial<InsertTask>): Promise<Task>;
   deleteTask(id: number): Promise<void>;
+
+  // Zones
+  saveZones(farmId: number, zonesData: InsertZone[]): Promise<Zone[]>;
+  getZoneHistory(farmId: number): Promise<Zone[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -275,6 +280,27 @@ export class DatabaseStorage implements IStorage {
       .where(eq(farms.id, id))
       .returning();
     return updated;
+  }
+
+  async saveZones(farmId: number, zonesData: InsertZone[]): Promise<Zone[]> {
+    const now = new Date();
+    const saved: Zone[] = [];
+    for (const z of zonesData) {
+      const [inserted] = await db!
+        .insert(zones)
+        .values({ ...z, farmId, generatedAt: now })
+        .returning();
+      saved.push(inserted);
+    }
+    return saved;
+  }
+
+  async getZoneHistory(farmId: number): Promise<Zone[]> {
+    return db!
+      .select()
+      .from(zones)
+      .where(eq(zones.farmId, farmId))
+      .orderBy(desc(zones.generatedAt));
   }
 }
 
@@ -577,6 +603,21 @@ export class MemStorage implements IStorage {
 
   async deleteTask(id: number): Promise<void> {
     this.tasks.delete(id);
+  }
+
+  async saveZones(farmId: number, zonesData: InsertZone[]): Promise<Zone[]> {
+    const now = new Date();
+    return zonesData.map((z, i) => ({
+      ...z,
+      id: Date.now() + i,
+      farmId,
+      ndviAvg: z.ndviAvg ?? null,
+      generatedAt: now,
+    })) as Zone[];
+  }
+
+  async getZoneHistory(farmId: number): Promise<Zone[]> {
+    return [];
   }
 }
 

@@ -1,6 +1,7 @@
 import React from "react";
 import { useFarm, useRefreshReadings } from "@/hooks/use-farms";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { useReadings, useLatestReading } from "@/hooks/use-readings";
 import { useReports, useGenerateReport } from "@/hooks/use-reports";
 import { Sidebar, MobileNav } from "@/components/Sidebar";
@@ -143,6 +144,16 @@ export default function FarmDetails() {
 
   const [zones, setZones] = React.useState<Zone[]>([]);
 
+  // Zone History
+  const { data: zoneHistory } = useQuery({
+    queryKey: ["zone-history", farmId],
+    queryFn: async () => {
+      const res = await fetch(`/api/farms/${farmId}/zones/history`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
   const generateZones = useMutation({
     mutationFn: async () => {
       const res = await fetch(`/api/farms/${farmId}/zones/generate`, { method: "POST" });
@@ -154,6 +165,7 @@ export default function FarmDetails() {
     },
     onSuccess: (data) => {
       setZones(data);
+      queryClient.invalidateQueries({ queryKey: ["zone-history", farmId] });
       toast({ title: "Zonas Geradas", description: "O mapa de manejo foi atualizado com dados reais do Sentinel-2." });
     },
     onError: (err: Error) => {
@@ -1547,7 +1559,39 @@ export default function FarmDetails() {
                     </h3>
                   </div>
 
-                  <div className="absolute top-4 right-14 z-[400]">
+                  <div className="absolute top-4 right-14 z-[400] flex gap-2">
+                    {zoneHistory && zoneHistory.length > 0 && (
+                      <select
+                        className="text-xs h-8 px-2 bg-white/90 backdrop-blur border border-border/50 rounded-md shadow-sm cursor-pointer"
+                        onChange={(e) => {
+                          const idx = parseInt(e.target.value);
+                          if (idx === -1) {
+                            setZones([]);
+                          } else {
+                            const entry = zoneHistory[idx];
+                            // Convert saved zones to the expected format
+                            const mappedZones = entry.zones.map((z: any, i: number) => ({
+                              id: z.id || i,
+                              name: z.name,
+                              color: z.color,
+                              coordinates: z.coordinates,
+                              ndvi_avg: z.ndviAvg || 0,
+                              area_percentage: z.areaHa ? (z.areaHa / (farm.sizeHa || 1)) * 100 : 33,
+                            }));
+                            setZones(mappedZones);
+                          }
+                        }}
+                        defaultValue="-1"
+                      >
+                        <option value="-1">📜 Histórico</option>
+                        {zoneHistory.map((entry: any, idx: number) => (
+                          <option key={idx} value={idx}>
+                            {new Date(entry.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+                            {" ("}{entry.zones.length} zonas{")"}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     <Button
                       size="sm"
                       variant="secondary"

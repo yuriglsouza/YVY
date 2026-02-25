@@ -120,6 +120,8 @@ export const zones = pgTable("zones", {
   color: text("color").notNull(),
   coordinates: jsonb("coordinates").notNull(),
   areaHa: real("area_ha").notNull().default(0),
+  ndviAvg: real("ndvi_avg"),
+  generatedAt: timestamp("generated_at").defaultNow(),
 });
 
 export const insertZoneSchema = createInsertSchema(zones).omit({ id: true });
