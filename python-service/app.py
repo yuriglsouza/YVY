@@ -8,7 +8,7 @@ import sys
 import ee
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
-from datetime import datetime
+import datetime
 
 # Import local scripts
 # Ensure the current directory is in sys.path
@@ -38,7 +38,7 @@ async def predict_ndvi(req: PredictionRequest):
         
         # Target Date Preprocessing
         try:
-            target_dt = datetime.strptime(req.target_date, "%Y-%m-%d")
+            target_dt = datetime.datetime.strptime(req.target_date, "%Y-%m-%d")
         except ValueError:
              return {"error": "Invalid target_date format. Use YYYY-MM-DD"}
 
