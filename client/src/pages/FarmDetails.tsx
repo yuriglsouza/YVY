@@ -12,7 +12,7 @@ import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 // ... imports ...
-import { MapContainer, TileLayer, Marker, Popup, Circle, LayersControl, ImageOverlay } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon as LeafletPolygon, LayersControl, ImageOverlay } from "react-leaflet";
 // ...
 
 
@@ -1618,11 +1618,18 @@ export default function FarmDetails() {
                         </div>
                       </Popup>
                     </Marker>
-                    <Circle
-                      center={[farm.latitude, farm.longitude]}
-                      radius={Math.sqrt((farm.sizeHa * 10000) / Math.PI)}
-                      pathOptions={{ color: '#10b981', fillColor: '#10b981', fillOpacity: 0.2 }}
-                    />
+                    {farm.polygon && Array.isArray(farm.polygon) && (farm.polygon as [number, number][]).length >= 3 ? (
+                      <LeafletPolygon
+                        positions={(farm.polygon as [number, number][]).map(([lon, lat]) => [lat, lon] as [number, number])}
+                        pathOptions={{ color: '#10b981', fillColor: '#10b981', fillOpacity: 0.2 }}
+                      />
+                    ) : (
+                      <Circle
+                        center={[farm.latitude, farm.longitude]}
+                        radius={Math.sqrt((farm.sizeHa * 10000) / Math.PI)}
+                        pathOptions={{ color: '#10b981', fillColor: '#10b981', fillOpacity: 0.2 }}
+                      />
+                    )}
                   </MapContainer>
                 </motion.div>
 
