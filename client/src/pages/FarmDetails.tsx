@@ -133,11 +133,25 @@ export default function FarmDetails() {
   const [showThermal, setShowThermal] = React.useState(false);
   const [selectedReadingIdx, setSelectedReadingIdx] = React.useState<number | null>(null);
 
+  // Calculate a fallback bounds if the reading doesn't have it but the farm has polygon/coords
+  const fallbackBounds = React.useMemo(() => {
+    if (!farm) return null;
+    if (farm.polygon && Array.isArray(farm.polygon) && farm.polygon.length > 0) {
+      const coords = farm.polygon as [number, number][]; // [lon, lat]
+      const lats = coords.map(c => c[1]);
+      const lons = coords.map(c => c[0]);
+      return [[Math.min(...lats), Math.min(...lons)], [Math.max(...lats), Math.max(...lons)]];
+    }
+    // Very rough fallback based on center and size
+    const offset = Math.sqrt(farm.sizeHa) * 0.0005;
+    return [[farm.latitude - offset, farm.longitude - offset], [farm.latitude + offset, farm.longitude + offset]];
+  }, [farm]);
+
   // Sorted readings for temporal slider (oldest first)
   const sortedReadings = React.useMemo(() => {
     if (!readings) return [];
     return [...readings]
-      .filter(r => r.satelliteImage && r.imageBounds)
+      .filter(r => r.satelliteImage) // Removed the strict r.imageBounds check
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [readings]);
 
@@ -1647,21 +1661,21 @@ export default function FarmDetails() {
                         />
                       </LayersControl.BaseLayer>
 
-                      {mapReading?.satelliteImage && !!mapReading?.imageBounds && (
+                      {mapReading?.satelliteImage && (mapReading?.imageBounds || fallbackBounds) && (
                         <LayersControl.Overlay checked name="Análise Espectral (NDVI)">
                           <ImageOverlay
                             url={mapReading.satelliteImage}
-                            bounds={mapReading.imageBounds as unknown as [[number, number], [number, number]]}
+                            bounds={(mapReading.imageBounds || fallbackBounds) as unknown as [[number, number], [number, number]]}
                             opacity={0.7}
                           />
                         </LayersControl.Overlay>
                       )}
 
-                      {mapReading?.thermalImage && !!mapReading?.imageBounds && (
+                      {mapReading?.thermalImage && (mapReading?.imageBounds || fallbackBounds) && (
                         <LayersControl.Overlay name="Mapa Térmico (LST)">
                           <ImageOverlay
                             url={mapReading.thermalImage}
-                            bounds={mapReading.imageBounds as unknown as [[number, number], [number, number]]}
+                            bounds={(mapReading.imageBounds || fallbackBounds) as unknown as [[number, number], [number, number]]}
                             opacity={0.7}
                           />
                         </LayersControl.Overlay>
