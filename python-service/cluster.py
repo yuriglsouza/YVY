@@ -54,7 +54,15 @@ def get_real_pixels(lat, lon, size_ha, polygon=None):
     raise ValueError(f"Dados insuficientes do Sentinel-2 ({last_count} pixels após 3 tentativas). Verifique se a área delimitada está correta.")
 
 def cluster_pixels(pixels, k=3):
-    data = np.array([[p["ndvi"], p["ndwi"]] for p in pixels])
+    # Filter out cloud/shadow pixels (NDVI < 0.05 is almost certainly cloud, water, or shadow)
+    clean_pixels = [p for p in pixels if p.get("ndvi") is not None and p["ndvi"] >= 0.05]
+    
+    if len(clean_pixels) < 10:
+        raise ValueError(f"Poucos pixels válidos após filtro de nuvens ({len(clean_pixels)}). A área pode estar coberta por nuvens.")
+    
+    print(f"Filtered {len(pixels) - len(clean_pixels)} cloud/shadow pixels, {len(clean_pixels)} remaining")
+    
+    data = np.array([[p["ndvi"], p["ndwi"]] for p in clean_pixels])
     
     kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
     labels = kmeans.fit_predict(data)
@@ -72,8 +80,8 @@ def cluster_pixels(pixels, k=3):
         original_idx = sorted_indices[i]
         
         cluster_points = [
-            {"lat": pixels[j]["lat"], "lon": pixels[j]["lon"]} 
-            for j in range(len(pixels)) if labels[j] == original_idx
+            {"lat": clean_pixels[j]["lat"], "lon": clean_pixels[j]["lon"]} 
+            for j in range(len(clean_pixels)) if labels[j] == original_idx
         ]
         
         result_zones.append({
@@ -82,7 +90,7 @@ def cluster_pixels(pixels, k=3):
             "color": colors[i] if i < len(colors) else "#cccccc",
             "coordinates": cluster_points,
             "ndvi_avg": float(centers[original_idx][0]),
-            "area_percentage": len(cluster_points) / len(pixels)
+            "area_percentage": len(cluster_points) / len(clean_pixels)
         })
         
     return result_zones
