@@ -65,7 +65,7 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     df['temperature'] = df['temperature'].fillna(25.0)
     
     # Fill NaN lags with the earliest available value
-    df = df.fillna(method='bfill').fillna(method='ffill').fillna(0)
+    df = df.bfill().ffill().fillna(0)
     
     return df
 
