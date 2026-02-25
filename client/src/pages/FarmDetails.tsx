@@ -1260,6 +1260,7 @@ export default function FarmDetails() {
                 onClick={() => {
                   refreshReadings.mutate(farmId, {
                     onSuccess: (data: any) => {
+                      setSelectedReadingIdx(null); // Resetar slider para a data mais atual
                       if (data.isMock) {
                         toast({
                           title: "Simulação Ativada",
