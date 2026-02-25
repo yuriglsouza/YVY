@@ -19,72 +19,156 @@ import cluster
 app = FastAPI()
 
 class PredictionRequest(BaseModel):
-    history: List[dict] # Expected keys: date, ndvi, temperature (optional)
+    history: List[dict]  # Expected keys: date, ndvi, ndwi (optional), temperature (optional)
     target_date: str
+    forecast_days: Optional[int] = 30
+    temp_modifier: Optional[float] = 0
+    rain_modifier: Optional[float] = 0
+    size_ha: Optional[float] = 0
+
+def get_season(month: int) -> int:
+    """Brazilian seasons: 0=Summer(Dec-Feb), 1=Fall(Mar-May), 2=Winter(Jun-Aug), 3=Spring(Sep-Nov)"""
+    if month in [12, 1, 2]: return 0
+    if month in [3, 4, 5]: return 1
+    if month in [6, 7, 8]: return 2
+    return 3
+
+def build_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Build ML features from historical readings DataFrame"""
+    df = df.sort_values('date').reset_index(drop=True)
+    
+    # Time features
+    df['month'] = df['date'].dt.month
+    df['day_of_year'] = df['date'].dt.dayofyear
+    df['season'] = df['month'].apply(get_season)
+    
+    # Lag features (previous NDVI values)
+    df['ndvi_lag_1'] = df['ndvi'].shift(1)
+    df['ndvi_lag_2'] = df['ndvi'].shift(2)
+    df['ndvi_lag_3'] = df['ndvi'].shift(3)
+    
+    # Trend: slope of last 5 readings
+    df['ndvi_trend'] = df['ndvi'].rolling(window=5, min_periods=2).apply(
+        lambda x: np.polyfit(range(len(x)), x, 1)[0] if len(x) >= 2 else 0, raw=False
+    )
+    
+    # NDWI (fill with 0 if missing)
+    if 'ndwi' not in df.columns:
+        df['ndwi'] = 0.0
+    df['ndwi'] = df['ndwi'].fillna(0.0)
+    df['ndwi_last'] = df['ndwi'].shift(1)
+    
+    # Temperature
+    if 'temperature' not in df.columns:
+        df['temperature'] = 25.0
+    df['temperature'] = df['temperature'].fillna(25.0)
+    
+    # Fill NaN lags with the earliest available value
+    df = df.fillna(method='bfill').fillna(method='ffill').fillna(0)
+    
+    return df
+
+FEATURES = ['month', 'day_of_year', 'season', 'temperature', 
+            'ndvi_lag_1', 'ndvi_lag_2', 'ndvi_lag_3', 'ndvi_trend', 'ndwi_last']
 
 @app.post("/predict")
 async def predict_ndvi(req: PredictionRequest):
     try:
         if not req.history or len(req.history) < 5:
-             return {"error": "Insufficient history for prediction (need at least 5 points)"}
+            return {"error": "Histórico insuficiente para predição (mínimo 5 leituras)"}
 
         # Convert to DataFrame
         df = pd.DataFrame(req.history)
-        
-        # Preprocessing
         df['date'] = pd.to_datetime(df['date'])
-        df['month'] = df['date'].dt.month
-        df['day_of_year'] = df['date'].dt.dayofyear
+        df = build_features(df)
         
-        # Target Date Preprocessing
-        try:
-            target_dt = datetime.datetime.strptime(req.target_date, "%Y-%m-%d")
-        except ValueError:
-             return {"error": "Invalid target_date format. Use YYYY-MM-DD"}
-
-        # Handle Temperature in History (fill missing)
-        if 'temperature' not in df.columns:
-            df['temperature'] = 25.0
-        else:
-            df['temperature'] = df['temperature'].fillna(25.0)
-
-        # Features
-        features = ['month', 'day_of_year', 'temperature']
-        
-        # Check if we have all features in history
-        if not all(col in df.columns for col in features):
-             return {"error": f"Missing columns in history. Required: {features}"}
-
-        X = df[features]
+        # Train Model
+        X = df[FEATURES]
         y = df['ndvi']
-
-        # Train Model (Stateless - trained on request)
-        # Using a small n_estimators for speed since we train on every request
-        model = RandomForestRegressor(n_estimators=20, random_state=42)
+        
+        model = RandomForestRegressor(n_estimators=50, random_state=42, max_depth=8)
         model.fit(X, y)
         
-        # Prepare Target Input
-        # For future temperature, we use the average of the history or a default
+        # Generate forecast points (every 7 days)
+        forecast_days = min(req.forecast_days or 30, 90)
+        last_row = df.iloc[-1]
+        last_date = df['date'].max()
         avg_temp = df['temperature'].mean()
         
-        target_input = pd.DataFrame([{
-            'month': target_dt.month,
-            'day_of_year': target_dt.timetuple().tm_yday,
-            'temperature': avg_temp
-        }])
-
-        # Predict
-        prediction = model.predict(target_input[features])[0]
+        # Apply modifiers
+        temp_adjusted = avg_temp + (req.temp_modifier or 0)
+        # Rain affects NDVI trend: positive rain boosts, negative (drought) decreases
+        rain_effect = (req.rain_modifier or 0) * 0.03  # ±3% NDVI per rain level
+        
+        forecast = []
+        # Sliding window for lag updates during forecast
+        recent_ndvi = list(df['ndvi'].tail(3).values)
+        recent_trend = float(last_row.get('ndvi_trend', 0))
+        last_ndwi = float(last_row.get('ndwi', 0))
+        
+        for day_offset in range(7, forecast_days + 1, 7):
+            target_dt = last_date + pd.Timedelta(days=day_offset)
+            
+            target_input = pd.DataFrame([{
+                'month': target_dt.month,
+                'day_of_year': target_dt.timetuple().tm_yday,
+                'season': get_season(target_dt.month),
+                'temperature': temp_adjusted,
+                'ndvi_lag_1': recent_ndvi[-1],
+                'ndvi_lag_2': recent_ndvi[-2] if len(recent_ndvi) >= 2 else recent_ndvi[-1],
+                'ndvi_lag_3': recent_ndvi[-3] if len(recent_ndvi) >= 3 else recent_ndvi[-1],
+                'ndvi_trend': recent_trend,
+                'ndwi_last': last_ndwi
+            }])
+            
+            # Predict with all trees for confidence interval
+            predictions_per_tree = np.array([tree.predict(target_input[FEATURES]) for tree in model.estimators_])
+            predicted_ndvi = float(np.mean(predictions_per_tree)) + rain_effect
+            predicted_ndvi = max(0.0, min(1.0, predicted_ndvi))
+            confidence = float(np.std(predictions_per_tree))
+            
+            forecast.append({
+                "date": target_dt.strftime("%Y-%m-%d"),
+                "ndvi": round(predicted_ndvi, 4),
+                "confidence": round(confidence, 4)
+            })
+            
+            # Update sliding window for next iteration
+            recent_ndvi.append(predicted_ndvi)
+            if len(recent_ndvi) > 3:
+                recent_ndvi.pop(0)
+            # Update trend
+            recent_trend = (recent_ndvi[-1] - recent_ndvi[0]) / len(recent_ndvi) if len(recent_ndvi) > 1 else 0
+        
+        # Overall prediction (average of forecast)
+        avg_prediction = np.mean([f['ndvi'] for f in forecast])
+        
+        # Yield estimation (kg/ha based on NDVI correlation)
+        # Reference: NDVI 0.8 ≈ 5000 kg/ha (soy), linear scaling
+        yield_per_ha = avg_prediction * 6250  # kg/ha
+        yield_tons = (yield_per_ha * (req.size_ha or 100)) / 1000
+        
+        # Trend direction
+        if len(forecast) >= 2:
+            trend = "up" if forecast[-1]["ndvi"] > forecast[0]["ndvi"] else "down" if forecast[-1]["ndvi"] < forecast[0]["ndvi"] else "stable"
+        else:
+            trend = "stable"
         
         return {
-            "prediction": float(prediction), 
-            "unit": "NDVI", 
-            "model": "RandomForest (Stateless)",
-            "target_date": req.target_date
+            "prediction": round(float(avg_prediction), 4),
+            "forecast": forecast,
+            "trend": trend,
+            "yield_tons": round(float(yield_tons), 1),
+            "model": "RandomForest (n=50, features=9)",
+            "features_used": FEATURES,
+            "training_samples": len(df),
+            "unit": "NDVI"
         }
 
     except Exception as e:
         print(f"Prediction Error: {e}")
+        import traceback
+        traceback.print_exc()
         return {"error": str(e)}
 
 @app.on_event("startup")

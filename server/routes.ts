@@ -915,8 +915,7 @@ export async function registerRoutes(
   }
 
 
-  // Helper for Prediction
-  async function getPrediction(farmId: number, date: string, tempModifier: number = 0, rainModifier: number = 0, sizeHa: number = 0): Promise<{ result?: number; yieldTons?: number; error?: string }> {
+  async function getPrediction(farmId: number, date: string, tempModifier: number = 0, rainModifier: number = 0, sizeHa: number = 0): Promise<{ result?: number; yieldTons?: number; forecast?: any[]; trend?: string; error?: string }> {
 
     // 1. Try External Python Service (Stateless)
     if (process.env.PYTHON_SERVICE_URL) {
@@ -927,6 +926,7 @@ export async function registerRoutes(
         const history = readings.slice(0, 50).map(r => ({
           date: r.date,
           ndvi: r.ndvi,
+          ndwi: r.ndwi ?? 0,
           temperature: r.temperature
         }));
 
@@ -936,22 +936,32 @@ export async function registerRoutes(
 
         console.log(`Sending prediction request to: ${process.env.PYTHON_SERVICE_URL}/predict`);
 
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
         const response = await fetch(`${process.env.PYTHON_SERVICE_URL}/predict`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             history,
             target_date: date,
+            forecast_days: 30,
             temp_modifier: tempModifier,
             rain_modifier: rainModifier,
             size_ha: sizeHa
-          })
+          }),
+          signal: controller.signal
         });
+        clearTimeout(timeout);
 
         if (response.ok) {
           const data = await response.json();
           if (data.prediction !== undefined) {
-            return { result: data.prediction, yieldTons: data.yield_tons || 0 };
+            return {
+              result: data.prediction,
+              yieldTons: data.yield_tons || 0,
+              forecast: data.forecast || [],
+              trend: data.trend || 'stable'
+            };
           }
           if (data.error) {
             return { error: `Python Service Error: ${data.error}` };
@@ -1033,6 +1043,8 @@ export async function registerRoutes(
         date,
         prediction: output.result,
         yieldTons: output.yieldTons || 0,
+        forecast: output.forecast || [],
+        trend: output.trend || 'stable',
         unit: "NDVI"
       });
     } else {
