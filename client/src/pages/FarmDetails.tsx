@@ -1380,6 +1380,9 @@ export default function FarmDetails() {
                             </p>
                             <p className="text-xs opacity-75">
                               {showThermal ? 'Landsat 8/9 (100m)' : 'Sentinel-2 / MODIS Composite'}
+                              {latestReading.date && (
+                                <> · 📅 {new Date(latestReading.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</>
+                              )}
                             </p>
                           </div>
 
