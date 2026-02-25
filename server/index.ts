@@ -30,6 +30,11 @@ if (process.env.DATABASE_URL) {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5001", 10);
+
+  import("./cron").then(({ setupCronJobs }) => {
+    setupCronJobs(port);
+  });
+
   httpServer.listen(port, "0.0.0.0", () => {
     const formattedTime = new Date().toLocaleTimeString("en-US", {
       hour: "numeric",

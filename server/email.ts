@@ -198,3 +198,61 @@ export function buildAlertEmailHTML(farmName: string, alerts: { type: string; ms
     </html>
     `;
 }
+
+export function buildWeeklyReportEmailHTML(farmName: string, date: string, stats: { ndvi: number, cloudCover: number, status: string }): string {
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="margin: 0; padding: 0; background-color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 24px;">
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #0284c7, #0369a1); border-radius: 12px 12px 0 0; padding: 24px; text-align: center;">
+                <h1 style="color: #f0f9ff; margin: 0; font-size: 20px;">🔄 SYAZ Orbital Monitor</h1>
+                <p style="color: #bae6fd; margin: 4px 0 0; font-size: 13px;">Sincronização de Satélite Concluída</p>
+            </div>
+            
+            <!-- Body -->
+            <div style="background-color: #1e293b; padding: 24px; border-radius: 0 0 12px 12px;">
+                <h2 style="color: #f1f5f9; margin: 0 0 8px; font-size: 16px;">Sua fazenda foi atualizada!</h2>
+                <p style="color: #94a3b8; margin: 0 0 20px; font-size: 14px;">
+                    O satélite sobrevoou a fazenda <strong style="color: #38bdf8;">${farmName}</strong> em ${date} e já processamos os dados. Confira o resumo:
+                </p>
+                
+                <div style="background-color: #0f172a; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                        <span style="color: #64748b; font-size: 14px;">📸 Data da Captura</span>
+                        <strong style="color: #f8fafc; font-size: 14px;">${date}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                        <span style="color: #64748b; font-size: 14px;">🌿 Índice NDVI (Saúde)</span>
+                        <strong style="color: ${stats.ndvi > 0.6 ? '#10b981' : stats.ndvi > 0.4 ? '#fbbf24' : '#ef4444'}; font-size: 14px;">${stats.ndvi.toFixed(3)}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                        <span style="color: #64748b; font-size: 14px;">☁️ Nuvens</span>
+                        <strong style="color: #f8fafc; font-size: 14px;">${(stats.cloudCover * 100).toFixed(0)}%</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: #64748b; font-size: 14px;">📊 Status Geral</span>
+                        <strong style="color: #f8fafc; font-size: 14px;">${stats.status}</strong>
+                    </div>
+                </div>
+                
+                <div style="text-align: center;">
+                    <a href="${process.env.APP_URL || 'https://yvy-g8z9.vercel.app'}" 
+                       style="display: inline-block; background: linear-gradient(135deg, #0ea5e9, #0284c7); color: #fff; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; font-size: 14px;">
+                        Ver Imagens no Painel →
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div style="text-align: center; padding: 16px; color: #475569; font-size: 11px;">
+                <p style="margin: 0;">Você optou por receber relatórios semanais da plataforma SYAZ.</p>
+                <p style="margin: 4px 0 0;">© ${new Date().getFullYear()} SYAZ Orbital • Transformando dados em produtividade</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
+}
