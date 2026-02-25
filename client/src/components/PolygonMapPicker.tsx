@@ -49,21 +49,20 @@ export function PolygonMapPicker({ onChange, initialCenter, initialPolygon }: Po
     const [mapReady, setMapReady] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [searching, setSearching] = useState(false);
+    const [searchError, setSearchError] = useState("");
     const searchQueryRef = useRef(searchQuery);
     searchQueryRef.current = searchQuery;
 
     async function doSearch() {
         const query = searchQueryRef.current.trim();
         const map = mapInstanceRef.current;
-        console.log("[MapSearch] query:", query, "map:", !!map);
         if (!query || !map) return;
         setSearching(true);
+        setSearchError("");
         try {
-            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
-            console.log("[MapSearch] fetching:", url);
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=br`;
             const res = await fetch(url);
             const data = await res.json();
-            console.log("[MapSearch] results:", data);
             if (data.length > 0) {
                 const { lat, lon, boundingbox } = data[0];
                 if (boundingbox) {
@@ -74,9 +73,12 @@ export function PolygonMapPicker({ onChange, initialCenter, initialPolygon }: Po
                 } else {
                     map.flyTo([parseFloat(lat), parseFloat(lon)], 15, { duration: 1.5 });
                 }
+                setSearchError("");
+            } else {
+                setSearchError("Local não encontrado. Tente uma cidade ou bairro (ex: Uberlândia, MG).");
             }
         } catch (err) {
-            console.error("[MapSearch] error:", err);
+            setSearchError("Erro na busca. Verifique sua conexão.");
         } finally {
             setSearching(false);
         }
@@ -222,9 +224,9 @@ export function PolygonMapPicker({ onChange, initialCenter, initialPolygon }: Po
                 <input
                     type="text"
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => { setSearchQuery(e.target.value); setSearchError(""); }}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); doSearch(); } }}
-                    placeholder="🔍 Buscar endereço, cidade ou fazenda..."
+                    placeholder="🔍 Ex: Uberlândia, MG ou Rio Verde, GO"
                     className="flex-1 h-9 rounded-lg border border-border bg-background px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
                 <button
@@ -236,6 +238,9 @@ export function PolygonMapPicker({ onChange, initialCenter, initialPolygon }: Po
                     {searching ? "..." : "Ir"}
                 </button>
             </div>
+            {searchError && (
+                <p className="text-xs text-red-400">{searchError}</p>
+            )}
             <div
                 ref={mapContainerRef}
                 style={{ width: "100%", height: "300px", position: "relative", zIndex: 0 }}
