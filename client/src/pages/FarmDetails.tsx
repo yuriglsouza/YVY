@@ -1724,36 +1724,38 @@ export default function FarmDetails() {
                     )}
                   </MapContainer>
 
-                  {/* Temporal Slider */}
+                  {/* Temporal Slider (Posicionado sobre o mapa) */}
                   {sortedReadings.length > 1 && (
-                    <div className="mt-2 px-3 py-2 bg-card rounded-xl border border-border/50">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Calendar className="w-3.5 h-3.5 text-primary" />
-                        <span className="text-xs font-medium text-muted-foreground">Comparativo Temporal</span>
-                        <span className="ml-auto text-xs font-mono text-primary">
-                          {mapReading?.date ? new Date(mapReading.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
-                        </span>
-                        {mapReading && (
-                          <Badge variant="outline" className="text-[10px] h-5">
-                            NDVI {mapReading.ndvi?.toFixed(3)}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                          {new Date(sortedReadings[0].date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                        </span>
-                        <input
-                          type="range"
-                          min={0}
-                          max={sortedReadings.length - 1}
-                          value={selectedReadingIdx !== null ? selectedReadingIdx : sortedReadings.length - 1}
-                          onChange={(e) => setSelectedReadingIdx(parseInt(e.target.value))}
-                          className="w-full h-1.5 accent-primary cursor-pointer"
-                        />
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                          {new Date(sortedReadings[sortedReadings.length - 1].date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                        </span>
+                    <div className="absolute bottom-4 left-4 flex flex-col gap-2 z-[400] w-[calc(100%-20px)] md:w-[350px]">
+                      <div className="bg-background text-foreground px-3 py-2 rounded-xl border border-border shadow-sm">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Calendar className="w-3.5 h-3.5 text-primary" />
+                          <span className="text-xs font-medium">Comparativo Temporal</span>
+                          <span className="ml-auto text-xs font-mono text-primary">
+                            {mapReading?.date ? new Date(mapReading.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                          </span>
+                          {mapReading && (
+                            <Badge variant="outline" className="text-[10px] h-5 bg-background">
+                              NDVI {mapReading.ndvi?.toFixed(3)}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                            {new Date(sortedReadings[0].date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                          </span>
+                          <input
+                            type="range"
+                            min={0}
+                            max={sortedReadings.length - 1}
+                            value={selectedReadingIdx !== null ? selectedReadingIdx : sortedReadings.length - 1}
+                            onChange={(e) => setSelectedReadingIdx(parseInt(e.target.value))}
+                            className="w-full h-1.5 accent-primary cursor-pointer"
+                          />
+                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                            {new Date(sortedReadings[sortedReadings.length - 1].date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   )}
