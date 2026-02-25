@@ -131,6 +131,20 @@ export default function FarmDetails() {
   const refreshReadings = useRefreshReadings();
   const generateReport = useGenerateReport();
   const [showThermal, setShowThermal] = React.useState(false);
+  const [selectedReadingIdx, setSelectedReadingIdx] = React.useState<number | null>(null);
+
+  // Sorted readings for temporal slider (oldest first)
+  const sortedReadings = React.useMemo(() => {
+    if (!readings) return [];
+    return [...readings]
+      .filter(r => r.satelliteImage && r.imageBounds)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [readings]);
+
+  // The reading shown on the map (selected or latest)
+  const mapReading = selectedReadingIdx !== null && sortedReadings[selectedReadingIdx]
+    ? sortedReadings[selectedReadingIdx]
+    : latestReading;
 
   // Zones State
   interface Zone {
@@ -1633,21 +1647,21 @@ export default function FarmDetails() {
                         />
                       </LayersControl.BaseLayer>
 
-                      {latestReading?.satelliteImage && !!latestReading?.imageBounds && (
+                      {mapReading?.satelliteImage && !!mapReading?.imageBounds && (
                         <LayersControl.Overlay checked name="Análise Espectral (NDVI)">
                           <ImageOverlay
-                            url={latestReading.satelliteImage}
-                            bounds={latestReading.imageBounds as unknown as [[number, number], [number, number]]}
+                            url={mapReading.satelliteImage}
+                            bounds={mapReading.imageBounds as unknown as [[number, number], [number, number]]}
                             opacity={0.7}
                           />
                         </LayersControl.Overlay>
                       )}
 
-                      {latestReading?.thermalImage && !!latestReading?.imageBounds && (
+                      {mapReading?.thermalImage && !!mapReading?.imageBounds && (
                         <LayersControl.Overlay name="Mapa Térmico (LST)">
                           <ImageOverlay
-                            url={latestReading.thermalImage}
-                            bounds={latestReading.imageBounds as unknown as [[number, number], [number, number]]}
+                            url={mapReading.thermalImage}
+                            bounds={mapReading.imageBounds as unknown as [[number, number], [number, number]]}
                             opacity={0.7}
                           />
                         </LayersControl.Overlay>
@@ -1695,6 +1709,40 @@ export default function FarmDetails() {
                       />
                     )}
                   </MapContainer>
+
+                  {/* Temporal Slider */}
+                  {sortedReadings.length > 1 && (
+                    <div className="mt-2 px-3 py-2 bg-card rounded-xl border border-border/50">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Calendar className="w-3.5 h-3.5 text-primary" />
+                        <span className="text-xs font-medium text-muted-foreground">Comparativo Temporal</span>
+                        <span className="ml-auto text-xs font-mono text-primary">
+                          {mapReading?.date ? new Date(mapReading.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                        </span>
+                        {mapReading && (
+                          <Badge variant="outline" className="text-[10px] h-5">
+                            NDVI {mapReading.ndvi?.toFixed(3)}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                          {new Date(sortedReadings[0].date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                        </span>
+                        <input
+                          type="range"
+                          min={0}
+                          max={sortedReadings.length - 1}
+                          value={selectedReadingIdx !== null ? selectedReadingIdx : sortedReadings.length - 1}
+                          onChange={(e) => setSelectedReadingIdx(parseInt(e.target.value))}
+                          className="w-full h-1.5 accent-primary cursor-pointer"
+                        />
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                          {new Date(sortedReadings[sortedReadings.length - 1].date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
 
                 <motion.div
