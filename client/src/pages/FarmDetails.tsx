@@ -1182,7 +1182,7 @@ export default function FarmDetails() {
           <Link href="/" className="inline-flex items-center text-muted-foreground hover:text-foreground mb-4 transition-colors">
             <ChevronLeft className="w-4 h-4 mr-1" /> Voltar ao Painel
           </Link>
-          <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+          <div className="flex flex-col xl:flex-row flex-wrap justify-between items-start xl:items-center gap-4">
             <div>
               <h1 className="text-4xl font-display font-bold text-foreground">{farm.name}</h1>
               <div className="flex gap-4 mt-2 text-muted-foreground">
@@ -1213,7 +1213,7 @@ export default function FarmDetails() {
                 </div>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {/*@ts-ignore*/}
               {(user?.role === 'admin' || user?.subscriptionStatus === 'active') ? (
                 <FinancialAnalysisDialog zones={zones} farmSizeHa={farm.sizeHa} />
@@ -1282,7 +1282,7 @@ export default function FarmDetails() {
 
 
         <Tabs defaultValue="monitoring" className="w-full">
-          <TabsList className="mb-6">
+          <TabsList className="mb-6 flex-wrap h-auto justify-start">
             <TabsTrigger value="monitoring" className="gap-2">
               <Activity className="w-4 h-4" />
               Monitoramento
