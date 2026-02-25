@@ -357,9 +357,12 @@ export class MemStorage implements IStorage {
       ...insertFarm,
       id,
       userId: insertFarm.userId ?? null, // Handle undefined
-      imageUrl: insertFarm.imageUrl || null,
-      clientId: insertFarm.clientId || null,
-      isDeforested: insertFarm.isDeforested ?? null
+      imageUrl: insertFarm.imageUrl ?? null,
+      clientId: insertFarm.clientId ?? null,
+      isDeforested: insertFarm.isDeforested ?? null,
+      plantingDate: insertFarm.plantingDate ?? null,
+      harvestDate: insertFarm.harvestDate ?? null,
+      polygon: insertFarm.polygon ?? null,
     };
     this.farms.set(id, farm);
     return farm;

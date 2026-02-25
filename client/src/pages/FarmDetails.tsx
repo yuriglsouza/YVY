@@ -1383,7 +1383,7 @@ export default function FarmDetails() {
 
               {/* Main Chart Column */}
               <div className="lg:col-span-2 space-y-8">
-                {latestReading?.satelliteImage && (
+                {mapReading?.satelliteImage && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -1417,7 +1417,7 @@ export default function FarmDetails() {
                     </div>
                     <div className="w-full h-[600px] overflow-hidden rounded-xl border border-border/50 relative group bg-black/95">
                       <img
-                        src={showThermal ? (latestReading.thermalImage || latestReading.satelliteImage) : latestReading.satelliteImage}
+                        src={showThermal ? (mapReading.thermalImage || mapReading.satelliteImage) : mapReading.satelliteImage}
                         alt="Satellite View"
                         className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
                       />
@@ -1429,24 +1429,61 @@ export default function FarmDetails() {
                             </p>
                             <p className="text-xs opacity-75">
                               {showThermal ? 'Landsat 8/9 (100m)' : 'Sentinel-2 / MODIS Composite'}
-                              {latestReading.date && (
-                                <> · 📅 {new Date(latestReading.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</>
+                              {mapReading.date && (
+                                <> · 📅 {new Date(mapReading.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</>
                               )}
                             </p>
                           </div>
 
-                          {showThermal && latestReading.temperature && (
+                          {showThermal && mapReading.temperature && (
                             <div className="flex flex-col items-end gap-1">
                               <div className="flex items-center gap-2 text-[10px] font-medium opacity-90">
-                                <span>{(latestReading.temperature - 3).toFixed(1)}°C</span>
+                                <span>{(mapReading.temperature - 3).toFixed(1)}°C</span>
                                 <div className="w-24 h-2 rounded-full bg-gradient-to-r from-[#0000ff] via-[#00ff00] to-[#ff0000] border border-white/20"></div>
-                                <span>{(latestReading.temperature + 3).toFixed(1)}°C</span>
+                                <span>{(mapReading.temperature + 3).toFixed(1)}°C</span>
                               </div>
                               <span className="text-[10px] opacity-75">Escala Dinâmica (Média ±3°C)</span>
                             </div>
                           )}
                         </div>
                       </div>
+
+                      {/* Temporal Slider (Posicionado sobre a Imagem RGB) */}
+                      {sortedReadings.length > 1 && (
+                        <div className="absolute top-4 left-4 flex flex-col gap-2 z-[400] w-[calc(100%-20px)] md:w-[350px]">
+                          <div className="bg-background/90 backdrop-blur text-foreground px-3 py-2 rounded-xl border border-border/50 shadow-sm">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Calendar className="w-3.5 h-3.5 text-primary" />
+                              <span className="text-xs font-medium">Comparativo Temporal</span>
+                              <span className="ml-auto text-xs font-mono text-primary">
+                                {mapReading?.date ? new Date(mapReading.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                              </span>
+                              {mapReading && (
+                                <Badge variant="outline" className="text-[10px] h-5 bg-background">
+                                  NDVI {mapReading.ndvi?.toFixed(3)}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                {new Date(sortedReadings[0].date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                              </span>
+                              <input
+                                type="range"
+                                min={0}
+                                max={sortedReadings.length - 1}
+                                value={selectedReadingIdx !== null ? selectedReadingIdx : sortedReadings.length - 1}
+                                onChange={(e) => setSelectedReadingIdx(parseInt(e.target.value))}
+                                className="w-full h-1.5 accent-primary cursor-pointer"
+                              />
+                              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                {new Date(sortedReadings[sortedReadings.length - 1].date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                     </div>
                   </motion.div>
                 )}
@@ -1723,42 +1760,6 @@ export default function FarmDetails() {
                       />
                     )}
                   </MapContainer>
-
-                  {/* Temporal Slider (Posicionado sobre o mapa) */}
-                  {sortedReadings.length > 1 && (
-                    <div className="absolute bottom-4 left-4 flex flex-col gap-2 z-[400] w-[calc(100%-20px)] md:w-[350px]">
-                      <div className="bg-background text-foreground px-3 py-2 rounded-xl border border-border shadow-sm">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Calendar className="w-3.5 h-3.5 text-primary" />
-                          <span className="text-xs font-medium">Comparativo Temporal</span>
-                          <span className="ml-auto text-xs font-mono text-primary">
-                            {mapReading?.date ? new Date(mapReading.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
-                          </span>
-                          {mapReading && (
-                            <Badge variant="outline" className="text-[10px] h-5 bg-background">
-                              NDVI {mapReading.ndvi?.toFixed(3)}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                            {new Date(sortedReadings[0].date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                          </span>
-                          <input
-                            type="range"
-                            min={0}
-                            max={sortedReadings.length - 1}
-                            value={selectedReadingIdx !== null ? selectedReadingIdx : sortedReadings.length - 1}
-                            onChange={(e) => setSelectedReadingIdx(parseInt(e.target.value))}
-                            className="w-full h-1.5 accent-primary cursor-pointer"
-                          />
-                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                            {new Date(sortedReadings[sortedReadings.length - 1].date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </motion.div>
 
                 <motion.div
