@@ -593,7 +593,8 @@ export async function registerRoutes(
             lat: farm.latitude,
             lon: farm.longitude,
             size: farm.sizeHa,
-            k: 3
+            k: 3,
+            polygon: farm.polygon || null
           })
         });
 

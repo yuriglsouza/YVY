@@ -137,6 +137,7 @@ class ClusterRequest(BaseModel):
     lon: float
     size: float
     k: Optional[int] = 3
+    polygon: list = None  # [[lon,lat], ...] GeoJSON order
 
 @app.get("/")
 def health_check():
@@ -187,7 +188,7 @@ def analyze_satellite(req: SatelliteRequest):
 @app.post("/cluster")
 def analyze_cluster(req: ClusterRequest):
     try:
-        pixels = cluster.generate_mock_pixels(req.lat, req.lon, req.size)
+        pixels = cluster.generate_mock_pixels(req.lat, req.lon, req.size, polygon=req.polygon)
         zones = cluster.cluster_pixels(pixels, req.k)
         return zones
     except Exception as e:

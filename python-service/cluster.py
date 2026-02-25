@@ -4,35 +4,49 @@ import json
 import numpy as np
 from sklearn.cluster import KMeans
 
-def generate_mock_pixels(lat, lon, size_ha):
+def point_in_polygon(lat, lon, polygon):
+    """Ray-casting point-in-polygon test. polygon is [[lon,lat], ...]"""
+    n = len(polygon)
+    inside = False
+    x, y = lon, lat
+    j = n - 1
+    for i in range(n):
+        xi, yi = polygon[i][0], polygon[i][1]
+        xj, yj = polygon[j][0], polygon[j][1]
+        if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi) + xi):
+            inside = not inside
+        j = i
+    return inside
+
+def generate_mock_pixels(lat, lon, size_ha, polygon=None):
     """
     Generates a grid of mock pixels for the farm.
-    In a real scenario, this would load the actual GeoTIFF/Matrix from Earth Engine.
+    If polygon is provided, only generates points inside the polygon boundary.
     """
     try:
-        # Try to import local satellite analysis to get REAL pixes
         import satellite_analysis
         import ee
         import datetime
         import math
         
-        # Initialize EE if not already (safeguard)
         try:
-            if not  ee.data._credentials:
+            if not ee.data._credentials:
                 ee.Initialize(project='yvyorbital')
         except:
-            pass # Expect app.py to have initialized it
+            pass
 
-        # ROI Logic
-        area_m2 = size_ha * 10000
-        radius_m = math.sqrt(area_m2 / math.pi)
-        point = ee.Geometry.Point([lon, lat])
-        roi = point.buffer(radius_m)
+        # ROI Logic: use polygon if available
+        if polygon and len(polygon) >= 3:
+            roi = ee.Geometry.Polygon([polygon])
+        else:
+            area_m2 = size_ha * 10000
+            radius_m = math.sqrt(area_m2 / math.pi)
+            point = ee.Geometry.Point([lon, lat])
+            roi = point.buffer(radius_m)
         
         end_date = datetime.datetime.now()
         start_date = end_date - datetime.timedelta(days=30)
         
-        # Fetch Real Pixels!
         pixels = satellite_analysis.get_sentinel2_pixels(roi, start_date, end_date, scale=20)
         
         if pixels and len(pixels) > 10:
@@ -42,29 +56,45 @@ def generate_mock_pixels(lat, lon, size_ha):
     except Exception as e:
         print(f"Warning: Failed to get real satellite pixels ({e}), falling back to mock")
 
-    # Fallback to Mock if GEE fails or returns empty
-    # 1 hectare approx 100x100m. 
-    # Let's generate a 20x20 grid (400 points) to simulate the field
+    # Fallback to Mock grid
+    if polygon and len(polygon) >= 3:
+        # Generate grid within polygon bounding box, then filter by polygon
+        lons_poly = [p[0] for p in polygon]
+        lats_poly = [p[1] for p in polygon]
+        min_lat, max_lat = min(lats_poly), max(lats_poly)
+        min_lon, max_lon = min(lons_poly), max(lons_poly)
+        
+        # ~20 steps across the bounding box
+        n_steps = 20
+        lats = np.linspace(min_lat, max_lat, n_steps)
+        lons = np.linspace(min_lon, max_lon, n_steps)
+        
+        pixels = []
+        for i, lt in enumerate(lats):
+            for j, ln in enumerate(lons):
+                if not point_in_polygon(lt, ln, polygon):
+                    continue
+                dist_center = np.sqrt((i - n_steps/2)**2 + (j - n_steps/2)**2)
+                base_ndvi = 0.8 - (dist_center * 0.04)
+                ndvi = max(0.1, min(0.9, base_ndvi + np.random.normal(0, 0.05)))
+                ndwi = -0.2 + (ndvi * 0.1) + np.random.normal(0, 0.02)
+                pixels.append({"lat": lt, "lon": ln, "ndvi": ndvi, "ndwi": ndwi})
+        
+        if len(pixels) > 5:
+            return pixels
+    
+    # Fallback: circular grid (original behavior)
     lats = np.linspace(lat - 0.005, lat + 0.005, 20)
     lons = np.linspace(lon - 0.005, lon + 0.005, 20)
     
     pixels = []
     for i, lt in enumerate(lats):
         for j, ln in enumerate(lons):
-            # Create a pattern: center is healthier (higher NDVI)
             dist_center = np.sqrt((i-10)**2 + (j-10)**2)
             base_ndvi = 0.8 - (dist_center * 0.05) 
             ndvi = max(0.1, min(0.9, base_ndvi + np.random.normal(0, 0.05)))
-            
-            # NDWI loosely correlated
             ndwi = -0.2 + (ndvi * 0.1) + np.random.normal(0, 0.02)
-            
-            pixels.append({
-                "lat": lt,
-                "lon": ln,
-                "ndvi": ndvi,
-                "ndwi": ndwi
-            })
+            pixels.append({"lat": lt, "lon": ln, "ndvi": ndvi, "ndwi": ndwi})
     return pixels
 
 def cluster_pixels(pixels, k=3):
