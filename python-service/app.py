@@ -130,14 +130,14 @@ class SatelliteRequest(BaseModel):
     lat: float
     lon: float
     size: float
-    polygon: list = None  # [[lon,lat], [lon,lat], ...] GeoJSON order
+    polygon: Optional[list] = None  # [[lon,lat], [lon,lat], ...] GeoJSON order
 
 class ClusterRequest(BaseModel):
     lat: float
     lon: float
     size: float
     k: Optional[int] = 3
-    polygon: list = None  # [[lon,lat], ...] GeoJSON order
+    polygon: Optional[list] = None  # [[lon,lat], ...] GeoJSON order
 
 @app.get("/")
 def health_check():
