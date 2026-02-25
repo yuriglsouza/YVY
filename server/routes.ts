@@ -797,6 +797,43 @@ export async function registerRoutes(
     res.json(reading);
   });
 
+  // Export Readings as CSV
+  app.get("/api/farms/:id/readings/export-csv", async (req, res) => {
+    const farmId = Number(req.params.id);
+    const farm = await storage.getFarm(farmId);
+    if (!farm) return res.status(404).json({ message: "Farm not found" });
+
+    const allReadings = await storage.getReadings(farmId);
+    if (allReadings.length === 0) return res.status(404).json({ message: "No readings to export" });
+
+    // Sort by date ascending
+    const sorted = allReadings.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // CSV Header
+    const headers = ["Data", "NDVI", "NDWI", "NDRE", "RVI", "OTCI", "Temperatura (°C)", "Cobertura de Nuvens (%)", "Estoque de Carbono (t)", "CO2e (t)", "NDVI Regional"];
+    const rows = sorted.map(r => [
+      r.date,
+      r.ndvi?.toFixed(4) ?? "",
+      r.ndwi?.toFixed(4) ?? "",
+      r.ndre?.toFixed(4) ?? "",
+      r.rvi?.toFixed(4) ?? "",
+      r.otci?.toFixed(4) ?? "",
+      r.temperature?.toFixed(1) ?? "",
+      r.cloudCover ? (r.cloudCover * 100).toFixed(0) : "",
+      r.carbonStock?.toFixed(1) ?? "",
+      r.co2Equivalent?.toFixed(1) ?? "",
+      r.regionalNdvi?.toFixed(4) ?? "",
+    ].join(","));
+
+    const csv = [headers.join(","), ...rows].join("\n");
+    const filename = `${farm.name.replace(/[^a-zA-Z0-9]/g, "_")}_readings_${new Date().toISOString().split("T")[0]}.csv`;
+
+    // BOM for Excel UTF-8 compatibility
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send("\uFEFF" + csv);
+  });
+
   // Reports
   app.get(api.reports.list.path, async (req, res) => {
     const reports = await storage.getReports(Number(req.params.id));

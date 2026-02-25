@@ -9,7 +9,7 @@ import { Gauge } from "@/components/Gauge";
 import { Link, useRoute, useLocation } from "wouter";
 import { WeatherCard } from "@/components/weather-card";
 import { BenchmarkChart } from "@/components/benchmark-chart";
-import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit, Sprout, Ruler, Trash2, DollarSign, Leaf, CloudRain, Activity, ClipboardCheck, Cloud, Radio, Calendar, Beef, Scale, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit, Sprout, Ruler, Trash2, DollarSign, Leaf, CloudRain, Activity, ClipboardCheck, Cloud, Radio, Calendar, Beef, Scale, ShieldCheck, ShieldAlert, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 // ... imports ...
@@ -1252,6 +1252,15 @@ export default function FarmDetails() {
               >
                 <RefreshCw className={cn("w-4 h-4 mr-2", refreshReadings.isPending && "animate-spin")} />
                 Sincronizar Satélite
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-xl border-primary/20 hover:bg-primary/5 hover:text-primary"
+                onClick={() => window.open(`/api/farms/${farmId}/readings/export-csv`, "_blank")}
+                disabled={!readings || readings.length === 0}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Exportar CSV
               </Button>
             </div>
           </div>
