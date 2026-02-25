@@ -213,22 +213,24 @@ export function PolygonMapPicker({ onChange, initialCenter, initialPolygon }: Po
 
     return (
         <div className="space-y-2">
-            <form onSubmit={handleSearch} className="flex gap-2">
+            <div className="flex gap-2">
                 <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSearch(); } }}
                     placeholder="🔍 Buscar endereço, cidade ou fazenda..."
                     className="flex-1 h-9 rounded-lg border border-border bg-background px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
                 <button
-                    type="submit"
+                    type="button"
+                    onClick={() => handleSearch()}
                     disabled={searching || !searchQuery.trim()}
                     className="h-9 px-4 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
                 >
                     {searching ? "..." : "Ir"}
                 </button>
-            </form>
+            </div>
             <div
                 ref={mapContainerRef}
                 style={{ width: "100%", height: "300px", position: "relative", zIndex: 0 }}
