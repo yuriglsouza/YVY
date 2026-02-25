@@ -7,6 +7,7 @@ from typing import List, Optional
 import sys
 import ee
 import pandas as pd
+import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 import datetime
 
