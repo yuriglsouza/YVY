@@ -1582,10 +1582,10 @@ export default function FarmDetails() {
                     </h3>
                   </div>
 
-                  <div className="absolute top-4 right-14 z-[400] flex gap-2">
+                  <div className="absolute bottom-4 right-4 z-[400] flex gap-2">
                     {zoneHistory && zoneHistory.length > 0 && (
                       <select
-                        className="text-xs h-8 px-2 bg-white/90 backdrop-blur border border-border/50 rounded-md shadow-sm cursor-pointer"
+                        className="text-xs h-8 px-2 bg-background text-foreground border border-border rounded-md shadow-sm cursor-pointer"
                         onChange={(e) => {
                           const idx = parseInt(e.target.value);
                           if (idx === -1) {
