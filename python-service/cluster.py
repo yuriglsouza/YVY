@@ -33,15 +33,25 @@ def get_real_pixels(lat, lon, size_ha, polygon=None):
         print(f"Using circular ROI with radius {radius_m:.0f}m for clustering")
     
     end_date = datetime.datetime.now()
-    start_date = end_date - datetime.timedelta(days=30)
     
-    pixels = satellite_analysis.get_sentinel2_pixels(roi, start_date, end_date, scale=20)
+    # Progressive retry: try wider time ranges and coarser scales
+    attempts = [
+        (30, 20),   # 30 days, 20m scale
+        (90, 30),   # 90 days, 30m scale  
+        (180, 50),  # 180 days, 50m scale
+    ]
     
-    if not pixels or len(pixels) < 10:
-        raise ValueError(f"Dados insuficientes do Sentinel-2 ({len(pixels) if pixels else 0} pixels). Tente novamente mais tarde.")
+    last_count = 0
+    for days, scale in attempts:
+        start_date = end_date - datetime.timedelta(days=days)
+        pixels = satellite_analysis.get_sentinel2_pixels(roi, start_date, end_date, scale=scale)
+        last_count = len(pixels) if pixels else 0
+        if pixels and len(pixels) >= 10:
+            print(f"Using {len(pixels)} real Sentinel-2 pixels (range={days}d, scale={scale}m)")
+            return pixels
+        print(f"Attempt {days}d/{scale}m returned {last_count} pixels, retrying...")
     
-    print(f"Using {len(pixels)} real Sentinel-2 pixels for clustering.")
-    return pixels
+    raise ValueError(f"Dados insuficientes do Sentinel-2 ({last_count} pixels após 3 tentativas). Verifique se a área delimitada está correta.")
 
 def cluster_pixels(pixels, k=3):
     data = np.array([[p["ndvi"], p["ndwi"]] for p in pixels])
