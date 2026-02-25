@@ -233,6 +233,48 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
 
   const alerts = [];
 
+  // 0. ANOMALY DETECTION: Compare with previous reading
+  try {
+    const previousReadings = await storage.getReadings(farmId);
+    // Sort by date descending, skip the current one (index 0 = most recent = this one)
+    const sorted = previousReadings.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const previousReading = sorted.length >= 2 ? sorted[1] : null;
+
+    if (previousReading && previousReading.ndvi > 0.1) {
+      const ndviChange = ((reading.ndvi - previousReading.ndvi) / previousReading.ndvi) * 100;
+
+      if (ndviChange <= -15) {
+        alerts.push({
+          type: "📉 ANOMALIA: QUEDA BRUSCA DE NDVI",
+          msg: `NDVI caiu ${Math.abs(ndviChange).toFixed(1)}% em relação à leitura anterior (${previousReading.ndvi.toFixed(3)} → ${reading.ndvi.toFixed(3)}). Investigação urgente recomendada.`,
+          taskTemplate: {
+            title: "Investigar Queda Brusca de NDVI",
+            description: `Queda de ${Math.abs(ndviChange).toFixed(1)}% no NDVI detectada (${previousReading.ndvi.toFixed(3)} → ${reading.ndvi.toFixed(3)}). Possíveis causas: pragas, doenças, estresse hídrico severo, geada ou aplicação incorreta de defensivos. Agende vistoria de campo imediata.`,
+            priority: "critical"
+          }
+        });
+      }
+
+      // NDWI drop > 20%
+      if (previousReading.ndwi && reading.ndwi && previousReading.ndwi > -0.3) {
+        const ndwiChange = ((reading.ndwi - previousReading.ndwi) / Math.abs(previousReading.ndwi || 0.01)) * 100;
+        if (ndwiChange <= -20) {
+          alerts.push({
+            type: "💧 ANOMALIA: QUEDA HÍDRICA RÁPIDA",
+            msg: `NDWI caiu ${Math.abs(ndwiChange).toFixed(1)}% rapidamente (${previousReading.ndwi.toFixed(3)} → ${reading.ndwi.toFixed(3)}). Possível perda de umidade acelerada.`,
+            taskTemplate: {
+              title: "Verificar Estado Hídrico",
+              description: `Queda de ${Math.abs(ndwiChange).toFixed(1)}% no NDWI. Verifique umidade do solo e funcionamento da irrigação.`,
+              priority: "high"
+            }
+          });
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Anomaly detection error:", e);
+  }
+
   // 1. Satellite: NDVI Stress
   if (reading.ndvi < 0.4) {
     alerts.push({
