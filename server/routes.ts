@@ -826,6 +826,8 @@ export async function registerRoutes(
     if (process.env.PYTHON_SERVICE_URL) {
       try {
         console.log(`Calling Python Service: ${process.env.PYTHON_SERVICE_URL}/satellite`);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 90000); // 90s timeout (Render cold start)
         const response = await fetch(`${process.env.PYTHON_SERVICE_URL}/satellite`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -834,8 +836,10 @@ export async function registerRoutes(
             lon: farm.longitude,
             size: farm.sizeHa,
             polygon: farm.polygon || null
-          })
+          }),
+          signal: controller.signal
         });
+        clearTimeout(timeout);
 
         if (!response.ok) {
           throw new Error(`Service returned ${response.status}`);
@@ -845,7 +849,7 @@ export async function registerRoutes(
         await handleSuccess(result);
         return;
       } catch (e: any) {
-        console.error("Python Service Failed:", e);
+        console.error("Python Service Failed:", e.message || e);
         // Fallthrough to local script or mock
       }
     }
