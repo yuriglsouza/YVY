@@ -14,13 +14,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
-import { Loader2, Plus, Pencil } from "lucide-react";
-
+import { useState, lazy, Suspense } from "react";
+import { Loader2, Plus, Pencil, Map, Keyboard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+// Lazy load the map picker to avoid SSR issues & reduce bundle for non-map users
+const PolygonMapPicker = lazy(() =>
+  import("@/components/PolygonMapPicker").then(m => ({ default: m.PolygonMapPicker }))
+);
+
+type DrawMode = "manual" | "map";
 
 function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmit: (data: InsertFarm) => void, defaultValues?: Partial<InsertFarm>, isPending: boolean, submitLabel: string }) {
   const { data: clients } = useClients();
+  const [drawMode, setDrawMode] = useState<DrawMode>(
+    defaultValues?.polygon ? "map" : "manual"
+  );
 
   const form = useForm<InsertFarm>({
     resolver: zodResolver(insertFarmSchema),
@@ -32,9 +41,25 @@ function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmi
       longitude: 0,
       clientId: null,
       imageUrl: "",
+      polygon: null,
       ...defaultValues
     },
   });
+
+  const handlePolygonChange = (data: {
+    polygon: [number, number][];
+    centroid: { lat: number; lon: number };
+    areaHa: number;
+  } | null) => {
+    if (data) {
+      form.setValue("polygon", data.polygon);
+      form.setValue("latitude", parseFloat(data.centroid.lat.toFixed(6)));
+      form.setValue("longitude", parseFloat(data.centroid.lon.toFixed(6)));
+      form.setValue("sizeHa", parseFloat(data.areaHa.toFixed(2)));
+    } else {
+      form.setValue("polygon", null);
+    }
+  };
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
@@ -56,7 +81,6 @@ function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmi
         <Select
           onValueChange={(value) => form.setValue("clientId", Number(value))}
           defaultValue={form.getValues("clientId") ? String(form.getValues("clientId")) : undefined}
-          // Handle initial value for Select if defaultValues are provided
           value={form.watch("clientId") ? String(form.watch("clientId")) : undefined}
         >
           <SelectTrigger className="rounded-lg">
@@ -83,39 +107,95 @@ function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmi
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="sizeHa">Tamanho (Ha)</Label>
-          <Input
-            id="sizeHa"
-            type="number"
-            step="0.1"
-            {...form.register("sizeHa", { valueAsNumber: true })}
-            className="rounded-lg"
-          />
+          <Label>Definir Área</Label>
+          <div className="flex gap-1">
+            <Button
+              type="button"
+              variant={drawMode === "manual" ? "default" : "outline"}
+              size="sm"
+              className="flex-1 text-xs rounded-lg"
+              onClick={() => { setDrawMode("manual"); form.setValue("polygon", null); }}
+            >
+              <Keyboard className="w-3 h-3 mr-1" /> Manual
+            </Button>
+            <Button
+              type="button"
+              variant={drawMode === "map" ? "default" : "outline"}
+              size="sm"
+              className="flex-1 text-xs rounded-lg"
+              onClick={() => setDrawMode("map")}
+            >
+              <Map className="w-3 h-3 mr-1" /> Mapa
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="grid gap-2">
-          <Label htmlFor="latitude">Latitude</Label>
-          <Input
-            id="latitude"
-            type="number"
-            step="0.000001"
-            {...form.register("latitude", { valueAsNumber: true })}
-            className="rounded-lg"
+      {drawMode === "map" ? (
+        <Suspense fallback={
+          <div className="w-full h-[300px] rounded-lg border border-border flex items-center justify-center bg-muted/30">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          </div>
+        }>
+          <PolygonMapPicker
+            onChange={handlePolygonChange}
+            initialCenter={
+              form.getValues("latitude") && form.getValues("longitude")
+                ? [form.getValues("latitude"), form.getValues("longitude")]
+                : undefined
+            }
+            initialPolygon={
+              defaultValues?.polygon
+                ? (defaultValues.polygon as [number, number][])
+                : undefined
+            }
           />
+        </Suspense>
+      ) : (
+        <>
+          <div className="grid gap-2">
+            <Label htmlFor="sizeHa">Tamanho (Ha)</Label>
+            <Input
+              id="sizeHa"
+              type="number"
+              step="0.1"
+              {...form.register("sizeHa", { valueAsNumber: true })}
+              className="rounded-lg"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="latitude">Latitude</Label>
+              <Input
+                id="latitude"
+                type="number"
+                step="0.000001"
+                {...form.register("latitude", { valueAsNumber: true })}
+                className="rounded-lg"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="longitude">Longitude</Label>
+              <Input
+                id="longitude"
+                type="number"
+                step="0.000001"
+                {...form.register("longitude", { valueAsNumber: true })}
+                className="rounded-lg"
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Show computed values when in map mode */}
+      {drawMode === "map" && form.watch("sizeHa") > 0 && (
+        <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg p-2">
+          <div>📍 Lat: <span className="font-mono text-foreground">{form.watch("latitude")}</span></div>
+          <div>📍 Lon: <span className="font-mono text-foreground">{form.watch("longitude")}</span></div>
+          <div>📐 Área: <span className="font-mono text-emerald-400 font-bold">{form.watch("sizeHa")} ha</span></div>
         </div>
-        <div className="grid gap-2">
-          <Label htmlFor="longitude">Longitude</Label>
-          <Input
-            id="longitude"
-            type="number"
-            step="0.000001"
-            {...form.register("longitude", { valueAsNumber: true })}
-            className="rounded-lg"
-          />
-        </div>
-      </div>
+      )}
 
       <div className="grid gap-2">
         <Label htmlFor="imageUrl">URL da Imagem (Opcional)</Label>
@@ -169,7 +249,7 @@ export function CreateFarmDialog() {
           Adicionar Nova Fazenda
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] bg-card rounded-2xl border-border shadow-2xl">
+      <DialogContent className="sm:max-w-[700px] bg-card rounded-2xl border-border shadow-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-display">Registrar Nova Fazenda</DialogTitle>
         </DialogHeader>
@@ -212,7 +292,7 @@ export function EditFarmDialog({ farm, trigger }: { farm: Farm, trigger?: React.
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] bg-card rounded-2xl border-border shadow-2xl">
+      <DialogContent className="sm:max-w-[700px] bg-card rounded-2xl border-border shadow-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-display">Editar Fazenda</DialogTitle>
         </DialogHeader>
@@ -227,7 +307,8 @@ export function EditFarmDialog({ farm, trigger }: { farm: Farm, trigger?: React.
             latitude: farm.latitude,
             longitude: farm.longitude,
             clientId: farm.clientId,
-            imageUrl: farm.imageUrl
+            imageUrl: farm.imageUrl,
+            polygon: farm.polygon as [number, number][] | null,
           }}
         />
       </DialogContent>

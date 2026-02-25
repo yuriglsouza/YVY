@@ -832,7 +832,8 @@ export async function registerRoutes(
           body: JSON.stringify({
             lat: farm.latitude,
             lon: farm.longitude,
-            size: farm.sizeHa
+            size: farm.sizeHa,
+            polygon: farm.polygon || null
           })
         });
 

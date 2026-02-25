@@ -37,6 +37,7 @@ export const farms = pgTable("farms", {
   imageUrl: text("image_url"),
   clientId: integer("client_id"),
   isDeforested: boolean("is_deforested").default(false), // ESG Compliance Flag
+  polygon: jsonb("polygon"), // [[lon,lat], [lon,lat], ...] - GeoJSON coordinate order
 });
 
 export const insertFarmSchema = createInsertSchema(farms).omit({ id: true });

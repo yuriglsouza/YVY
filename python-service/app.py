@@ -1,9 +1,11 @@
 import os
 import json
+import math
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 import sys
+import ee
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from datetime import datetime
@@ -128,6 +130,7 @@ class SatelliteRequest(BaseModel):
     lat: float
     lon: float
     size: float
+    polygon: list = None  # [[lon,lat], [lon,lat], ...] GeoJSON order
 
 class ClusterRequest(BaseModel):
     lat: float
@@ -153,20 +156,16 @@ def analyze_satellite(req: SatelliteRequest):
 
         f = StringIO()
         with contextlib.redirect_stdout(f):
-            # Recriar lógica de ROI
-            import datetime
-            import math
-            import ee
-            
-            # Re-auth needed logic is inside the script, but we might need to handle credentials here
-            # if the script's strict ee.Initialize() fails.
-            # Assuming env vars are set for Google Application Credentials
-            
-            # Setup arguments for the function
-            point = ee.Geometry.Point([req.lon, req.lat])
-            area_m2 = req.size * 10000
-            radius_m = math.sqrt(area_m2 / math.pi)
-            roi = point.buffer(radius_m)
+            # Setup ROI: use polygon if available, otherwise circular buffer
+            if req.polygon and len(req.polygon) >= 3:
+                roi = ee.Geometry.Polygon([req.polygon])
+                print(f"Using polygon ROI with {len(req.polygon)} vertices")
+            else:
+                point = ee.Geometry.Point([req.lon, req.lat])
+                area_m2 = req.size * 10000
+                radius_m = math.sqrt(area_m2 / math.pi)
+                roi = point.buffer(radius_m)
+                print(f"Using circular ROI with radius {radius_m:.0f}m")
             
             end_date = datetime.datetime.now()
             start_date = end_date - datetime.timedelta(days=30)
