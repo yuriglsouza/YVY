@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, type FormEvent } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw";
@@ -49,33 +49,38 @@ export function PolygonMapPicker({ onChange, initialCenter, initialPolygon }: Po
     const [mapReady, setMapReady] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [searching, setSearching] = useState(false);
+    const searchQueryRef = useRef(searchQuery);
+    searchQueryRef.current = searchQuery;
 
-    const handleSearch = useCallback(async (e?: FormEvent) => {
-        e?.preventDefault();
-        if (!searchQuery.trim() || !mapInstanceRef.current) return;
+    async function doSearch() {
+        const query = searchQueryRef.current.trim();
+        const map = mapInstanceRef.current;
+        console.log("[MapSearch] query:", query, "map:", !!map);
+        if (!query || !map) return;
         setSearching(true);
         try {
-            const res = await fetch(
-                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1`
-            );
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
+            console.log("[MapSearch] fetching:", url);
+            const res = await fetch(url);
             const data = await res.json();
+            console.log("[MapSearch] results:", data);
             if (data.length > 0) {
                 const { lat, lon, boundingbox } = data[0];
                 if (boundingbox) {
-                    mapInstanceRef.current.fitBounds([
+                    map.fitBounds([
                         [parseFloat(boundingbox[0]), parseFloat(boundingbox[2])],
                         [parseFloat(boundingbox[1]), parseFloat(boundingbox[3])],
                     ]);
                 } else {
-                    mapInstanceRef.current.flyTo([parseFloat(lat), parseFloat(lon)], 15, { duration: 1.5 });
+                    map.flyTo([parseFloat(lat), parseFloat(lon)], 15, { duration: 1.5 });
                 }
             }
         } catch (err) {
-            console.error("Geocoding error:", err);
+            console.error("[MapSearch] error:", err);
         } finally {
             setSearching(false);
         }
-    }, [searchQuery]);
+    }
 
     const processLayer = useCallback((layer: L.Polygon) => {
         const latlngs = (layer.getLatLngs()[0] as L.LatLng[]);
@@ -218,13 +223,13 @@ export function PolygonMapPicker({ onChange, initialCenter, initialPolygon }: Po
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSearch(); } }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); doSearch(); } }}
                     placeholder="🔍 Buscar endereço, cidade ou fazenda..."
                     className="flex-1 h-9 rounded-lg border border-border bg-background px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
                 <button
                     type="button"
-                    onClick={() => handleSearch()}
+                    onClick={() => doSearch()}
                     disabled={searching || !searchQuery.trim()}
                     className="h-9 px-4 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
                 >
