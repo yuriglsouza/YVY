@@ -382,10 +382,166 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
 }
 
 
+// Exported so cron job can use it natively
+export async function syncFarmSatelliteData(farmId: number): Promise<{ message: string, reading?: any, isMock?: boolean, details?: string, error?: string }> {
+  try {
+    const farm = await storage.getFarm(farmId);
+    if (!farm) {
+      return { message: "Erro", error: "Fazenda não encontrada" };
+    }
+
+    return new Promise(async (resolve) => {
+      const handleSuccess = async (result: any) => {
+        try {
+          if (result.error) throw new Error(result.error);
+          const newReading: InsertReading = {
+            farmId,
+            date: result.date,
+            ndvi: result.ndvi,
+            ndwi: result.ndwi,
+            ndre: result.ndre,
+            rvi: result.rvi,
+            otci: result.otci,
+            temperature: result.temperature,
+            cloudCover: result.cloud_cover ?? 0,
+            satelliteImage: result.satellite_image,
+            thermalImage: result.thermal_image,
+            imageBounds: result.bounds,
+            regionalNdvi: result.regional_ndvi,
+            carbonStock: result.carbon_stock,
+            co2Equivalent: result.co2_equivalent
+          };
+          await storage.createReading(newReading);
+          checkAndSendAlerts(newReading as Reading, farmId).catch(console.error);
+          resolve({ message: "Dados atualizados com sucesso", reading: newReading });
+        } catch (e: any) {
+          await fallbackToMock(e.message || "Error processing result");
+        }
+      };
+
+      const fallbackToMock = async (reason: string) => {
+        console.warn(`[Satellite Fallback] Reason: ${reason}`);
+        const [mockReading] = generateMockReadings(farmId, 1);
+        mockReading.date = new Date().toISOString().split('T')[0];
+        mockReading.satelliteImage = "https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80";
+        mockReading.thermalImage = "https://images.unsplash.com/photo-1577705998148-6da4f3963bc1?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80";
+
+        await storage.createReading(mockReading);
+        checkAndSendAlerts(mockReading as Reading, farmId).catch(console.error);
+
+        resolve({
+          message: "⚠️ Simulação: Satélite indisponível (Auth GEE pendente)",
+          reading: mockReading,
+          isMock: true,
+          details: reason
+        });
+      };
+
+      if (process.env.PYTHON_SERVICE_URL) {
+        try {
+          console.log(`Calling Python Service: ${process.env.PYTHON_SERVICE_URL}/satellite`);
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 90000); // 90s timeout (Render cold start)
+          const response = await fetch(`${process.env.PYTHON_SERVICE_URL}/satellite`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              lat: farm.latitude,
+              lon: farm.longitude,
+              size: farm.sizeHa,
+              polygon: farm.polygon || null
+            }),
+            signal: controller.signal
+          });
+          clearTimeout(timeout);
+
+          if (!response.ok) {
+            throw new Error(`Service returned ${response.status}`);
+          }
+
+          const result = await response.json();
+          await handleSuccess(result);
+          return;
+        } catch (e: any) {
+          console.error("Python Service Failed:", e.message || e);
+        }
+      }
+
+      try {
+        const { exec } = await import("child_process");
+        const path = await import("path");
+        const scriptPath = path.join(process.cwd(), "scripts", "satellite_analysis.py");
+        const command = `python3 "${scriptPath}" --lat ${farm.latitude} --lon ${farm.longitude} --size ${farm.sizeHa}`;
+
+        console.log(`Executing Local Script: ${command}`);
+
+        exec(command, async (error, stdout, stderr) => {
+          if (error && !stdout) {
+            await fallbackToMock(stderr || error.message);
+            return;
+          }
+          try {
+            const result = JSON.parse(stdout);
+            await handleSuccess(result);
+          } catch (parseError) {
+            console.error(`[Satellite Fallback] JSON Parse Error. STDOUT was: ${stdout}`);
+            await fallbackToMock("Valid JSON not returned by script");
+          }
+        });
+      } catch (e: any) {
+        await fallbackToMock("Local script execution failed");
+      }
+    });
+  } catch (error: any) {
+    return { message: "Erro", error: error.message || "Erro desconhecido" };
+  }
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  const { buildWeeklyReportEmailHTML } = await import("./email");
+
+  // TEMPORARY MANUAL CRON TRIGGER
+  app.get("/api/force-cron", async (req: any, res: any) => {
+    console.log("[Test Root] Forcing Cron Sync...");
+    const farms = await storage.getFarms();
+    const adminEmail = process.env.ADMIN_EMAIL || "yuri.g.l.souza@gmail.com";
+
+    // Fire and forget so we don't timeout the HTTP request immediately
+    (async () => {
+      for (const farm of farms) {
+        try {
+          const result = await syncFarmSatelliteData(farm.id);
+
+          if (result && !result.error && result.reading) {
+            const { ndvi, cloudCover, date } = result.reading;
+            const status = result.isMock ? "Simulação (Offline)" : "Satélite Sincronizado";
+            let ownerEmail = null;
+            if (farm.userId) {
+              const user = await storage.getUser(farm.userId);
+              if (user) ownerEmail = user.email;
+            }
+            const emailsToNotify = Array.from(new Set([adminEmail, ownerEmail].filter(Boolean) as string[]));
+            for (const email of emailsToNotify) {
+              await sendEmail({
+                to: email,
+                subject: `Relatório de Satélite TESTE: ${farm.name}`,
+                text: `Sync Manual: ${farm.name}. NDVI: ${ndvi}`,
+                html: buildWeeklyReportEmailHTML(farm.name, date, { ndvi, cloudCover, status })
+              }).catch(console.error);
+            }
+          }
+        } catch (e) {
+          console.error("Error on manual cron", e);
+        }
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    })();
+
+    res.json({ message: "Sincronização iniciada em background. Verifique o console ou a caixa de e-mail em instantes." });
+  });
 
   // Middleware to check if user is authenticated
   const isAuthenticated = (req: any, res: any, next: any) => {
@@ -886,125 +1042,16 @@ export async function registerRoutes(
     res.status(201).json(report);
   });
 
+
+
   // Refresh Readings (Real Satellite Data)
   app.post(api.farms.refreshReadings.path, async (req, res) => {
     const farmId = Number(req.params.id);
-    const farm = await storage.getFarm(farmId);
-
-    if (!farm) {
-      return res.status(404).json({ message: "Fazenda não encontrada" });
+    const result = await syncFarmSatelliteData(farmId);
+    if (result.error) {
+      return res.status(404).json({ message: result.error });
     }
-
-    // Helper to handle success
-    const handleSuccess = async (result: any) => {
-      try {
-        if (result.error) {
-          throw new Error(result.error);
-        }
-
-        const newReading: InsertReading = {
-          farmId,
-          date: result.date,
-          ndvi: result.ndvi,
-          ndwi: result.ndwi,
-          ndre: result.ndre,
-          rvi: result.rvi,
-          otci: result.otci,
-          temperature: result.temperature,
-          cloudCover: result.cloud_cover ?? 0,
-          satelliteImage: result.satellite_image,
-          thermalImage: result.thermal_image,
-          imageBounds: result.bounds,
-          regionalNdvi: result.regional_ndvi,
-          carbonStock: result.carbon_stock,
-          co2Equivalent: result.co2_equivalent
-        };
-
-        await storage.createReading(newReading);
-        checkAndSendAlerts(newReading as Reading, farmId).catch(console.error);
-        res.json({ message: "Dados atualizados com sucesso", reading: newReading });
-      } catch (e: any) {
-        await fallbackToMock(e.message || "Error processing result");
-      }
-    };
-
-    // Helper to handle fallback
-    const fallbackToMock = async (reason: string) => {
-      console.warn(`[Satellite Fallback] Reason: ${reason}`);
-      const [mockReading] = generateMockReadings(farmId, 1);
-      mockReading.date = new Date().toISOString().split('T')[0];
-      mockReading.satelliteImage = "https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80";
-      mockReading.thermalImage = "https://images.unsplash.com/photo-1577705998148-6da4f3963bc1?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80";
-
-      await storage.createReading(mockReading);
-      checkAndSendAlerts(mockReading as Reading, farmId).catch(console.error);
-
-      res.json({
-        message: "⚠️ Simulação: Satélite indisponível (Auth GEE pendente)",
-        reading: mockReading,
-        isMock: true,
-        details: reason
-      });
-    };
-
-    // 1. Try External Python Service (if configured)
-    if (process.env.PYTHON_SERVICE_URL) {
-      try {
-        console.log(`Calling Python Service: ${process.env.PYTHON_SERVICE_URL}/satellite`);
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 90000); // 90s timeout (Render cold start)
-        const response = await fetch(`${process.env.PYTHON_SERVICE_URL}/satellite`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            lat: farm.latitude,
-            lon: farm.longitude,
-            size: farm.sizeHa,
-            polygon: farm.polygon || null
-          }),
-          signal: controller.signal
-        });
-        clearTimeout(timeout);
-
-        if (!response.ok) {
-          throw new Error(`Service returned ${response.status}`);
-        }
-
-        const result = await response.json();
-        await handleSuccess(result);
-        return;
-      } catch (e: any) {
-        console.error("Python Service Failed:", e.message || e);
-        // Fallthrough to local script or mock
-      }
-    }
-
-    // 2. Try Local Script (Dev environment)
-    try {
-      const { exec } = await import("child_process");
-      const path = await import("path");
-      const scriptPath = path.join(process.cwd(), "scripts", "satellite_analysis.py");
-      const command = `python3 "${scriptPath}" --lat ${farm.latitude} --lon ${farm.longitude} --size ${farm.sizeHa}`;
-
-      console.log(`Executing Local Script: ${command}`);
-
-      exec(command, async (error, stdout, stderr) => {
-        // Warning: Python often writes deprecated warnings to stderr. We should only fail if stdout is completely empty/invalid.
-        if (error && !stdout) {
-          await fallbackToMock(stderr || error.message);
-          return;
-        }
-        try {
-          const result = JSON.parse(stdout);
-          await handleSuccess(result);
-        } catch (parseError) {
-          console.error(`[Satellite Fallback] JSON Parse Error. STDOUT was: ${stdout}`);
-          await fallbackToMock("Valid JSON not returned by script");
-        }
-      });
-    } catch (e: any) {
-      await fallbackToMock("Local script execution failed");
-    }
+    res.json(result);
   });
 
   // Seed Data

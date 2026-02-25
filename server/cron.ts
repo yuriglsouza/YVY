@@ -1,8 +1,9 @@
 import cron from "node-cron";
 import { storage } from "./storage";
 import { sendEmail, buildWeeklyReportEmailHTML } from "./email";
+import { syncFarmSatelliteData } from "./routes";
 
-export function setupCronJobs(port: number) {
+export function setupCronJobs() {
     // Agendamento: Segundas e Quintas às 06:00
     // String cron: Minuto Hora DiaMes Mês DiaSemana
     cron.schedule("0 6 * * 1,4", async () => {
@@ -14,45 +15,38 @@ export function setupCronJobs(port: number) {
 
         for (const farm of farms) {
             try {
-                console.log(`[Cron] Fazenda ${farm.id} (${farm.name}) - Sincronizando...`);
+                console.log(`[Cron] Fazenda ${farm.id} (${farm.name}) - Sincronizando (Nuvem)...`);
 
-                // Chamada de serviço interno para reaproveitar a complexa lógica do /sync 
-                // sem necessidade de duplicação de request para o Earth Engine e Python GEE
-                const res = await fetch(`http://127.0.0.1:${port}/api/farms/${farm.id}/readings/sync`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
+                // Chamada direta à abstração sem depender de networking HTTP
+                const result = await syncFarmSatelliteData(farm.id);
 
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.reading) {
-                        const { ndvi, cloudCover, date } = data.reading;
-                        const status = data.isMock ? "Simulação (Offline)" : "Satélite Sincronizado";
+                if (result && !result.error && result.reading) {
+                    const { ndvi, cloudCover, date } = result.reading;
+                    const status = result.isMock ? "Simulação (Offline)" : "Satélite Sincronizado";
 
-                        let ownerEmail: string | null = null;
-                        if (farm.userId) {
-                            const user = await storage.getUser(farm.userId);
-                            if (user) ownerEmail = user.email;
-                        }
+                    let ownerEmail: string | null = null;
+                    if (farm.userId) {
+                        const user = await storage.getUser(farm.userId);
+                        if (user) ownerEmail = user.email;
+                    }
 
-                        // Lista deduplicada de e-mails pra não enviar 2x
-                        const emailsToNotify = Array.from(new Set([adminEmail, ownerEmail].filter(Boolean) as string[]));
+                    // Lista deduplicada de e-mails pra não enviar 2x
+                    const emailsToNotify = Array.from(new Set([adminEmail, ownerEmail].filter(Boolean) as string[]));
 
-                        for (const email of emailsToNotify) {
-                            try {
-                                await sendEmail({
-                                    to: email,
-                                    subject: `Relatório de Satélite: ${farm.name}`,
-                                    text: `Sincronização concluída para ${farm.name}. NDVI: ${ndvi}`,
-                                    html: buildWeeklyReportEmailHTML(farm.name, date, { ndvi, cloudCover, status })
-                                });
-                            } catch (emailErr) {
-                                console.error(`[Cron] Erro ao enviar email para ${email}:`, emailErr);
-                            }
+                    for (const email of emailsToNotify) {
+                        try {
+                            await sendEmail({
+                                to: email,
+                                subject: `Relatório de Satélite: ${farm.name}`,
+                                text: `Sincronização concluída para ${farm.name}. NDVI: ${ndvi}`,
+                                html: buildWeeklyReportEmailHTML(farm.name, date, { ndvi, cloudCover, status })
+                            });
+                        } catch (emailErr) {
+                            console.error(`[Cron] Erro ao enviar email para ${email}:`, emailErr);
                         }
                     }
                 } else {
-                    console.error(`[Cron] Falha HTTP na Sincronização Interna (Fazenda ${farm.id}): ${res.status}`);
+                    console.error(`[Cron] Falha na Sincronização Interna (Fazenda ${farm.id}):`, result?.error || result?.message || "Erro omitido.");
                 }
             } catch (error) {
                 console.error(`[Cron] Erro Operacional - Fazenda ${farm.id}:`, error);
