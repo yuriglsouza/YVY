@@ -188,8 +188,8 @@ def analyze_satellite(req: SatelliteRequest):
 @app.post("/cluster")
 def analyze_cluster(req: ClusterRequest):
     try:
-        pixels = cluster.generate_mock_pixels(req.lat, req.lon, req.size, polygon=req.polygon)
+        pixels = cluster.get_real_pixels(req.lat, req.lon, req.size, polygon=req.polygon)
         zones = cluster.cluster_pixels(pixels, req.k)
         return zones
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=503, detail=f"Zonas de manejo indisponíveis: {str(e)}")

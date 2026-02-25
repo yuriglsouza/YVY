@@ -146,15 +146,23 @@ export default function FarmDetails() {
   const generateZones = useMutation({
     mutationFn: async () => {
       const res = await fetch(`/api/farms/${farmId}/zones/generate`, { method: "POST" });
-      if (!res.ok) throw new Error("Failed to generate zones");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || data.detail || "Falha ao gerar zonas de manejo");
+      }
       return res.json();
     },
     onSuccess: (data) => {
       setZones(data);
-      toast({ title: "Zonas Geradas", description: "O mapa de manejo foi atualizado." });
+      toast({ title: "Zonas Geradas", description: "O mapa de manejo foi atualizado com dados reais do Sentinel-2." });
     },
-    onError: () => {
-      toast({ title: "Erro", description: "Falha ao gerar zonas.", variant: "destructive" });
+    onError: (err: Error) => {
+      toast({
+        title: "Zonas Indisponíveis",
+        description: err.message || "Dados de satélite insuficientes para gerar zonas de manejo. Tente sincronizar o satélite primeiro.",
+        variant: "destructive",
+        className: "border-l-4 border-yellow-500"
+      });
     }
   });
 
