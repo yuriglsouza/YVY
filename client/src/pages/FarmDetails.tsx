@@ -322,9 +322,13 @@ export default function FarmDetails() {
       // First page
       doc.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight);
 
-      // Page 2 (Maps + Recharts Engine) -> Shift Y negatively by exactly 1 page height to show second page
+      // Page 2 (Maps + Recharts Engine) 
       doc.addPage();
       doc.addImage(imgData, 'JPEG', 0, -pdfHeight, pdfWidth, imgHeight);
+
+      // Page 3 (Tables, Benchmarks, Authenticity Hash)
+      doc.addPage();
+      doc.addImage(imgData, 'JPEG', 0, -(pdfHeight * 2), pdfWidth, imgHeight);
 
       doc.save(`SYAZ_Report_Auditoria_${farm?.name || "Fazenda"}_${format(new Date(), "dd-MM-yyyy")}.pdf`);
       toast({ title: "Relatório de Auditoria Exportado", description: "O laudo contendo Inteligência Artificial e Biometria visual foi salvo." });
@@ -1161,6 +1165,8 @@ export default function FarmDetails() {
           previousReading={sortedReadings.length > 1 ? sortedReadings[sortedReadings.length - 2] : null}
           historyData={chartData || []}
           aiReport={reports?.[0]?.formalContent || ""}
+          consultantName={user?.name || "Equipe SYAZ"}
+          readings={readings || []}
         />
 
       </main >
