@@ -1,7 +1,7 @@
 import cron from "node-cron";
-import { storage } from "./storage";
-import { sendEmail, buildWeeklyReportEmailHTML } from "./email";
-import { syncFarmSatelliteData } from "./routes";
+import { storage } from "./storage.js";
+import { sendEmail, buildWeeklyReportEmailHTML } from "./email.js";
+import { syncFarmSatelliteData } from "./routes.js";
 
 export function setupCronJobs() {
     // Agendamento: Segundas e Quintas às 06:00

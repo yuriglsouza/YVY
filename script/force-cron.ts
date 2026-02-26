@@ -1,7 +1,7 @@
-import "../server/env";
-import { storage } from "../server/storage";
-import { sendEmail, buildWeeklyReportEmailHTML } from "../server/email";
-import { syncFarmSatelliteData } from "../server/routes";
+import "../server/env.js";
+import { storage } from "../server/storage.js";
+import { sendEmail, buildWeeklyReportEmailHTML } from "../server/email.js";
+import { syncFarmSatelliteData } from "../server/routes.js";
 
 async function forceCronSync() {
     console.log(`[Teste Cron] Iniciando Sincronização Automática Forçada Serverless...`);

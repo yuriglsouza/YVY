@@ -6,7 +6,7 @@ import { api } from "../shared/routes.js";
 import { z } from "zod";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { type Reading, type InsertReading, insertFarmSchema, insertReadingSchema, insertReportSchema, insertUserSchema, insertClientSchema, insertTaskSchema } from "../shared/schema.js";
-import { sendEmail, buildAlertEmailHTML } from "./email.js";
+import { sendEmail, buildAlertEmailHTML, buildWeeklyReportEmailHTML } from "./email.js";
 
 // Mock Satellite Data Generator
 function generateMockReadings(farmId: number, count = 10) {
@@ -501,7 +501,7 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  const { buildWeeklyReportEmailHTML } = await import("./email");
+
 
   // TEMPORARY MANUAL CRON TRIGGER
   app.get("/api/force-cron", async (req: any, res: any) => {
