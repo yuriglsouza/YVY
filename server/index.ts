@@ -1,6 +1,6 @@
 import "./env";
-import { createApp } from "./app";
-import { serveStatic } from "./static";
+import { createApp } from "./app.js";
+import { serveStatic } from "./static.js";
 
 console.log("Current working directory:", process.cwd());
 console.log("DATABASE_URL present:", !!process.env.DATABASE_URL);
