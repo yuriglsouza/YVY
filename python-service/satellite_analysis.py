@@ -311,22 +311,22 @@ def analyze_farm(roi, start_date, end_date, size_ha):
             # Forçar a região exata (ROI expandida) evita distorções
             thumb_url = visual_rgb.getThumbURL({
                 'dimensions': 600, 
-                'format': 'jpg',   
+                'format': 'png',   # Mudar aqui também para consistência visual sem fundo preto
                 'region': rgb_roi      # CRÍTICO: Define o bounding box com contexto local
             })
             
-            # Gerar URL ANTERIOR (30 dias atrás) para o PDF
+            # Gerar URL ANTERIOR (buscar no intervalo de 30 a 60 dias atrás) para o PDF
             prev_thumb_url = None
             try:
-                prev_end_date = start_date
-                prev_start_date = prev_end_date - datetime.timedelta(days=30)
+                prev_end_date = start_date # today - 30
+                prev_start_date = prev_end_date - datetime.timedelta(days=30) # today - 60
                 
                 _, _, _, prev_composite = get_sentinel2_indices(rgb_roi, start_date=prev_start_date.strftime('%Y-%m-%d'), end_date=prev_end_date.strftime('%Y-%m-%d'))
                 prev_visual_rgb = prev_composite.select(['B4', 'B3', 'B2']).visualize(min=0, max=0.3)
                 
                 prev_thumb_url = prev_visual_rgb.getThumbURL({
                     'dimensions': 600, 
-                    'format': 'jpg',   
+                    'format': 'png',   # PNG suporta transparência (evita tela preta se houver buraco sem dados)
                     'region': rgb_roi      
                 })
             except Exception as e:

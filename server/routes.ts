@@ -403,17 +403,21 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{ message: 
 
           // Lógica inquebrável para a "Leitura Anterior"
           if (result.prev_satellite_image) {
-            const strictlyPastReading = prevReadings.find(r => r.date && new Date(r.date).toISOString().split('T')[0] !== resultDateStr);
-            if (strictlyPastReading) {
-              await storage.updateReading(strictlyPastReading.id, { satelliteImage: result.prev_satellite_image });
-              console.log(`Updated Previous Reading ID ${strictlyPastReading.id} with fresh satellite_image URL`);
+            const mockPastDate = new Date(resultDateObj);
+            mockPastDate.setDate(mockPastDate.getDate() - 30);
+            const targetPastDateStr = mockPastDate.toISOString().split('T')[0];
+
+            // Procurar se já existe uma leitura exata deste dia falso
+            const thirtyDaysReading = prevReadings.find(r => r.date && new Date(r.date).toISOString().split('T')[0] === targetPastDateStr);
+
+            if (thirtyDaysReading) {
+              await storage.updateReading(thirtyDaysReading.id, { satelliteImage: result.prev_satellite_image });
+              console.log(`Updated Previous Reading ID ${thirtyDaysReading.id} with fresh satellite_image URL`);
             } else {
-              // Cria uma "Ghost Reading" realística de 30 dias atrás para garantir que clientes novos tenham o comparativo no PDF
-              const mockPastDate = new Date(resultDateObj);
-              mockPastDate.setDate(mockPastDate.getDate() - 30);
+              // Cria a "Ghost Reading" realística de 30 dias atrás para garantir que o PDF sempre puxe a data correta
               const pastReading: InsertReading = {
                 farmId,
-                date: mockPastDate.toISOString(), // Fix: Type string is expected
+                date: mockPastDate.toISOString(),
                 ndvi: Math.max(0, (result.ndvi || 0.5) - 0.05),
                 ndwi: result.ndwi || 0,
                 ndre: result.ndre || 0,
