@@ -42,7 +42,10 @@ export const farms = pgTable("farms", {
   polygon: jsonb("polygon"), // [[lon,lat], [lon,lat], ...] - GeoJSON coordinate order
 });
 
-export const insertFarmSchema = createInsertSchema(farms).omit({ id: true });
+export const insertFarmSchema = createInsertSchema(farms, {
+  plantingDate: z.string().nullish().transform(val => val === "" ? null : val),
+  harvestDate: z.string().nullish().transform(val => val === "" ? null : val),
+}).omit({ id: true });
 export type Farm = typeof farms.$inferSelect;
 export type InsertFarm = z.infer<typeof insertFarmSchema>;
 
