@@ -394,6 +394,19 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{ message: 
       const handleSuccess = async (result: any) => {
         try {
           if (result.error) throw new Error(result.error);
+
+          // Se o GEE nos enviou a foto do mês passado (fresquinha com signed URL válido)
+          // Atualizamos a última leitura salva no banco para que o PDF não fique cinza/quebrado.
+          if (result.prev_satellite_image) {
+            const prevReadings = await storage.getReadings(farmId);
+            if (prevReadings && prevReadings.length > 0) {
+              // A lista já vem ordenada por (date desc, id desc), o item [0] seria a última _antes_ do insert atual.
+              const prevReading = prevReadings[0];
+              await storage.updateReading(prevReading.id, { satelliteImage: result.prev_satellite_image });
+              console.log(`Updated Previous Reading ID ${prevReading.id} with fresh satellite_image URL`);
+            }
+          }
+
           const newReading: InsertReading = {
             farmId,
             date: result.date,

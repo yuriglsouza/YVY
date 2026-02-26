@@ -26,6 +26,7 @@ export interface IStorage {
   getReadings(farmId: number): Promise<Reading[]>;
   getLatestReading(farmId: number): Promise<Reading | undefined>;
   createReading(reading: InsertReading): Promise<Reading>;
+  updateReading(id: number, reading: Partial<InsertReading>): Promise<Reading | undefined>;
 
   // Reports
   getReports(farmId: number): Promise<Report[]>;
@@ -131,6 +132,15 @@ export class DatabaseStorage implements IStorage {
   async createReading(insertReading: InsertReading): Promise<Reading> {
     const [reading] = await db!.insert(readings).values(insertReading).returning();
     return reading;
+  }
+
+  async updateReading(id: number, updateData: Partial<InsertReading>): Promise<Reading | undefined> {
+    const [updated] = await db!
+      .update(readings)
+      .set(updateData)
+      .where(eq(readings.id, id))
+      .returning();
+    return updated;
   }
 
   async getReports(farmId: number): Promise<Report[]> {
@@ -366,6 +376,14 @@ export class MemStorage implements IStorage {
     };
     this.farms.set(id, farm);
     return farm;
+  }
+
+  async updateReading(id: number, updateData: Partial<InsertReading>): Promise<Reading | undefined> {
+    const existing = this.readings.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updateData };
+    this.readings.set(id, updated);
+    return updated;
   }
 
   async deleteFarm(id: number): Promise<void> {

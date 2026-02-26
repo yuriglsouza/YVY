@@ -284,6 +284,25 @@ def analyze_farm(roi, start_date, end_date, size_ha):
             sys.stderr.write(f"Warning: Failed to generate thumb URL: {e}\n")
             thumb_url = None
 
+        # Gerar URL Térmica ANTERIOR (30 dias atrás) para o PDF
+        prev_thumb_url = None
+        try:
+            prev_end_date = start_date
+            prev_start_date = prev_end_date - datetime.timedelta(days=30)
+            
+            # Buscar índices do mês anterior
+            _, _, _, prev_composite = get_sentinel2_indices(rgb_roi, prev_start_date.strftime('%Y-%m-%d'), prev_end_date.strftime('%Y-%m-%d'))
+            prev_visual_rgb = prev_composite.select(['B4', 'B3', 'B2']).visualize(min=0, max=0.3)
+            
+            prev_thumb_url = prev_visual_rgb.getThumbURL({
+                'dimensions': 600, 
+                'format': 'png',   
+                'region': rgb_roi      
+            })
+        except Exception as e:
+            sys.stderr.write(f"Warning: Failed to generate PREVIOUS thumb URL: {e}\n")
+            prev_thumb_url = None
+
         # Gerar URL Térmica (LST)
         val_lst = val_s3.get('lst')
         thermal_url = None
@@ -336,8 +355,7 @@ def analyze_farm(roi, start_date, end_date, size_ha):
             "otci": val_otci.get('otci', 0) if val_otci.get('otci') is not None else 0,
             "satellite_image": thumb_url,
             "thermal_image": thermal_url,
-            "satellite_image": thumb_url,
-            "thermal_image": thermal_url,
+            "prev_satellite_image": prev_thumb_url, # Foto do mês anterior atualizada
             "bounds": bounds_overlay, # Adicionando Bounds
             "regional_ndvi": regional_ndvi, # Benchmark Data
             "carbon_stock": carbon_stock,
