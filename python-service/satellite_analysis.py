@@ -321,7 +321,7 @@ def analyze_farm(roi, start_date, end_date, size_ha):
                 prev_end_date = start_date
                 prev_start_date = prev_end_date - datetime.timedelta(days=30)
                 
-                _, _, _, prev_composite, _ = get_sentinel2_indices(rgb_roi, start_date=prev_start_date.strftime('%Y-%m-%d'), end_date=prev_end_date.strftime('%Y-%m-%d'))
+                _, _, _, prev_composite = get_sentinel2_indices(rgb_roi, start_date=prev_start_date.strftime('%Y-%m-%d'), end_date=prev_end_date.strftime('%Y-%m-%d'))
                 prev_visual_rgb = prev_composite.select(['B4', 'B3', 'B2']).visualize(min=0, max=0.3)
                 
                 prev_thumb_url = prev_visual_rgb.getThumbURL({
