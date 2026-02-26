@@ -150,11 +150,19 @@ export default function FarmDetails() {
     return [[farm.latitude - offset, farm.longitude - offset], [farm.latitude + offset, farm.longitude + offset]];
   }, [farm]);
 
-  // Sorted readings for temporal slider (oldest first)
+  // Sorted readings for temporal slider (oldest first) - filtered to 1 reading per Day to avoid dupe comparisons
   const sortedReadings = React.useMemo(() => {
     if (!readings) return [];
-    return [...readings]
-      .filter(r => r.satelliteImage) // Removed the strict r.imageBounds check
+
+    const uniqueMap = new Map();
+    // Use reverse to ensure later readings in the array overwrite older ones if they have same date
+    [...readings].reverse().forEach(r => {
+      const day = r.date.split('T')[0];
+      uniqueMap.set(day, r);
+    });
+
+    return Array.from(uniqueMap.values())
+      .filter(r => r.satelliteImage)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [readings]);
 
