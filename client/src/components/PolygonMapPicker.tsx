@@ -136,16 +136,10 @@ export function PolygonMapPicker({ onChange, initialCenter, initialPolygon }: Po
         });
         mapInstanceRef.current = map;
 
-        // Satellite tiles
-        L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-            attribution: "Tiles © Esri",
-            maxZoom: 19,
-        }).addTo(map);
-
-        // Labels
-        L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", {
-            maxZoom: 19,
-            pane: "shadowPane",
+        // Google Maps Hybrid (Satélite + Ruas/Rótulos)
+        L.tileLayer("https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", {
+            attribution: "© Google",
+            maxZoom: 20,
         }).addTo(map);
 
         // Feature group for drawings
