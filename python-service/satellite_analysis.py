@@ -314,6 +314,25 @@ def analyze_farm(roi, start_date, end_date, size_ha):
                 'format': 'jpg',   
                 'region': rgb_roi      # CRÍTICO: Define o bounding box com contexto local
             })
+            
+            # Gerar URL ANTERIOR (30 dias atrás) para o PDF
+            prev_thumb_url = None
+            try:
+                prev_end_date = start_date
+                prev_start_date = prev_end_date - datetime.timedelta(days=30)
+                
+                _, _, _, prev_composite, _ = get_sentinel2_indices(rgb_roi, start_date=prev_start_date.strftime('%Y-%m-%d'), end_date=prev_end_date.strftime('%Y-%m-%d'))
+                prev_visual_rgb = prev_composite.select(['B4', 'B3', 'B2']).visualize(min=0, max=0.3)
+                
+                prev_thumb_url = prev_visual_rgb.getThumbURL({
+                    'dimensions': 600, 
+                    'format': 'jpg',   
+                    'region': rgb_roi      
+                })
+            except Exception as e:
+                sys.stderr.write(f"Warning: Failed to generate PREVIOUS thumb URL: {e}\n")
+                prev_thumb_url = None
+
             # Gerar URL Térmica (LST)
             # Paleta: Azul (Frio) -> Verde -> Amarelo -> Vermelho (Quente)
             # Range: 20°C a 50°C (ajustável)
@@ -342,6 +361,7 @@ def analyze_farm(roi, start_date, end_date, size_ha):
         except Exception as e:
             sys.stderr.write(f"Warning: Failed to generate thumb URL: {e}\n")
             thumb_url = None
+            prev_thumb_url = None
             thermal_url = None
         
 
@@ -369,6 +389,7 @@ def analyze_farm(roi, start_date, end_date, size_ha):
             "cloud_cover": cloud_cover,
             "satellite_image": thumb_url,
             "thermal_image": thermal_url,
+            "prev_satellite_image": prev_thumb_url,
             "bounds": bounds_overlay,
             "regional_ndvi": regional_ndvi,
             "carbon_stock": carbon_stock,
