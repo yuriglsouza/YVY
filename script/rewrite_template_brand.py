@@ -1,4 +1,8 @@
-import React from "react";
+import os
+
+TEMPLATE_PATH = "/Users/yuri/Desktop/Backup/Code-Robustness/client/src/components/ReportTemplate.tsx"
+
+new_template_code = """import React from "react";
 import { format } from "date-fns";
 import QRCode from "react-qr-code";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
@@ -411,3 +415,9 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
 });
 
 ReportTemplate.displayName = "ReportTemplate";
+"""
+
+with open(TEMPLATE_PATH, "w", encoding="utf-8") as f:
+    f.write(new_template_code)
+
+print("Template React regerado completo com a Marca SYAZ atualizada!")
