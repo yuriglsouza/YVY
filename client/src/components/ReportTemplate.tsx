@@ -48,16 +48,20 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
     // Preto: #000000
 
     // Determine Status Colors (adapting brand DNA logic)
-    const isCritical = parsedReport?.status === 'Crítico';
-    const isGood = parsedReport?.status === 'Bom';
-    
+    const ndviVal = currentReading?.ndvi || 0;
+    const isCritical = parsedReport?.status === 'Crítico' || ndviVal < 0.45;
+    const isGood = parsedReport?.status === 'Bom' || ndviVal > 0.65;
+
+    const statusText = parsedReport?.status || (isCritical ? 'CRÍTICO' : isGood ? 'BOM' : 'MODERADO');
+    const impactoText = parsedReport?.impacto || (isCritical ? 'Alto (>30%)' : isGood ? 'Baixo (<5%)' : 'Médio (10-20%)');
+
     // Fallbacks visuais corporativos
     const statusColor = isCritical ? 'text-red-700 bg-red-50 border-red-300' :
-        isGood ? 'text-amber-700 bg-amber-50 border-amber-300' :
-            'text-[#2F447F] bg-[#ebf0f9] border-[#2F447F] opacity-90'; // SYAZ Excellent Standard
+        isGood ? 'text-[#172649] bg-[#ebf0f9] border-[#2F447F]' :
+            'text-amber-700 bg-amber-50 border-amber-300'; // SYAZ Excellent Standard
 
     const StatusIcon = isCritical ? AlertTriangle :
-        isGood ? Info : CheckCircle;
+        isGood ? CheckCircle : Info;
 
     // Métricas Preditivas (Mock Determinístico como era antes)
     const crp = farm?.cropType || "Soja";
@@ -68,7 +72,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
     const tSeed = farm?.id || 1;
     let mockMape = 0, mockMae = 0, mockR2 = 0;
     let rdsForTable: any[] = [];
-    
+
     if (readings && readings.length > 0) {
         rdsForTable = readings.slice(0, 10).map(r => ({
             date: format(new Date(r.date), "dd/MM/yyyy"),
@@ -117,10 +121,10 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
             <div className="bg-[#2F447F] text-white w-[210mm] h-[30mm] flex items-center justify-between px-10 shrink-0 border-b-4 border-[#172649]">
                 <div className="flex items-center gap-4">
                     <img src="/logo.png" alt="SYAZ Logo" className="h-[15mm] object-contain bg-white/10 p-1 rounded" onError={(e) => e.currentTarget.style.display = 'none'} />
-                    <h1 className="text-3xl tracking-tight text-white m-0 self-center uppercase" style={{fontFamily: 'Arial, sans-serif', fontWeight: 'bold'}}>SYAZ <span className="opacity-80">AGRO</span></h1>
+                    <h1 className="text-3xl tracking-tight text-white m-0 self-center uppercase" style={{ fontFamily: 'Arial, sans-serif', fontWeight: 'bold' }}>SYAZ <span className="opacity-80">AGRO</span></h1>
                 </div>
                 <div className="text-right">
-                    <h2 className="text-white text-lg mb-1" style={{fontFamily: 'Arial, sans-serif', fontWeight: 'bold'}}>RELATÓRIO DE AUDITORIA TÉCNICA</h2>
+                    <h2 className="text-white text-lg mb-1" style={{ fontFamily: 'Arial, sans-serif', fontWeight: 'bold' }}>RELATÓRIO DE AUDITORIA TÉCNICA</h2>
                     <p className="text-sm font-light text-gray-200">Consultor: <span className="font-bold">{consultantName || "Equipe SYAZ"}</span></p>
                 </div>
             </div>
@@ -154,35 +158,40 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                     <div className={`w-[70mm] h-full rounded shadow-sm border ${statusColor} p-6 flex flex-col items-center justify-center text-center`}>
                         <StatusIcon className="w-24 h-24 mb-6 opacity-90" />
                         <h3 className="text-xs font-bold uppercase tracking-widest opacity-80 mb-2">Classificação de Risco</h3>
-                        <p className="text-4xl font-black uppercase tracking-tighter" style={{fontFamily: 'Arial, sans-serif'}}>{parsedReport?.status || "Avaliando"}</p>
+                        <p className="text-4xl font-black uppercase tracking-tighter" style={{ fontFamily: 'Arial, sans-serif' }}>{statusText}</p>
                         <div className="mt-8 border-t border-current w-full pt-4 opacity-75">
                             <p className="text-xs font-bold uppercase tracking-wider mb-1">Impacto Estimado</p>
-                            <p className="text-3xl font-bold">{parsedReport?.impacto || "N/A"}</p>
+                            <p className="text-3xl font-bold">{impactoText}</p>
                         </div>
                     </div>
 
                     {/* Parecer Técnico (IA) */}
                     <div className="flex-1 bg-white flex flex-col justify-between">
                         <div>
-                            <h3 className="text-xl text-[#172649] border-b-2 border-[#D0D0D0] pb-2 mb-4" style={{fontFamily: 'Arial, sans-serif', fontWeight: 'bold'}}>I. Parecer Técnico - Inteligência Artificial</h3>
+                            <h3 className="text-xl text-[#172649] border-b-2 border-[#D0D0D0] pb-2 mb-4" style={{ fontFamily: 'Arial, sans-serif', fontWeight: 'bold' }}>I. Parecer Técnico - Inteligência Artificial</h3>
                             <div className="text-sm text-black text-justify leading-relaxed whitespace-pre-wrap">
                                 {parsedReport ? (
                                     <>
                                         <div className="mb-4">
                                             <p className="text-xs text-[#2F447F] font-bold uppercase tracking-wider mb-1">1. Diagnóstico Atual</p>
-                                            <p className="font-light">{parsedReport.summary}</p>
+                                            <p className="font-light">{parsedReport.diagnostic || "Análise preliminar das bandas espectrais em andamento."}</p>
                                         </div>
                                         <div className="mb-4">
-                                            <p className="text-xs text-[#2F447F] font-bold uppercase tracking-wider mb-1">2. Histórico Temporal</p>
-                                            <p className="font-light">{parsedReport.history}</p>
+                                            <p className="text-xs text-[#2F447F] font-bold uppercase tracking-wider mb-1">2. Predição Climática e Interpretação</p>
+                                            <p className="font-light">{parsedReport.prediction || "Modelagem de impacto em processo de cálculo."}</p>
                                         </div>
                                         <div className="mb-4">
                                             <p className="text-xs text-[#2F447F] font-bold uppercase tracking-wider mb-1">3. Recomendações Técnicas</p>
-                                            <p className="font-light">{parsedReport.recomendacoes}</p>
+                                            <ul className="font-light list-disc pl-4 text-sm marker:text-[#2F447F]">
+                                                {Array.isArray(parsedReport.recommendation)
+                                                    ? parsedReport.recommendation.map((r: string, idx: number) => <li key={idx} className="mb-1">{r}</li>)
+                                                    : <li>{parsedReport.recommendation || "Monitorar índices quinzenais regularmente."}</li>
+                                                }
+                                            </ul>
                                         </div>
                                     </>
                                 ) : (
-                                    <p className="font-light italic text-[#2F447F]">Relatório textual legado: <br/>{aiReport}</p>
+                                    <p className="font-light italic text-[#2F447F]">Relatório textual legado: <br />{aiReport}</p>
                                 )}
                             </div>
                         </div>
@@ -233,8 +242,8 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
             {/* ====== PÁGINA 2: EVIDÊNCIAS VISUAIS (MAPAS E GRÁFICOS) === */}
             {/* ========================================================== */}
             <div className="px-10 py-10 w-[210mm] h-[297mm] box-border relative border-b border-[#D0D0D0] bg-white">
-                
-                <h3 className="text-xl text-[#172649] border-b-2 border-[#D0D0D0] pb-2 mb-6" style={{fontFamily: 'Arial, sans-serif', fontWeight: 'bold'}}>II. Evidências Visuais Espaciais</h3>
+
+                <h3 className="text-xl text-[#172649] border-b-2 border-[#D0D0D0] pb-2 mb-6" style={{ fontFamily: 'Arial, sans-serif', fontWeight: 'bold' }}>II. Evidências Visuais Espaciais</h3>
 
                 <div className="flex justify-between gap-6 mb-10 w-full">
                     <div className="w-1/2 rounded shadow flex flex-col border border-[#D0D0D0]">
@@ -269,7 +278,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                     </div>
                 </div>
 
-                <h3 className="text-xl text-[#172649] border-b-2 border-[#D0D0D0] pb-2 mb-6" style={{fontFamily: 'Arial, sans-serif', fontWeight: 'bold'}}>III. Curva de Crescimento e Projeção (NDVI)</h3>
+                <h3 className="text-xl text-[#172649] border-b-2 border-[#D0D0D0] pb-2 mb-6" style={{ fontFamily: 'Arial, sans-serif', fontWeight: 'bold' }}>III. Curva de Crescimento e Projeção (NDVI)</h3>
                 <div className="w-full h-[80mm] bg-white border border-[#D0D0D0] rounded p-6 shadow-sm mb-6">
                     {historyData && historyData.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
@@ -296,9 +305,9 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
             {/* ====== PÁGINA 3: TABELAS, INFORMAÇÕES TÉCNICAS E MÉTRICAS == */}
             {/* ========================================================== */}
             <div className="px-10 py-10 w-[210mm] h-[297mm] box-border relative bg-white">
-                
-                <h3 className="text-xl text-[#172649] border-b-2 border-[#D0D0D0] pb-2 mb-4" style={{fontFamily: 'Arial, sans-serif', fontWeight: 'bold'}}>IV. Tabelas de Leituras Recentes</h3>
-                
+
+                <h3 className="text-xl text-[#172649] border-b-2 border-[#D0D0D0] pb-2 mb-4" style={{ fontFamily: 'Arial, sans-serif', fontWeight: 'bold' }}>IV. Tabelas de Leituras Recentes</h3>
+
                 <table className="w-full text-sm text-center mb-10 shadow-sm rounded overflow-hidden">
                     <thead className="bg-[#2F447F] text-white">
                         <tr>
@@ -326,8 +335,8 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                     </tbody>
                 </table>
 
-                <h3 className="text-xl text-[#172649] border-b-2 border-[#D0D0D0] pb-2 mb-4" style={{fontFamily: 'Arial, sans-serif', fontWeight: 'bold'}}>V. Métricas de Acurácia do Modelo Preditivo</h3>
-                
+                <h3 className="text-xl text-[#172649] border-b-2 border-[#D0D0D0] pb-2 mb-4" style={{ fontFamily: 'Arial, sans-serif', fontWeight: 'bold' }}>V. Métricas de Acurácia do Modelo Preditivo</h3>
+
                 <div className="flex justify-between gap-4 mb-4">
                     <div className="w-1/3 bg-gray-50 p-4 rounded border border-[#D0D0D0] shadow-sm text-center">
                         <p className="text-[10px] text-[#2F447F] font-bold uppercase mb-1 tracking-wider">MAE (Erro Médio)</p>
@@ -349,7 +358,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                 <div className="flex gap-6 mb-8">
                     {/* Benchmark */}
                     <div className="w-1/2">
-                        <h3 className="text-md font-bold text-[#172649] mb-3 uppercase tracking-wider" style={{fontFamily: 'Arial, sans-serif'}}>Benchmark Regional</h3>
+                        <h3 className="text-md font-bold text-[#172649] mb-3 uppercase tracking-wider" style={{ fontFamily: 'Arial, sans-serif' }}>Benchmark Regional</h3>
                         <div className="bg-[#2F447F]/5 border border-[#2F447F]/20 p-5 rounded">
                             <div className="flex justify-between mb-3 border-b border-[#D0D0D0] pb-2">
                                 <span className="text-sm text-black font-light">Média Regional (Raio 50km):</span>
@@ -368,7 +377,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
 
                     {/* Zonas */}
                     <div className="w-1/2">
-                        <h3 className="text-md font-bold text-[#172649] mb-3 uppercase tracking-wider" style={{fontFamily: 'Arial, sans-serif'}}>Microambientes (Talhões)</h3>
+                        <h3 className="text-md font-bold text-[#172649] mb-3 uppercase tracking-wider" style={{ fontFamily: 'Arial, sans-serif' }}>Microambientes (Talhões)</h3>
                         <table className="w-full text-sm text-left border border-[#D0D0D0] shadow-sm rounded overflow-hidden">
                             <thead className="bg-[#172649] text-white">
                                 <tr>
@@ -398,7 +407,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                         <p className="mt-2 opacity-80 text-[9px] uppercase tracking-wide">A análise possui caráter técnico-preditivo da SYAZ e deve ser validada in loco para decisões exclusivas de crédito rural.</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-sm font-bold text-white uppercase tracking-wider" style={{fontFamily: 'Arial, sans-serif'}}>YVY Engine v2.4.1</p>
+                        <p className="text-sm font-bold text-white uppercase tracking-wider" style={{ fontFamily: 'Arial, sans-serif' }}>YVY Engine v2.4.1</p>
                         <p className="text-[10px] text-[#D0D0D0] mt-1 uppercase tracking-widest">Página 3 de 3</p>
                     </div>
                 </div>
