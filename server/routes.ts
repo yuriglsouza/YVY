@@ -403,18 +403,23 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{ message: 
 
           // Lógica inquebrável para a "Leitura Anterior"
           if (result.prev_satellite_image) {
-            const mockPastDate = new Date(resultDateObj);
-            mockPastDate.setDate(mockPastDate.getDate() - 30);
-            const targetPastDateStr = mockPastDate.toISOString().split('T')[0];
+            const resultTime = resultDateObj.getTime();
 
-            // Procurar se já existe uma leitura exata deste dia falso
-            const thirtyDaysReading = prevReadings.find(r => r.date && new Date(r.date).toISOString().split('T')[0] === targetPastDateStr);
+            // Encontra exatamente a mesma leitura velha que o Frontend exibirá (> 20 dias atrás)
+            const targetPastReading = prevReadings.find(r => {
+              if (!r.date) return false;
+              const rTime = new Date(r.date).getTime();
+              return (resultTime - rTime) > 20 * 24 * 60 * 60 * 1000;
+            });
 
-            if (thirtyDaysReading) {
-              await storage.updateReading(thirtyDaysReading.id, { satelliteImage: result.prev_satellite_image });
-              console.log(`Updated Previous Reading ID ${thirtyDaysReading.id} with fresh satellite_image URL`);
+            if (targetPastReading) {
+              // Se encontrou uma leitura mock ou verdadeira do passado, salva o link real de satélite nela!
+              await storage.updateReading(targetPastReading.id, { satelliteImage: result.prev_satellite_image });
+              console.log(`Updated Previous Reading ID ${targetPastReading.id} with fresh satellite_image URL`);
             } else {
-              // Cria a "Ghost Reading" realística de 30 dias atrás para garantir que o PDF sempre puxe a data correta
+              // Nenhuma leitura com mais de 20 dias existe. Vamos criar uma "Ghost Reading" realística de 30 dias atrás.
+              const mockPastDate = new Date(resultDateObj);
+              mockPastDate.setDate(mockPastDate.getDate() - 30);
               const pastReading: InsertReading = {
                 farmId,
                 date: mockPastDate.toISOString(),
