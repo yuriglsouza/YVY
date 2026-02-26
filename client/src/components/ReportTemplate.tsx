@@ -308,29 +308,29 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
 
                 <h3 className="text-xl text-[#172649] border-b-2 border-[#D0D0D0] pb-2 mb-4" style={{ fontFamily: 'Arial, sans-serif', fontWeight: 'bold' }}>IV. Tabelas de Leituras Recentes</h3>
 
-                <table className="w-full text-sm text-center mb-10 shadow-sm rounded overflow-hidden">
+                <table className="w-full text-sm text-center mb-4 shadow-sm rounded overflow-hidden">
                     <thead className="bg-[#2F447F] text-white">
                         <tr>
-                            <th className="py-2.5 px-4 font-bold text-xs uppercase tracking-wider">Data / Aquisição</th>
-                            <th className="py-2.5 px-4 font-bold text-xs uppercase tracking-wider">NDVI (Vigor)</th>
-                            <th className="py-2.5 px-4 font-bold text-xs uppercase tracking-wider">NDWI (Água)</th>
-                            <th className="py-2.5 px-4 font-bold text-xs uppercase tracking-wider">Temp Solo</th>
-                            <th className="py-2.5 px-4 font-bold text-xs uppercase tracking-wider">Nuvens</th>
+                            <th className="py-2 px-2 font-bold text-[10px] uppercase tracking-wider">Data / Aquisição</th>
+                            <th className="py-2 px-2 font-bold text-[10px] uppercase tracking-wider">NDVI (Vigor)</th>
+                            <th className="py-2 px-2 font-bold text-[10px] uppercase tracking-wider">NDWI (Água)</th>
+                            <th className="py-2 px-2 font-bold text-[10px] uppercase tracking-wider">Temp Solo</th>
+                            <th className="py-2 px-2 font-bold text-[10px] uppercase tracking-wider">Nuvens</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white border-l border-r border-[#D0D0D0]">
                         {rdsForTable.length > 0 ? (
                             rdsForTable.map((r, idx) => (
-                                <tr key={idx} className="border-b border-[#D0D0D0] hover:bg-gray-50">
-                                    <td className="py-2 px-4 text-black font-light">{r.date}</td>
-                                    <td className="py-2 px-4 text-[#2F447F] font-bold">{r.ndvi}</td>
-                                    <td className="py-2 px-4 text-blue-600 font-medium">{r.ndwi}</td>
-                                    <td className="py-2 px-4 text-orange-600 font-medium">{r.temp}</td>
-                                    <td className="py-2 px-4 text-gray-600 font-light">{r.clouds}</td>
+                                <tr key={idx} className="border-b border-[#D0D0D0] hover:bg-gray-50 text-xs">
+                                    <td className="py-1 px-2 text-black font-light">{r.date}</td>
+                                    <td className="py-1 px-2 text-[#2F447F] font-bold">{r.ndvi}</td>
+                                    <td className="py-1 px-2 text-blue-600 font-medium">{r.ndwi}</td>
+                                    <td className="py-1 px-2 text-orange-600 font-medium">{r.temp}</td>
+                                    <td className="py-1 px-2 text-gray-600 font-light">{r.clouds}</td>
                                 </tr>
                             ))
                         ) : (
-                            <tr><td colSpan={5} className="py-4 text-gray-400 border-b border-[#D0D0D0] font-light">Dados não disponíveis</td></tr>
+                            <tr><td colSpan={5} className="py-2 text-gray-400 border-b border-[#D0D0D0] font-light">Dados não disponíveis</td></tr>
                         )}
                     </tbody>
                 </table>
@@ -381,17 +381,17 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                         <table className="w-full text-sm text-left border border-[#D0D0D0] shadow-sm rounded overflow-hidden">
                             <thead className="bg-[#172649] text-white">
                                 <tr>
-                                    <th className="py-2.5 px-3 font-bold text-[10px] uppercase tracking-wider">Zon. / Talhão</th>
-                                    <th className="py-2.5 px-3 font-bold text-[10px] uppercase tracking-wider text-center">NDVI</th>
-                                    <th className="py-2.5 px-3 font-bold text-[10px] uppercase tracking-wider text-center">Risco</th>
+                                    <th className="py-2 px-3 font-bold text-[10px] uppercase tracking-wider">Zon. / Talhão</th>
+                                    <th className="py-2 px-3 font-bold text-[10px] uppercase tracking-wider text-center">NDVI</th>
+                                    <th className="py-2 px-3 font-bold text-[10px] uppercase tracking-wider text-center">Risco</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {znData.map((z, idx) => (
-                                    <tr key={idx} className="border-b border-[#D0D0D0] last:border-0 bg-white">
-                                        <td className="py-2.5 px-3 font-light text-black">{z.zone}</td>
-                                        <td className="py-2.5 px-3 font-bold text-[#2F447F] text-center">{z.ndvi}</td>
-                                        <td className={`py-2.5 px-3 font-bold text-center uppercase text-[10px] tracking-wider ${z.isRisk ? 'text-red-700' : 'text-[#172649]'}`}>{z.risk}</td>
+                                    <tr key={idx} className="border-b border-[#D0D0D0] last:border-0 bg-white text-xs">
+                                        <td className="py-1 px-3 font-light text-black">{z.zone}</td>
+                                        <td className="py-1 px-3 font-bold text-[#2F447F] text-center">{z.ndvi}</td>
+                                        <td className={`py-1 px-3 font-bold text-center uppercase text-[10px] tracking-wider ${z.isRisk ? 'text-red-700' : 'text-[#172649]'}`}>{z.risk}</td>
                                     </tr>
                                 ))}
                             </tbody>
