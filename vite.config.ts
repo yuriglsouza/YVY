@@ -33,6 +33,7 @@ export default defineConfig({
         ]
       },
       workbox: {
+        navigateFallback: '/index.html',
         runtimeCaching: [
           {
             // Cache para API Requests (Dashboard e Leituras) - Mantém offline o último dado baixado
