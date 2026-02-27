@@ -34,6 +34,7 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/auth\//, /^\/api\//],
         runtimeCaching: [
           {
             // Cache para API Requests (Dashboard e Leituras) - Mantém offline o último dado baixado
