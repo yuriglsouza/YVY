@@ -113,6 +113,9 @@ function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmi
               <SelectItem value="Café">☕ Café</SelectItem>
               <SelectItem value="Cana-de-açúcar">🍬 Cana-de-açúcar</SelectItem>
               <SelectItem value="Algodão">🧶 Algodão</SelectItem>
+              <SelectItem value="Banana">🍌 Banana</SelectItem>
+              <SelectItem value="Fruticultura">🍊 Fruticultura / Pomar</SelectItem>
+              <SelectItem value="Hortifruti">🥬 Hortifruti / Hortaliças</SelectItem>
               <SelectItem value="Trigo">🌾 Trigo</SelectItem>
               <SelectItem value="Arroz">🍚 Arroz</SelectItem>
               <SelectItem value="Feijão">🫘 Feijão</SelectItem>

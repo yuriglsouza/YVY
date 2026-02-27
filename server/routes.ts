@@ -42,8 +42,10 @@ function generateMockReadings(farmId: number, count = 10) {
 
 // AI Analysis Service
 // AI Analysis Service
+// AI Analysis Service
 async function generateAgronomistReport(
   reading: Reading,
+  cropType: string,
   prediction?: { date: string, value: number } | null,
   climateForecast?: {
     currentTemp: number;
@@ -63,16 +65,28 @@ async function generateAgronomistReport(
       model: "gemma-3-27b-it"
     });
 
+    const isPerennial = cropType.toLowerCase().includes("banana") || cropType.toLowerCase().includes("fruti") || cropType.toLowerCase().includes("café");
+    const isHorti = cropType.toLowerCase().includes("hortifruti");
+
+    let cropSpecificRules = "";
+    if (isPerennial) {
+      cropSpecificRules = `- ATENÇÃO: A cultura avaliada é PERENE/SEMI-PERENE (${cropType}). Não a analise como se tivesse fim de safra no inverno. O foco primário para Banana e Frutas deve ser vigor constante, temperatura extrema e, CRITICAMENTE, o estresse hídrico (NDWI), pois frutas demandam muita água para encher.`;
+    } else if (isHorti) {
+      cropSpecificRules = `- ATENÇÃO: A cultura avaliada é HORTIFRUTI. Ciclos são extremamente curtos e responsivos. O foco de recomendação deve envolver irrigação de precisão e controle foliar fitossanitário imediato.`;
+    }
+
     const prompt = `
       CONTEXTO DO SISTEMA:
       Você é a SYAZ Intelligence Engine, uma IA agronômica especializada em:
+      - Analisar o cultivo: ${cropType}
       - Análise multiespectral orbital (Sentinel-1, 2, 3)
       - Modelagem preditiva de produtividade
       - Validação estatística longitudinal
       - Auditoria ESG baseada em IPCC Tier 1
       - Análise de risco produtivo para crédito rural
 
-      REGRAS DE REDAÇÃO:
+      REGRAS DE REDAÇÃO E CULTURA:
+      ${cropSpecificRules}
       - Escreva de forma CLARA, COMPLETA e ACESSÍVEL. O produtor rural precisa entender.
       - Use dados numéricos sempre que possível para dar credibilidade.
       - Evite jargões excessivos. Quando usar termos técnicos, explique brevemente o que significam.
@@ -82,16 +96,16 @@ async function generateAgronomistReport(
 
       Retorne APENAS um JSON válido com a seguinte estrutura:
         {
-          "content": "UM ÚNICO PARÁGRAFO completo e direto (entre 4 e 6 frases) para o produtor. Deve mencionar os valores dos índices e o que significam na prática, o estado geral da lavoura, a situação climática e uma ou duas ações práticas de manejo que o produtor deve tomar. Linguagem simples sem jargões técnicos excessivos. SEM quebras de linha, tudo num fluxo contínuo.",
-          "formalContent": "Texto técnico-institucional com os 5 parágrafos obrigatórios: [Diagnóstico Quantitativo dos índices espectrais] [Interpretação Técnica cruzando bandas e clima] [Impacto Produtivo Estimado em % ou ton/ha] [Classificação de Risco com score numérico] [Recomendações Quantificadas com dosagens e prazos]. Este texto vai para o relatório PDF de auditoria. Usar quebras de linha com \\n.",
+          "content": "UM ÚNICO PARÁGRAFO completo e direto (entre 4 e 6 frases) para o produtor. Deve mencionar a cultura (${cropType}), os valores espectrais, o clima e recomendar ações de manejo práticas baseadas no tipo da planta. SEM quebras de linha.",
+          "formalContent": "Texto técnico-institucional com os 5 parágrafos obrigatórios: [Diagnóstico da Cultura] [Interpretação Técnica cruzando faixas e clima] [Impacto Produtivo na Cultura] [Classificação de Risco com score numérico] [Recomendações Práticas Quantificadas]. Este texto vai para o relatório PDF de auditoria. Usar quebras de linha com \\n.",
           "structuredAnalysis": {
-            "diagnostic": "Frase técnica assertiva sobre o estado das bandas espectrais.",
+            "diagnostic": "Frase técnica assertiva sobre o estado das bandas espectrais da cultura.",
             "prediction": "Predição quantitativa baseada na temperatura, clima e histórico.",
             "recommendation": ["Ação corretiva imediata com dosagem", "Ação preventiva com prazo", "Ação de manejo hídrico/nutricional com valores"]
           }
         }
 
-      Dados Atuais da Fazenda:
+      Dados Atuais da Fazenda (${cropType}):
     - Data: ${reading.date}
     - NDVI(Vigor): ${reading.ndvi.toFixed(3)}
     - NDWI(Água): ${reading.ndwi.toFixed(3)}
@@ -1078,6 +1092,7 @@ export async function registerRoutes(
 
     const reportData = await generateAgronomistReport(
       reading,
+      farm.cropType,
       predValue !== null ? { date: dateStr, value: predValue } : null,
       climateForecast
     );
