@@ -696,6 +696,7 @@ export async function registerRoutes(
         }
 
         console.log(`[Vercel Worker] Sucesso Fazenda ${farm.id}`);
+        await storage.updateFarm(farmId, { lastSyncAt: new Date() });
         return res.json({ success: true, farmId });
       } else {
         console.error(`[Vercel Worker] Erro lógico Fazenda ${farmId}:`, result?.error);

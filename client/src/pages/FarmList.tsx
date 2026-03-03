@@ -126,6 +126,11 @@ export default function FarmList() {
                                                         <MapPin className="w-3 h-3" />
                                                         {farm.latitude.toFixed(4)}, {farm.longitude.toFixed(4)}
                                                     </p>
+                                                    {farm.lastSyncAt && (
+                                                        <p className="text-xs text-muted-foreground/80 font-mono mt-1 w-full truncate">
+                                                            Sincronizado: {new Date(farm.lastSyncAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </div>
 

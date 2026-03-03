@@ -40,6 +40,7 @@ export const farms = pgTable("farms", {
   clientId: integer("client_id"),
   isDeforested: boolean("is_deforested").default(false), // ESG Compliance Flag
   polygon: jsonb("polygon"), // [[lon,lat], [lon,lat], ...] - GeoJSON coordinate order
+  lastSyncAt: timestamp("last_sync_at"), // Horário exato da última leitura completa
 });
 
 export const insertFarmSchema = createInsertSchema(farms, {

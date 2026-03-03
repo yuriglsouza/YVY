@@ -373,6 +373,7 @@ export class MemStorage implements IStorage {
       plantingDate: insertFarm.plantingDate ?? null,
       harvestDate: insertFarm.harvestDate ?? null,
       polygon: insertFarm.polygon ?? null,
+      lastSyncAt: insertFarm.lastSyncAt ?? null,
     };
     this.farms.set(id, farm);
     return farm;

@@ -374,11 +374,11 @@ export default function FarmDetails() {
               </div>
               <div className="flex flex-col gap-1 mt-4 sm:mt-0">
                 <p className="text-sm text-muted-foreground flex items-center gap-2">
-                  <Calendar className="w-4 h-4" /> Última Verificação
+                  <Calendar className="w-4 h-4" /> Última Sincronização
                 </p>
                 <div className="flex flex-col gap-2">
                   <p className="font-semibold text-lg">
-                    {latestReading ? format(new Date(latestReading.date), "dd 'de' MMMM, yyyy", { locale: ptBR }) : "Sem dados"}
+                    {farm.lastSyncAt ? format(new Date(farm.lastSyncAt), "dd 'de' MMMM, yyyy 'às' HH:mm", { locale: ptBR }) : (latestReading ? format(new Date(latestReading.date), "dd 'de' MMMM, yyyy", { locale: ptBR }) : "Sem dados")}
                   </p>
                   {latestReading?.cloudCover !== undefined && latestReading.cloudCover !== null && latestReading.cloudCover > 0.6 && (
                     <Badge variant="secondary" className="w-fit bg-slate-800 text-slate-100 hover:bg-slate-700 flex items-center gap-1.5 shadow-sm">
