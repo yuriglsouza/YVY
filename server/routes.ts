@@ -623,9 +623,10 @@ export async function registerRoutes(
 
     const baseUrl = `${req.protocol}://${req.get("host")}`;
 
+    let delayMs = 0;
     // Dispara requisições individuais assíncronas para fugir do timeout
     for (const farm of farms) {
-      const workerUrl = `${baseUrl}/api/cron/sync-single?farmId=${farm.id}`;
+      const workerUrl = `${baseUrl}/api/cron/sync-single?farmId=${farm.id}&delay=${delayMs}`;
       // Usando fetch "fire and forget" para não bloquear a resposta local
       fetch(workerUrl, {
         method: "POST",
@@ -633,6 +634,10 @@ export async function registerRoutes(
           "Authorization": `Bearer ${process.env.CRON_SECRET || ""}`
         }
       }).catch(err => console.error(`[Fan-Out] Falha ao acionar farm ${farm.id}:`, err.message));
+
+      // Incrementamos o delay em 2 segundos a cada fazenda. O Worker vai respeitar esse delay
+      // antes de iniciar seu processamento pesado, diluindo as chamadas na API.
+      delayMs += 2000;
     }
 
     // Responde ao Vercel instantaneamente (< 1 segundo)
@@ -653,6 +658,12 @@ export async function registerRoutes(
     const farmId = Number(req.query.farmId);
     if (!farmId || isNaN(farmId)) {
       return res.status(400).json({ message: "farmId is required" });
+    }
+
+    const startDelay = Number(req.query.delay) || 0;
+    if (startDelay > 0) {
+      console.log(`[Vercel Worker ${farmId}] Stagger Delay: dormindo por ${startDelay}ms para balancear APIs...`);
+      await new Promise(r => setTimeout(r, startDelay));
     }
 
     try {

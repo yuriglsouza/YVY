@@ -25,30 +25,47 @@ function getResend(): Resend | null {
     return null;
 }
 
-async function sendViaResend(options: MailOptions): Promise<boolean> {
+async function sendViaResend(options: MailOptions, retries = 4): Promise<boolean> {
     const client = getResend();
     if (!client) return false;
 
-    try {
-        const { data, error } = await client.emails.send({
-            from: process.env.RESEND_FROM || "SYAZ Orbital <onboarding@resend.dev>",
-            to: [options.to],
-            subject: options.subject,
-            text: options.text,
-            html: options.html || options.text,
-        });
+    for (let i = 0; i < retries; i++) {
+        try {
+            const { data, error } = await client.emails.send({
+                from: process.env.RESEND_FROM || "SYAZ Orbital <onboarding@resend.dev>",
+                to: [options.to],
+                subject: options.subject,
+                text: options.text,
+                html: options.html || options.text,
+            });
 
-        if (error) {
-            console.error("Resend error:", error);
+            if (error) {
+                if (error.name === 'rate_limit_exceeded' || error.statusCode === 429) {
+                    const waitTime = 2000 * (i + 1);
+                    console.warn(`[Email] Resend Rate Limit atingido. Tentativa ${i + 1}/${retries}. Aguardando ${waitTime}ms...`);
+                    await new Promise(r => setTimeout(r, waitTime));
+                    continue; // Tenta de novo
+                }
+                console.error("Resend error:", error);
+                return false;
+            }
+
+            console.log(`📧 Email sent via Resend: ${data?.id} → ${options.to}`);
+            return true;
+        } catch (error: any) {
+            if (error?.name === 'rate_limit_exceeded' || error?.statusCode === 429 || String(error).includes('429')) {
+                const waitTime = 2000 * (i + 1);
+                console.warn(`[Email] Resend API 429 exception. Tentativa ${i + 1}/${retries}. Aguardando ${waitTime}ms...`);
+                await new Promise(r => setTimeout(r, waitTime));
+                continue;
+            }
+            console.error("Resend exception:", error);
             return false;
         }
-
-        console.log(`📧 Email sent via Resend: ${data?.id} → ${options.to}`);
-        return true;
-    } catch (error) {
-        console.error("Resend exception:", error);
-        return false;
     }
+
+    console.error(`[Email] Falha fatal no Resend após ${retries} tentativas por Rate Limit.`);
+    return false;
 }
 
 // ============================================================
