@@ -31,10 +31,6 @@ if (process.env.DATABASE_URL) {
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5001", 10);
 
-  import("./cron.js").then(({ setupCronJobs }) => {
-    setupCronJobs();
-  });
-
   httpServer.listen(port, "0.0.0.0", () => {
     const formattedTime = new Date().toLocaleTimeString("en-US", {
       hour: "numeric",

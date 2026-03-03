@@ -16,10 +16,17 @@
     ],
     "functions": {
         "api/index.ts": {
-            "includeFiles": "server/**,shared/**"
+            "includeFiles": "server/**,shared/**",
+            "maxDuration": 60
         }
     },
     "env": {
         "PYTHON_SERVICE_URL": "https://yvy.onrender.com"
-    }
+    },
+    "crons": [
+        {
+            "path": "/api/cron/sync",
+            "schedule": "0 6 * * 1,4"
+        }
+    ]
 }

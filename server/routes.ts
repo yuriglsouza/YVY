@@ -607,6 +607,65 @@ export async function registerRoutes(
     res.json({ message: "Sincronização iniciada em background. Verifique o console ou a caixa de e-mail em instantes." });
   });
 
+  // Vercel Cron Integration
+  app.get("/api/cron/sync", async (req: any, res: any) => {
+    // Check for Vercel Cron Authorization
+    const authHeader = req.headers.authorization;
+    if (
+      process.env.CRON_SECRET &&
+      authHeader !== `Bearer ${process.env.CRON_SECRET}`
+    ) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    console.log("[Vercel Cron] Iniciando Sincronização Automática Agendada...");
+    const farms = await storage.getFarms();
+    const adminEmail = process.env.ADMIN_EMAIL || "yuriglsouza@gmail.com";
+
+    const results = [];
+
+    // Await loop execution because Vercel Serverless kills function when response is sent
+    for (const farm of farms) {
+      try {
+        console.log(`[Vercel Cron] Fazenda ${farm.id} (${farm.name}) - Sincronizando...`);
+        const result = await syncFarmSatelliteData(farm.id);
+
+        if (result && !result.error && result.reading) {
+          const { ndvi, cloudCover, date } = result.reading;
+          const status = result.isMock ? "Simulação (Offline)" : "Satélite Sincronizado";
+          let ownerEmail = null;
+
+          if (farm.userId) {
+            const user = await storage.getUser(farm.userId);
+            if (user) ownerEmail = user.email;
+          }
+
+          const emailsToNotify = Array.from(new Set([adminEmail, ownerEmail].filter(Boolean) as string[]));
+          for (const email of emailsToNotify) {
+            await sendEmail({
+              to: email,
+              subject: `Relatório de Satélite: ${farm.name}`,
+              text: `Sincronização concluída para ${farm.name}. NDVI: ${ndvi}`,
+              html: buildWeeklyReportEmailHTML(farm.name, date, { ndvi, cloudCover, status })
+            }).catch(e => console.error(`[Vercel Cron] Erro email ${email}`, e));
+          }
+          results.push({ farmId: farm.id, name: farm.name, status: "success" });
+        } else {
+          results.push({ farmId: farm.id, name: farm.name, status: "error", error: result?.error || "Unknown error" });
+        }
+      } catch (e: any) {
+        console.error(`[Vercel Cron] Error on vercel cron farm ${farm.id}`, e);
+        results.push({ farmId: farm.id, name: farm.name, status: "exception", error: e.message });
+      }
+
+      // Pause to respect rate limits if needed
+      await new Promise(r => setTimeout(r, 2000));
+    }
+
+    console.log("[Vercel Cron] Rotina de Sincronização Finalizada.", results);
+    res.json({ message: "Cron executado com sucesso", results });
+  });
+
   // Middleware to check if user is authenticated
   const isAuthenticated = (req: any, res: any, next: any) => {
     if (req.isAuthenticated()) {
