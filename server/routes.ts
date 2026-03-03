@@ -607,7 +607,7 @@ export async function registerRoutes(
     res.json({ message: "Sincronização iniciada em background. Verifique o console ou a caixa de e-mail em instantes." });
   });
 
-  // Vercel Cron Integration
+  // Vercel Cron Integration (Fan-Out Trigger)
   app.get("/api/cron/sync", async (req: any, res: any) => {
     // Check for Vercel Cron Authorization
     const authHeader = req.headers.authorization;
@@ -618,52 +618,82 @@ export async function registerRoutes(
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    console.log("[Vercel Cron] Iniciando Sincronização Automática Agendada...");
+    console.log("[Vercel Cron] Iniciando trigger Fan-Out para as Fazendas...");
     const farms = await storage.getFarms();
-    const adminEmail = process.env.ADMIN_EMAIL || "yuriglsouza@gmail.com";
 
-    const results = [];
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
 
-    // Await loop execution because Vercel Serverless kills function when response is sent
+    // Dispara requisições individuais assíncronas para fugir do timeout
     for (const farm of farms) {
-      try {
-        console.log(`[Vercel Cron] Fazenda ${farm.id} (${farm.name}) - Sincronizando...`);
-        const result = await syncFarmSatelliteData(farm.id);
-
-        if (result && !result.error && result.reading) {
-          const { ndvi, cloudCover, date } = result.reading;
-          const status = result.isMock ? "Simulação (Offline)" : "Satélite Sincronizado";
-          let ownerEmail = null;
-
-          if (farm.userId) {
-            const user = await storage.getUser(farm.userId);
-            if (user) ownerEmail = user.email;
-          }
-
-          const emailsToNotify = Array.from(new Set([adminEmail, ownerEmail].filter(Boolean) as string[]));
-          for (const email of emailsToNotify) {
-            await sendEmail({
-              to: email,
-              subject: `Relatório de Satélite: ${farm.name}`,
-              text: `Sincronização concluída para ${farm.name}. NDVI: ${ndvi}`,
-              html: buildWeeklyReportEmailHTML(farm.name, date, { ndvi, cloudCover, status })
-            }).catch(e => console.error(`[Vercel Cron] Erro email ${email}`, e));
-          }
-          results.push({ farmId: farm.id, name: farm.name, status: "success" });
-        } else {
-          results.push({ farmId: farm.id, name: farm.name, status: "error", error: result?.error || "Unknown error" });
+      const workerUrl = `${baseUrl}/api/cron/sync-single?farmId=${farm.id}`;
+      // Usando fetch "fire and forget" para não bloquear a resposta local
+      fetch(workerUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.CRON_SECRET || ""}`
         }
-      } catch (e: any) {
-        console.error(`[Vercel Cron] Error on vercel cron farm ${farm.id}`, e);
-        results.push({ farmId: farm.id, name: farm.name, status: "exception", error: e.message });
-      }
-
-      // Pause to respect rate limits if needed
-      await new Promise(r => setTimeout(r, 2000));
+      }).catch(err => console.error(`[Fan-Out] Falha ao acionar farm ${farm.id}:`, err.message));
     }
 
-    console.log("[Vercel Cron] Rotina de Sincronização Finalizada.", results);
-    res.json({ message: "Cron executado com sucesso", results });
+    // Responde ao Vercel instantaneamente (< 1 segundo)
+    res.json({ message: "Cron acionado com sucesso. Processamento assíncrono em andamento." });
+  });
+
+  // Vercel Cron Worker (Processa 1 fazenda por vez)
+  app.post("/api/cron/sync-single", async (req: any, res: any) => {
+    // Mesma validação de segurança
+    const authHeader = req.headers.authorization;
+    if (
+      process.env.CRON_SECRET &&
+      authHeader !== `Bearer ${process.env.CRON_SECRET}`
+    ) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const farmId = Number(req.query.farmId);
+    if (!farmId || isNaN(farmId)) {
+      return res.status(400).json({ message: "farmId is required" });
+    }
+
+    try {
+      const farm = await storage.getFarm(farmId);
+      if (!farm) return res.status(404).json({ message: "Farm not found" });
+
+      const adminEmail = process.env.ADMIN_EMAIL || "yuriglsouza@gmail.com";
+      console.log(`[Vercel Worker] Iniciando processamento para Fazenda ${farm.id}...`);
+
+      const result = await syncFarmSatelliteData(farmId);
+
+      if (result && !result.error && result.reading) {
+        const { ndvi, cloudCover, date } = result.reading;
+        const status = result.isMock ? "Simulação (Offline)" : "Satélite Sincronizado";
+        let ownerEmail = null;
+
+        if (farm.userId) {
+          const user = await storage.getUser(farm.userId);
+          if (user) ownerEmail = user.email;
+        }
+
+        const emailsToNotify = Array.from(new Set([adminEmail, ownerEmail].filter(Boolean) as string[]));
+        for (const email of emailsToNotify) {
+          await sendEmail({
+            to: email,
+            subject: `Relatório de Satélite: ${farm.name}`,
+            text: `Sincronização concluída para ${farm.name}. NDVI: ${ndvi}`,
+            html: buildWeeklyReportEmailHTML(farm.name, date, { ndvi, cloudCover, status })
+          }).catch(e => console.error(`[Vercel Worker] Erro email ${email}`, e));
+        }
+
+        console.log(`[Vercel Worker] Sucesso Fazenda ${farm.id}`);
+        return res.json({ success: true, farmId });
+      } else {
+        console.error(`[Vercel Worker] Erro lógico Fazenda ${farmId}:`, result?.error);
+        return res.status(500).json({ error: result?.error || "Unknown logic error" });
+      }
+    } catch (e: any) {
+      console.error(`[Vercel Worker] Erro fatal Fazenda ${farmId}:`, e);
+      return res.status(500).json({ error: e.message });
+    }
   });
 
   // Middleware to check if user is authenticated
