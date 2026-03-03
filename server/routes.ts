@@ -1217,6 +1217,7 @@ export async function registerRoutes(
     if (result.error) {
       return res.status(404).json({ message: result.error });
     }
+    await storage.updateFarm(farmId, { lastSyncAt: new Date() });
     res.json(result);
   });
 
