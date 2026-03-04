@@ -150,7 +150,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                 <div className="flex bg-gray-50 rounded p-4 border border-[#D0D0D0] mb-8 justify-between items-center shadow-sm">
                     <div>
                         <p className="text-[10px] text-[#2F447F] uppercase font-bold tracking-wider">Unidade Produtiva</p>
-                        <p className="text-lg font-bold text-[#172649] truncate max-w-[60mm]">{farm.name}</p>
+                        <p className="text-lg font-bold text-[#172649] truncate max-w-[120mm]">{farm.name}</p>
                     </div>
                     <div>
                         <p className="text-[10px] text-[#2F447F] uppercase font-bold tracking-wider">Data de Emissão</p>
@@ -293,7 +293,12 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                         </div>
                         <div className="h-[75mm] w-full flex items-center justify-center bg-gray-200">
                             {previousReading?.satelliteImage ? (
-                                <img src={previousReading.satelliteImage} className="w-full h-full object-cover" crossOrigin="anonymous" />
+                                <img
+                                    src={previousReading.satelliteImage}
+                                    className="w-full h-full object-cover"
+                                    crossOrigin="anonymous"
+                                    referrerPolicy="no-referrer"
+                                />
                             ) : (
                                 <span className="text-xs text-gray-400 font-light">Indisponível</span>
                             )}
@@ -307,7 +312,12 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                         </div>
                         <div className="h-[75mm] w-full flex items-center justify-center bg-gray-100 relative">
                             {currentReading?.satelliteImage ? (
-                                <img src={currentReading.satelliteImage} className="w-full h-full object-cover" crossOrigin="anonymous" />
+                                <img
+                                    src={currentReading.satelliteImage}
+                                    className="w-full h-full object-cover"
+                                    crossOrigin="anonymous"
+                                    referrerPolicy="no-referrer"
+                                />
                             ) : (
                                 <span className="text-xs text-gray-400 font-light">Indisponível</span>
                             )}
