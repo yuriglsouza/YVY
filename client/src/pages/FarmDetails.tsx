@@ -183,6 +183,7 @@ export default function FarmDetails() {
   const [zones, setZones] = React.useState<Zone[]>([]);
   const [rasterImage, setRasterImage] = React.useState<string | null>(null);
   const [rasterBounds, setRasterBounds] = React.useState<[[number, number], [number, number]] | null>(null);
+  const [zoneViewMode, setZoneViewMode] = React.useState<'both' | 'kmeans' | 'raster' | 'none'>('both');
 
   // Zone History
   const { data: zoneHistory } = useQuery({
@@ -832,7 +833,7 @@ export default function FarmDetails() {
                     </h3>
                   </div>
 
-                  <div className="absolute bottom-4 right-4 z-[400] flex gap-2">
+                  <div className="absolute bottom-10 right-4 z-[400] flex flex-wrap gap-2 justify-end">
                     {zoneHistory && zoneHistory.length > 0 && (
                       <select
                         className="text-xs h-8 px-2 bg-background text-foreground border border-border rounded-md shadow-sm cursor-pointer"
@@ -865,6 +866,21 @@ export default function FarmDetails() {
                         ))}
                       </select>
                     )}
+
+                    {/* View Mode Toggle */}
+                    {(zones.length > 0 || rasterImage) && (
+                      <select
+                        className="text-xs h-8 px-2 bg-background text-foreground border border-border rounded-md shadow-sm cursor-pointer"
+                        value={zoneViewMode}
+                        onChange={(e) => setZoneViewMode(e.target.value as 'both' | 'kmeans' | 'raster' | 'none')}
+                      >
+                        <option value="both">🗺️ Raster + Pontos</option>
+                        <option value="raster">🖼️ Só Raster</option>
+                        <option value="kmeans">⚪ Só Pontos</option>
+                        <option value="none">❌ Ocultar Zonas</option>
+                      </select>
+                    )}
+
                     <Button
                       size="sm"
                       variant="secondary"
@@ -920,7 +936,7 @@ export default function FarmDetails() {
                     </LayersControl>
 
                     {/* Raster Image Overlay (painted zones) */}
-                    {rasterImage && rasterBounds && (
+                    {zoneViewMode !== 'none' && zoneViewMode !== 'kmeans' && rasterImage && rasterBounds && (
                       <ImageOverlay
                         url={rasterImage}
                         bounds={rasterBounds as unknown as [[number, number], [number, number]]}
@@ -929,28 +945,29 @@ export default function FarmDetails() {
                     )}
 
                     {/* Zones Visualization (K-Means Points) */}
-                    {zones?.map((zone) => (
-                      <React.Fragment key={`zone-group-${zone.id}`}>
-                        {zone.coordinates.map((point, index) => (
-                          <Circle
-                            key={`${zone.id}-${index}`}
-                            center={[point.lat, point.lon]}
-                            radius={8}
-                            pathOptions={{ color: zone.color, fillColor: zone.color, fillOpacity: 0.5, stroke: false }}
-                          >
-                            <Popup>
-                              <div className="text-xs">
-                                <strong>{zone.name}</strong><br />
-                                Área: {zone.area_percentage ? (farm.sizeHa * zone.area_percentage / 100).toFixed(1) : "N/A"} ha<br />
-                                Média Saúde: {zone.ndvi_avg ? zone.ndvi_avg.toFixed(2) : "N/A"}<br />
-                                Lat: {point.lat.toFixed(6)}<br />
-                                Lon: {point.lon.toFixed(6)}
-                              </div>
-                            </Popup>
-                          </Circle>
-                        ))}
-                      </React.Fragment>
-                    ))}
+                    {zoneViewMode !== 'none' && zoneViewMode !== 'raster' &&
+                      zones?.map((zone) => (
+                        <React.Fragment key={`zone-group-${zone.id}`}>
+                          {zone.coordinates.map((point, index) => (
+                            <Circle
+                              key={`${zone.id}-${index}`}
+                              center={[point.lat, point.lon]}
+                              radius={8}
+                              pathOptions={{ color: zone.color, fillColor: zone.color, fillOpacity: 0.5, stroke: false }}
+                            >
+                              <Popup>
+                                <div className="text-xs">
+                                  <strong>{zone.name}</strong><br />
+                                  Área: {zone.area_percentage ? (farm.sizeHa * zone.area_percentage / 100).toFixed(1) : "N/A"} ha<br />
+                                  Média Saúde: {zone.ndvi_avg ? zone.ndvi_avg.toFixed(2) : "N/A"}<br />
+                                  Lat: {point.lat.toFixed(6)}<br />
+                                  Lon: {point.lon.toFixed(6)}
+                                </div>
+                              </Popup>
+                            </Circle>
+                          ))}
+                        </React.Fragment>
+                      ))}
 
                     <Marker position={[farm.latitude, farm.longitude]}>
                       <Popup>
