@@ -290,7 +290,21 @@ def analyze_satellite(req: SatelliteRequest):
 def analyze_cluster(req: ClusterRequest):
     try:
         pixels = cluster.get_real_pixels(req.lat, req.lon, req.size, polygon=req.polygon)
-        zones = cluster.cluster_pixels(pixels, req.k)
-        return zones
+        zones, labels, sorted_indices, clean_pixels = cluster.cluster_pixels(pixels, req.k, return_internals=True)
+        
+        # Generate raster image overlay
+        raster_image = None
+        raster_bounds = None
+        try:
+            raster_image, raster_bounds = cluster.generate_raster_image(clean_pixels, labels, sorted_indices, req.k)
+            print(f"🖼️ Raster generated: {len(raster_image)} chars, bounds={raster_bounds}")
+        except Exception as raster_err:
+            print(f"⚠️ Raster generation failed (non-fatal): {raster_err}")
+        
+        return {
+            "zones": zones,
+            "raster_image": raster_image,
+            "raster_bounds": raster_bounds
+        }
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Zonas de manejo indisponíveis: {str(e)}")

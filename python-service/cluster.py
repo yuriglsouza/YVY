@@ -1,6 +1,8 @@
 
 import argparse
 import json
+import base64
+import io
 import numpy as np
 from sklearn.cluster import KMeans
 
@@ -53,7 +55,7 @@ def get_real_pixels(lat, lon, size_ha, polygon=None):
     
     raise ValueError(f"Dados insuficientes do Sentinel-2 ({last_count} pixels após 3 tentativas). Verifique se a área delimitada está correta.")
 
-def cluster_pixels(pixels, k=3):
+def cluster_pixels(pixels, k=3, return_internals=False):
     # Filter out cloud/shadow pixels (NDVI < 0.05 is almost certainly cloud, water, or shadow)
     clean_pixels = [p for p in pixels if p.get("ndvi") is not None and p["ndvi"] >= 0.05]
     
@@ -93,7 +95,91 @@ def cluster_pixels(pixels, k=3):
             "area_percentage": len(cluster_points) / len(clean_pixels)
         })
         
+    if return_internals:
+        return result_zones, labels, sorted_indices, clean_pixels
     return result_zones
+
+def generate_raster_image(pixels, labels, sorted_indices, k=3):
+    """
+    Generates a transparent PNG raster image from K-Means classified pixels.
+    Each pixel is painted with the solid color of its zone.
+    Returns: (base64_png_string, [[lat_min, lon_min], [lat_max, lon_max]])
+    """
+    from PIL import Image
+
+    # Zone colors (RGBA) matching the K-Means zone order
+    zone_colors_rgba = [
+        (239, 68, 68, 160),   # Red   - Baixa Produtividade
+        (234, 179, 8, 160),   # Yellow - Média Produtividade
+        (34, 197, 94, 160),   # Green  - Alta Produtividade
+    ]
+
+    # Build mapping from original cluster index to sorted zone index
+    mapping = {int(sorted_indices[new_idx]): new_idx for new_idx in range(k)}
+
+    # Extract lat/lon arrays
+    lats = np.array([p["lat"] for p in pixels])
+    lons = np.array([p["lon"] for p in pixels])
+
+    lat_min, lat_max = float(lats.min()), float(lats.max())
+    lon_min, lon_max = float(lons.min()), float(lons.max())
+
+    # Determine grid resolution based on the data spread
+    # Use unique sorted values to figure out the grid step
+    unique_lats = np.sort(np.unique(np.round(lats, 6)))
+    unique_lons = np.sort(np.unique(np.round(lons, 6)))
+
+    rows = len(unique_lats)
+    cols = len(unique_lons)
+
+    # Safety: cap resolution to avoid giant images
+    if rows > 200:
+        rows = 200
+    if cols > 200:
+        cols = 200
+    
+    # Minimum sensible size
+    rows = max(rows, 5)
+    cols = max(cols, 5)
+
+    # Create RGBA image (transparent by default)
+    img = Image.new("RGBA", (cols, rows), (0, 0, 0, 0))
+    img_pixels = img.load()
+
+    # Map each data point to its grid cell and paint it
+    for idx, p in enumerate(pixels):
+        # Normalize lat/lon to grid row/col
+        if lat_max == lat_min:
+            row = 0
+        else:
+            # Flip row: lat increases upward but image row 0 is top
+            row = int((1.0 - (p["lat"] - lat_min) / (lat_max - lat_min)) * (rows - 1))
+        
+        if lon_max == lon_min:
+            col = 0
+        else:
+            col = int((p["lon"] - lon_min) / (lon_max - lon_min) * (cols - 1))
+        
+        row = max(0, min(rows - 1, row))
+        col = max(0, min(cols - 1, col))
+
+        zone_idx = mapping.get(int(labels[idx]), 0)
+        color = zone_colors_rgba[zone_idx] if zone_idx < len(zone_colors_rgba) else (128, 128, 128, 160)
+        img_pixels[col, row] = color
+
+    # Scale up the image for smoother look (nearest neighbor to keep crisp zones)
+    scale_factor = max(1, 400 // max(rows, cols))
+    if scale_factor > 1:
+        img = img.resize((cols * scale_factor, rows * scale_factor), Image.NEAREST)
+
+    # Export to base64
+    buffer = io.BytesIO()
+    img.save(buffer, format="PNG")
+    buffer.seek(0)
+    b64 = base64.b64encode(buffer.read()).decode("utf-8")
+
+    bounds = [[lat_min, lon_min], [lat_max, lon_max]]
+    return f"data:image/png;base64,{b64}", bounds
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

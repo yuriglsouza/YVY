@@ -181,6 +181,8 @@ export default function FarmDetails() {
   }
 
   const [zones, setZones] = React.useState<Zone[]>([]);
+  const [rasterImage, setRasterImage] = React.useState<string | null>(null);
+  const [rasterBounds, setRasterBounds] = React.useState<[[number, number], [number, number]] | null>(null);
 
   // Zone History
   const { data: zoneHistory } = useQuery({
@@ -202,7 +204,16 @@ export default function FarmDetails() {
       return res.json();
     },
     onSuccess: (data) => {
-      setZones(data);
+      // Support both old format (array) and new format ({ zones, raster_image, raster_bounds })
+      const zonesArray = Array.isArray(data) ? data : (data.zones || data);
+      setZones(zonesArray);
+
+      // Set raster overlay if available
+      if (data.raster_image) {
+        setRasterImage(data.raster_image);
+        setRasterBounds(data.raster_bounds || null);
+      }
+
       queryClient.invalidateQueries({ queryKey: ["zone-history", farmId] });
       toast({ title: "Zonas Geradas", description: "O mapa de manejo foi atualizado com dados reais do Sentinel-2." });
     },
@@ -908,7 +919,16 @@ export default function FarmDetails() {
                       )}
                     </LayersControl>
 
-                    {/* Zones Visualization (K-Means Points only) */}
+                    {/* Raster Image Overlay (painted zones) */}
+                    {rasterImage && rasterBounds && (
+                      <ImageOverlay
+                        url={rasterImage}
+                        bounds={rasterBounds as unknown as [[number, number], [number, number]]}
+                        opacity={0.6}
+                      />
+                    )}
+
+                    {/* Zones Visualization (K-Means Points) */}
                     {zones?.map((zone) => (
                       <React.Fragment key={`zone-group-${zone.id}`}>
                         {zone.coordinates.map((point, index) => (
