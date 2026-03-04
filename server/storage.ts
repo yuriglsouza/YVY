@@ -9,7 +9,7 @@ import {
   type Zone, type InsertZone,
   tasks, type Task, type InsertTask
 } from "../shared/schema.js";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
 // Import chat storage to include it in the exported interface if needed, 
 // or just export it separately. The integration blueprint creates its own storage object.
 // We can mix them or keep them separate. I'll keep them separate but ensure this file doesn't conflict.
@@ -294,6 +294,23 @@ export class DatabaseStorage implements IStorage {
 
   async saveZones(farmId: number, zonesData: InsertZone[]): Promise<Zone[]> {
     const now = new Date();
+
+    // Remove existing zones from today for this farm (keep only 1 per day)
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
+
+    await db!
+      .delete(zones)
+      .where(
+        and(
+          eq(zones.farmId, farmId),
+          gte(zones.generatedAt, todayStart),
+          lte(zones.generatedAt, todayEnd)
+        )
+      );
+
     const saved: Zone[] = [];
     for (const z of zonesData) {
       const [inserted] = await db!
