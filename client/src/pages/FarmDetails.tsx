@@ -1290,7 +1290,7 @@ export default function FarmDetails() {
           aiReport={reports?.[0]?.formalContent || ""}
           consultantName={user?.name || "Equipe SYAZ"}
           readings={readings || []}
-          zones={zones.length > 0 ? zones : (zoneHistory && zoneHistory.length > 0 ? (zoneHistory[0] as any)?.zones_data || zoneHistory : [])}
+          zones={zones.length > 0 ? zones : (zoneHistory && zoneHistory.length > 0 ? (zoneHistory[0] as any)?.zones || [] : [])}
         />
 
       </main >

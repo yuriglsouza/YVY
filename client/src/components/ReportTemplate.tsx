@@ -128,6 +128,12 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
 
     const hashID = Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
 
+    const getProxyUrl = (url?: string) => {
+        if (!url) return undefined;
+        if (url.includes(window.location.host) || url.includes('/api/proxy') || url.includes('data:image')) return url;
+        return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+    };
+
     return (
         // Forçando font-sans geral e Arial nos h1/h3
         <div ref={ref} className="bg-white text-black w-[210mm] min-h-[891mm] p-0 m-0 absolute top-[-9999px] left-[-9999px] font-sans">
@@ -295,10 +301,9 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                         <div className="h-[75mm] w-full flex items-center justify-center bg-gray-200">
                             {previousReading?.satelliteImage ? (
                                 <img
-                                    src={previousReading.satelliteImage}
+                                    src={getProxyUrl(previousReading.satelliteImage)}
                                     className="w-full h-full object-cover"
                                     crossOrigin="anonymous"
-                                    referrerPolicy="no-referrer"
                                 />
                             ) : (
                                 <span className="text-xs text-gray-400 font-light">Indisponível</span>
@@ -314,10 +319,9 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                         <div className="h-[75mm] w-full flex items-center justify-center bg-gray-100 relative">
                             {currentReading?.satelliteImage ? (
                                 <img
-                                    src={currentReading.satelliteImage}
+                                    src={getProxyUrl(currentReading.satelliteImage)}
                                     className="w-full h-full object-cover"
                                     crossOrigin="anonymous"
-                                    referrerPolicy="no-referrer"
                                 />
                             ) : (
                                 <span className="text-xs text-gray-400 font-light">Indisponível</span>
