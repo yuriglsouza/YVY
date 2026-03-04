@@ -1279,22 +1279,25 @@ export default function FarmDetails() {
           currentReading={latestReading || null}
           previousReading={
             (() => {
-              if (sortedReadings.length < 2) return null;
-              if (!latestReading) return sortedReadings[sortedReadings.length - 2];
+              // Se tivermos menos de 2 registros no banco, obviamente não há "anterior"
+              if (!sortedReadings || sortedReadings.length < 2) return null;
 
-              const latestTime = new Date(latestReading.date).getTime();
-              const targetDiff = 7 * 24 * 60 * 60 * 1000; // Alvo: 7 dias de diferença
+              const current = latestReading || sortedReadings[sortedReadings.length - 1];
+              const currentTime = new Date(current.date).getTime();
+              const targetDiff = 7 * 24 * 60 * 60 * 1000; // Alvo ideal: 7 dias antes
 
-              // Remove a leitura atual e leituras futuras (caso existam)
-              const pastReadings = sortedReadings.filter(r => new Date(r.date).getTime() < latestTime);
+              // Filtra rigidamente leituras que sejam DE FATO anteriores à Leitura Atual que está na tela
+              const pastReadings = sortedReadings.filter(r => new Date(r.date).getTime() < currentTime && r.id !== current.id);
 
+              // Se tudo que temos foi gerado quase junto, apenas pege o registro imediatamente anterior da array 
+              // para não ficar com "Indisponível" na tela do Relatório
               if (pastReadings.length === 0) return sortedReadings[sortedReadings.length - 2];
 
-              // Reduz o array até encontrar o registro mais próximo de atingir a marca de 7 dias
-              return pastReadings.reduce((closest, current) => {
-                const currentDiff = Math.abs((latestTime - new Date(current.date).getTime()) - targetDiff);
-                const closestDiff = Math.abs((latestTime - new Date(closest.date).getTime()) - targetDiff);
-                return currentDiff < closestDiff ? current : closest;
+              // Procura matemática pela data mais perto de (Hoje - 7 Dias), mantendo flexibilidade (reduce)
+              return pastReadings.reduce((closest, candidate) => {
+                const currentDiff = Math.abs((currentTime - new Date(candidate.date).getTime()) - targetDiff);
+                const closestDiff = Math.abs((currentTime - new Date(closest.date).getTime()) - targetDiff);
+                return currentDiff < closestDiff ? candidate : closest;
               });
             })()
           }
