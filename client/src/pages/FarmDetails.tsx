@@ -946,26 +946,37 @@ export default function FarmDetails() {
 
                     {/* Zones Visualization (K-Means Points) */}
                     {zoneViewMode !== 'none' && zoneViewMode !== 'raster' &&
-                      zones?.map((zone) => (
+                      zones?.map((zone, zIdx) => (
                         <React.Fragment key={`zone-group-${zone.id}`}>
-                          {zone.coordinates.map((point, index) => (
-                            <Circle
-                              key={`${zone.id}-${index}`}
-                              center={[point.lat, point.lon]}
-                              radius={8}
-                              pathOptions={{ color: zone.color, fillColor: zone.color, fillOpacity: 0.5, stroke: false }}
-                            >
-                              <Popup>
-                                <div className="text-xs">
-                                  <strong>{zone.name}</strong><br />
-                                  Área: {(zone as any)['areaHa'] ? Number((zone as any)['areaHa']).toFixed(1) : "N/A"} ha<br />
-                                  Média Saúde: {zone.ndvi_avg ? zone.ndvi_avg.toFixed(2) : "N/A"}<br />
-                                  Lat: {point.lat.toFixed(6)}<br />
-                                  Lon: {point.lon.toFixed(6)}
-                                </div>
-                              </Popup>
-                            </Circle>
-                          ))}
+                          {zone.coordinates.map((point, index) => {
+                            // Extraimos a primeira letra do nome (A de Alta, M de Média, B de Baixa) ou apenas um ID
+                            const zoneLabel = zone.name.charAt(0);
+
+                            const pointIcon = L.divIcon({
+                              className: 'custom-zone-marker',
+                              html: `<div style="background-color: ${zone.color}cc; border: 1px solid ${zone.color}; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 8px; font-weight: bold; font-family: sans-serif; box-shadow: 0 1px 2px rgba(0,0,0,0.3);">${zoneLabel}</div>`,
+                              iconSize: [16, 16],
+                              iconAnchor: [8, 8]
+                            });
+
+                            return (
+                              <Marker
+                                key={`${zone.id}-${index}`}
+                                position={[point.lat, point.lon]}
+                                icon={pointIcon}
+                              >
+                                <Popup>
+                                  <div className="text-xs">
+                                    <strong>{zone.name} (T{zIdx + 1})</strong><br />
+                                    Área: {(zone as any)['areaHa'] ? Number((zone as any)['areaHa']).toFixed(1) : "N/A"} ha<br />
+                                    Média Saúde: {zone.ndvi_avg ? zone.ndvi_avg.toFixed(2) : "N/A"}<br />
+                                    Lat: {point.lat.toFixed(6)}<br />
+                                    Lon: {point.lon.toFixed(6)}
+                                  </div>
+                                </Popup>
+                              </Marker>
+                            );
+                          })}
                         </React.Fragment>
                       ))}
 
