@@ -14,9 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 // ... imports ...
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon as LeafletPolygon, LayersControl, ImageOverlay } from "react-leaflet";
-// ...
-
-
+import * as turfHelpers from "@turf/helpers";
+import * as turfConvex from "@turf/convex";
 
 import { ResponsiveContainer, LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
 import { PredictiveChart } from "@/components/predictive-chart";
@@ -909,25 +908,63 @@ export default function FarmDetails() {
                       )}
                     </LayersControl>
 
-                    {/* Zones Visualization */}
-                    {zones?.map((zone) => (
-                      zone.coordinates.map((point, index) => (
-                        <Circle
-                          key={`${zone.id}-${index}`}
-                          center={[point.lat, point.lon]}
-                          radius={8}
-                          pathOptions={{ color: zone.color, fillColor: zone.color, fillOpacity: 0.5, stroke: false }}
-                        >
-                          <Popup>
-                            <div className="text-xs">
-                              <strong>{zone.name}</strong><br />
-                              Lat: {point.lat.toFixed(6)}<br />
-                              Lon: {point.lon.toFixed(6)}
-                            </div>
-                          </Popup>
-                        </Circle>
-                      ))
-                    ))}
+                    {/* Zones Visualization (Convex Hull & Points) */}
+                    {zones?.map((zone) => {
+                      // 1. Prepare points for Convex Hull
+                      const points = zone.coordinates.map(p => [p.lon, p.lat]);
+                      let polygonCoords: [number, number][] = [];
+
+                      try {
+                        if (points.length >= 3) {
+                          const featureCollection = turfHelpers.featureCollection(points.map(p => turfHelpers.point(p)));
+                          const hull = turfConvex.default(featureCollection);
+                          if (hull) {
+                            // Extract coordinates and swap from [lon, lat] back to [lat, lon] for Leaflet
+                            polygonCoords = hull.geometry.coordinates[0].map((coord: any) => [coord[1], coord[0]] as [number, number]);
+                          }
+                        }
+                      } catch (e) {
+                        console.error("Failed to generate convex hull for zone", zone.name, e);
+                      }
+
+                      return (
+                        <React.Fragment key={`zone-group-${zone.id}`}>
+                          {/* Render Solid Polygon if possible */}
+                          {polygonCoords.length >= 3 && (
+                            <LeafletPolygon
+                              positions={polygonCoords}
+                              pathOptions={{ color: zone.color, fillColor: zone.color, fillOpacity: 0.35, weight: 2 }}
+                            >
+                              <Popup>
+                                <div className="text-xs">
+                                  <strong>{zone.name}</strong><br />
+                                  Área: {zone.area_percentage ? (farm.sizeHa * zone.area_percentage / 100).toFixed(1) : "N/A"} ha<br />
+                                  Média Saúde: {zone.ndvi_avg ? zone.ndvi_avg.toFixed(2) : "N/A"}
+                                </div>
+                              </Popup>
+                            </LeafletPolygon>
+                          )}
+
+                          {/* Render the individual Grid Points inside */}
+                          {zone.coordinates.map((point, index) => (
+                            <Circle
+                              key={`${zone.id}-${index}`}
+                              center={[point.lat, point.lon]}
+                              radius={6} // Slightly smaller dots
+                              pathOptions={{ color: zone.color, fillColor: '#ffffff', fillOpacity: 0.8, stroke: true, weight: 1 }}
+                            >
+                              <Popup>
+                                <div className="text-xs">
+                                  <strong>Amostra {zone.name}</strong><br />
+                                  Lat: {point.lat.toFixed(6)}<br />
+                                  Lon: {point.lon.toFixed(6)}
+                                </div>
+                              </Popup>
+                            </Circle>
+                          ))}
+                        </React.Fragment>
+                      );
+                    })}
 
                     <Marker position={[farm.latitude, farm.longitude]}>
                       <Popup>
