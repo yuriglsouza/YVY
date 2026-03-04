@@ -1241,14 +1241,21 @@ export default function FarmDetails() {
             (() => {
               if (sortedReadings.length < 2) return null;
               if (!latestReading) return sortedReadings[sortedReadings.length - 2];
+
               const latestTime = new Date(latestReading.date).getTime();
-              // Procurar agressivamente por uma leitura que seja no mínimo 20 dias mais velha que a atual
-              const olderReadings = sortedReadings.filter(r => (latestTime - new Date(r.date).getTime()) > 20 * 24 * 60 * 60 * 1000);
-              if (olderReadings.length > 0) {
-                return olderReadings[olderReadings.length - 1]; // pega a mais recente dentre as velhas
-              }
-              // Se não tiver (ex: cliente sincronizou hoje e ontem pela 1º vez), devolve a estritamente anterior
-              return sortedReadings[sortedReadings.length - 2];
+              const targetDiff = 7 * 24 * 60 * 60 * 1000; // Alvo: 7 dias de diferença
+
+              // Remove a leitura atual e leituras futuras (caso existam)
+              const pastReadings = sortedReadings.filter(r => new Date(r.date).getTime() < latestTime);
+
+              if (pastReadings.length === 0) return sortedReadings[sortedReadings.length - 2];
+
+              // Reduz o array até encontrar o registro mais próximo de atingir a marca de 7 dias
+              return pastReadings.reduce((closest, current) => {
+                const currentDiff = Math.abs((latestTime - new Date(current.date).getTime()) - targetDiff);
+                const closestDiff = Math.abs((latestTime - new Date(closest.date).getTime()) - targetDiff);
+                return currentDiff < closestDiff ? current : closest;
+              });
             })()
           }
           historyData={chartData || []}
