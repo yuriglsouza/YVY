@@ -14,8 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 // ... imports ...
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon as LeafletPolygon, LayersControl, ImageOverlay } from "react-leaflet";
-import * as turfHelpers from "@turf/helpers";
-import * as turfConvex from "@turf/convex";
+import { point, featureCollection } from "@turf/helpers";
+import convex from "@turf/convex";
 
 import { ResponsiveContainer, LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
 import { PredictiveChart } from "@/components/predictive-chart";
@@ -916,8 +916,8 @@ export default function FarmDetails() {
 
                       try {
                         if (points.length >= 3) {
-                          const featureCollection = turfHelpers.featureCollection(points.map(p => turfHelpers.point(p)));
-                          const hull = turfConvex.default(featureCollection);
+                          const fc = featureCollection(points.map(p => point(p)));
+                          const hull = convex(fc);
                           if (hull) {
                             // Extract coordinates and swap from [lon, lat] back to [lat, lon] for Leaflet
                             polygonCoords = hull.geometry.coordinates[0].map((coord: any) => [coord[1], coord[0]] as [number, number]);
