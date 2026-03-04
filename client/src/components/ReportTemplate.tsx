@@ -13,6 +13,7 @@ interface ReportTemplateProps {
     aiReport: string | null;
     consultantName?: string;
     readings?: Reading[];
+    zones?: any[];
 }
 
 export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplateProps>(({
@@ -22,7 +23,8 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
     historyData,
     aiReport,
     consultantName,
-    readings
+    readings,
+    zones
 }, ref) => {
 
     const currentDate = currentReading ? new Date(currentReading.date) : new Date();
@@ -103,13 +105,24 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
     const perfRelativa = ((mockMape / regMean) * 10).toFixed(1);
     const perfClass = mockMape < 7 ? "Alta Precisão (Adeptos a Modelos de Crédito Seguros)" : mockMape <= 12 ? "Boa Precisão (Estabilidade Aceitável)" : "Modelo em Calibração (Volatilidade Alta)";
 
-    // Zonas de Risco estáticas
-    const znData = [
-        { zone: "Pivot 1 Central", ndvi: "0.71", risk: "Baixo", isRisk: false },
-        { zone: "Área de Borda (N)", ndvi: "0.55", risk: "Médio", isRisk: false },
-        { zone: "Várzea Leste", ndvi: "0.41", risk: "ZONA CRÍTICA", isRisk: true },
-        { zone: "Talhão Sul", ndvi: "0.62", risk: "Baixo", isRisk: false },
-    ];
+    // Zonas de Risco Reais ou Fallback
+    const znData = zones && zones.length > 0
+        ? zones.map(z => {
+            const nv = z.ndvi_avg || 0;
+            const riskClass = nv < 0.45 ? "ZONA CRÍTICA" : nv < 0.60 ? "Médio" : "Baixo";
+            return {
+                zone: z.name,
+                ndvi: nv ? nv.toFixed(2) : "N/A",
+                risk: riskClass,
+                isRisk: nv < 0.45
+            };
+        })
+        : [
+            { zone: "Pivot 1 Central", ndvi: "0.71", risk: "Baixo", isRisk: false },
+            { zone: "Área de Borda (N)", ndvi: "0.55", risk: "Médio", isRisk: false },
+            { zone: "Várzea Leste", ndvi: "0.41", risk: "ZONA CRÍTICA", isRisk: true },
+            { zone: "Talhão Leste", ndvi: "0.62", risk: "Baixo", isRisk: false },
+        ];
 
     const hashID = Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
 
