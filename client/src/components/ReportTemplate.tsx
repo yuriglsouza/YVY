@@ -294,7 +294,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                         <div className="h-[75mm] w-full flex items-center justify-center bg-gray-200">
                             {previousReading?.satelliteImage ? (
                                 <img
-                                    src={`/api/proxy-image?url=${encodeURIComponent(previousReading.satelliteImage)}`}
+                                    src={previousReading.satelliteImage}
                                     className="w-full h-full object-cover"
                                     crossOrigin="anonymous"
                                     referrerPolicy="no-referrer"
@@ -313,7 +313,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                         <div className="h-[75mm] w-full flex items-center justify-center bg-gray-100 relative">
                             {currentReading?.satelliteImage ? (
                                 <img
-                                    src={`/api/proxy-image?url=${encodeURIComponent(currentReading.satelliteImage)}`}
+                                    src={currentReading.satelliteImage}
                                     className="w-full h-full object-cover"
                                     crossOrigin="anonymous"
                                     referrerPolicy="no-referrer"

@@ -333,14 +333,34 @@ export default function FarmDetails() {
       // Print notification
       toast({ title: "Iniciando captura", description: "O motor está renderizando os gráficos em alta definição..." });
 
-      // FORCE PRELOAD of all images to ensure offline or off-screen images (like previousReading) are ready for html2canvas
+      // FORCE PRELOAD and CORS bypass by fetching through our own Proxy (zero CORS blocks) and converting to Base64
       const images = Array.from(reportRef.current.querySelectorAll('img'));
-      await Promise.all(images.map(img => {
-        if (img.complete) return Promise.resolve();
-        return new Promise((resolve) => {
-          img.onload = resolve;
-          img.onerror = resolve; // resolve anyway to avoid locking the entire PDF generation
-        });
+      await Promise.all(images.map(async (img) => {
+        try {
+          if (img.src && img.src.startsWith('http') && !img.src.includes('data:image')) {
+            const isLocalIcon = img.src.includes(window.location.host) && !img.src.includes('supabase') && !img.src.includes('render');
+            const targetUrl = isLocalIcon ? img.src : `/api/proxy-image?url=${encodeURIComponent(img.src)}`;
+
+            const response = await fetch(targetUrl);
+            const blob = await response.blob();
+            const base64Url = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            });
+            img.src = base64Url;
+            // tiny delay to ensure DOM repaints the image from base64 string
+            await new Promise(r => setTimeout(r, 100));
+          } else if (!img.complete) {
+            await new Promise((resolve) => {
+              img.onload = resolve;
+              img.onerror = resolve;
+            });
+          }
+        } catch (e) {
+          console.warn("Failed proxy base64 conversion for img:", img.src, e);
+        }
       }));
 
       // Capture Page HTML Engine
@@ -1272,7 +1292,7 @@ export default function FarmDetails() {
           aiReport={reports?.[0]?.formalContent || ""}
           consultantName={user?.name || "Equipe SYAZ"}
           readings={readings || []}
-          zones={zones}
+          zones={zones.length > 0 ? zones : (zoneHistory && zoneHistory.length > 0 ? (zoneHistory[0] as any)?.zones_data || zoneHistory : [])}
         />
 
       </main >
