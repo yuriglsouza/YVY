@@ -99,13 +99,14 @@ def cluster_pixels(pixels, k=3, return_internals=False):
         return result_zones, labels, sorted_indices, clean_pixels
     return result_zones
 
-def generate_raster_image(pixels, labels, sorted_indices, k=3):
+def generate_raster_image(pixels, labels, sorted_indices, k=3, polygon=None):
     """
     Generates a smooth transparent PNG raster image from K-Means classified pixels.
     Uses scipy spatial interpolation to fill the entire area with smooth zone colors.
+    If polygon is provided, clips the image to the farm boundary.
     Returns: (base64_png_string, [[lat_min, lon_min], [lat_max, lon_max]])
     """
-    from PIL import Image, ImageFilter
+    from PIL import Image, ImageFilter, ImageDraw
     from scipy.interpolate import griddata
 
     # Zone colors (RGBA) matching the K-Means zone order
@@ -141,7 +142,6 @@ def generate_raster_image(pixels, labels, sorted_indices, k=3):
     grid_lon_mesh, grid_lat_mesh = np.meshgrid(grid_lons, grid_lats)
 
     # Interpolate zone labels onto the dense grid using nearest-neighbor
-    # (nearest is correct for categorical data like zone IDs)
     grid_zones = griddata(
         points=np.column_stack([lons, lats]),
         values=zone_labels,
@@ -161,6 +161,33 @@ def generate_raster_image(pixels, labels, sorted_indices, k=3):
 
     # Apply a slight gaussian blur to smooth hard edges between zones
     img = img.filter(ImageFilter.GaussianBlur(radius=2))
+
+    # Clip to farm polygon if available
+    if polygon and len(polygon) >= 3:
+        # Convert polygon geo coords [lon, lat] to image pixel coords [col, row]
+        poly_pixels = []
+        for coord in polygon:
+            # coord is [lon, lat] in GeoJSON order
+            lon_coord, lat_coord = coord[0], coord[1]
+            col = int((lon_coord - lon_min) / (lon_max - lon_min) * (grid_res - 1))
+            row = int((lat_max - lat_coord) / (lat_max - lat_min) * (grid_res - 1))
+            col = max(0, min(grid_res - 1, col))
+            row = max(0, min(grid_res - 1, row))
+            poly_pixels.append((col, row))
+        
+        # Create a mask: white inside polygon, black outside
+        mask = Image.new("L", (grid_res, grid_res), 0)
+        draw = ImageDraw.Draw(mask)
+        draw.polygon(poly_pixels, fill=255)
+        
+        # Apply slight blur to mask edges for smoother clip
+        mask = mask.filter(ImageFilter.GaussianBlur(radius=1))
+        
+        # Apply mask to image alpha channel
+        r, g, b, a = img.split()
+        # Multiply existing alpha with mask
+        a = Image.fromarray(np.minimum(np.array(a), np.array(mask)).astype(np.uint8))
+        img = Image.merge("RGBA", (r, g, b, a))
 
     # Export to base64
     buffer = io.BytesIO()

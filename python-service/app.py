@@ -296,7 +296,7 @@ def analyze_cluster(req: ClusterRequest):
         raster_image = None
         raster_bounds = None
         try:
-            raster_image, raster_bounds = cluster.generate_raster_image(clean_pixels, labels, sorted_indices, req.k)
+            raster_image, raster_bounds = cluster.generate_raster_image(clean_pixels, labels, sorted_indices, req.k, polygon=req.polygon)
             print(f"🖼️ Raster generated: {len(raster_image)} chars, bounds={raster_bounds}")
         except Exception as raster_err:
             print(f"⚠️ Raster generation failed (non-fatal): {raster_err}")
