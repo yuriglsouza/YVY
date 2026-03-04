@@ -203,6 +203,36 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                                                 }
                                             </ul>
                                         </div>
+                                        <div className="mb-4">
+                                            <p className="text-xs text-[#2F447F] font-bold uppercase tracking-wider mb-1">4. Evolução do Período</p>
+                                            <p className="font-light">
+                                                {(() => {
+                                                    if (!readings || readings.length < 2) return "Histórico insuficiente para cálculo evolutivo.";
+
+                                                    // Readings usually ordered descending by date. 0 is current.
+                                                    // Let's sort them purely by date to be 100% safe
+                                                    const sorted = [...readings].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                                                    const current = sorted[0];
+                                                    const past = sorted[1];
+
+                                                    if (!current.ndvi || !past.ndvi) return "Dados de vigor corrompidos no período.";
+
+                                                    const deltaNdvi = current.ndvi - past.ndvi;
+                                                    const percentChange = (deltaNdvi / past.ndvi) * 100;
+                                                    const daysDiff = Math.floor((new Date(current.date).getTime() - new Date(past.date).getTime()) / (1000 * 60 * 60 * 24));
+
+                                                    const direction = deltaNdvi > 0 ? "avanço" : deltaNdvi < 0 ? "retração" : "estabilidade";
+                                                    const colorSpan = deltaNdvi > 0 ? "text-green-600 font-medium" : deltaNdvi < 0 ? "text-red-600 font-medium" : "text-gray-600 font-medium";
+
+                                                    return (
+                                                        <span>
+                                                            Comparado à leitura de {daysDiff} dias atrás ({format(new Date(past.date), 'dd/MM/yyyy')}), a área apresentou um <span className={colorSpan}>{direction} de {Math.abs(percentChange).toFixed(1)}%</span> no índice de biomassa (de {past.ndvi.toFixed(2)} para {current.ndvi.toFixed(2)}).
+                                                        </span>
+                                                    );
+                                                })()}
+                                            </p>
+                                        </div>
                                     </>
                                 ) : (
                                     <p className="font-light italic text-[#2F447F]">Relatório textual legado: <br />{aiReport}</p>
