@@ -949,8 +949,14 @@ export default function FarmDetails() {
                       zones?.map((zone, zIdx) => (
                         <React.Fragment key={`zone-group-${zone.id}`}>
                           {zone.coordinates.map((point, index) => {
-                            // Extraimos a primeira letra do nome (A de Alta, M de Média, B de Baixa) ou apenas um ID
-                            const zoneLabel = zone.name.charAt(0);
+                            // Extraimos a primeira letra significativa (ex: "Zona Sul" -> "S", "Zona Nordeste" -> "NE")
+                            let zoneLabel = zone.name.charAt(0);
+                            if (zone.name.startsWith("Zona ")) {
+                              const dirName = zone.name.substring(5); // Remove "Zona "
+                              if (dirName.startsWith("Nor")) zoneLabel = dirName.startsWith("Nordeste") ? "NE" : "NO";
+                              else if (dirName.startsWith("Sud")) zoneLabel = dirName.startsWith("Sudeste") ? "SE" : "SO";
+                              else zoneLabel = dirName.charAt(0); // S, N, L, O, C
+                            }
 
                             const pointIcon = L.divIcon({
                               className: 'custom-zone-marker',

@@ -64,37 +64,104 @@ def cluster_pixels(pixels, k=3, return_internals=False):
     
     print(f"Filtered {len(pixels) - len(clean_pixels)} cloud/shadow pixels, {len(clean_pixels)} remaining")
     
-    data = np.array([[p["ndvi"], p["ndwi"]] for p in clean_pixels])
+    # Extract coordinates
+    lats = np.array([p["lat"] for p in clean_pixels])
+    lons = np.array([p["lon"] for p in clean_pixels])
+    
+    # Normalize coordinates for KMeans (critical because lat/lon scale differences can skew clustering shape)
+    lat_min, lat_max = lats.min(), lats.max()
+    lon_min, lon_max = lons.min(), lons.max()
+    
+    # Avoid div zero if only one pixel (unlikely due to len<10 check but safe)
+    lat_range = max(lat_max - lat_min, 1e-6)
+    lon_range = max(lon_max - lon_min, 1e-6)
+    
+    norm_lats = (lats - lat_min) / lat_range
+    norm_lons = (lons - lon_min) / lon_range
+    
+    # Use explicit geographical coordinates for contiguous physical zones
+    data = np.column_stack((norm_lats, norm_lons))
     
     kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
     labels = kmeans.fit_predict(data)
-    centers = kmeans.cluster_centers_
+    centers = kmeans.cluster_centers_ # These are normalized centers
     
-    # Sort clusters by NDVI center (Low -> High)
-    sorted_indices = np.argsort(centers[:, 0])
+    # Farm overall center 
+    farm_center_norm_lat = 0.5 
+    farm_center_norm_lon = 0.5
     
     result_zones = []
     
-    colors = ["#ef4444", "#eab308", "#22c55e"]
-    names = ["Baixa Produtividade", "Média Produtividade", "Alta Produtividade"]
-    
+    # Map directional names based on centroid vs total center
+    def get_directional_name(c_lat, c_lon):
+        # 0.5 is the exact center of the bounding box
+        dy = c_lat - 0.5
+        dx = c_lon - 0.5
+        
+        # Central tolerance (if it's very close to the center 0.5)
+        if abs(dy) < 0.15 and abs(dx) < 0.15:
+            return "Zona Central"
+            
+        angle_rad = np.arctan2(dy, dx) # Angle from X axis (-pi to pi)
+        # Convert to degrees for easier cardinal mapping
+        angle_deg = np.degrees(angle_rad)
+        
+        # Directions:
+        # East = 0, North = 90, West = 180 or -180, South = -90
+        # Octants:
+        if -22.5 <= angle_deg < 22.5: return "Zona Leste"
+        elif 22.5 <= angle_deg < 67.5: return "Zona Nordeste"
+        elif 67.5 <= angle_deg < 112.5: return "Zona Norte"
+        elif 112.5 <= angle_deg < 157.5: return "Zona Noroeste"
+        elif angle_deg >= 157.5 or angle_deg < -157.5: return "Zona Oeste"
+        elif -157.5 <= angle_deg < -112.5: return "Zona Sudoeste"
+        elif -112.5 <= angle_deg < -67.5: return "Zona Sul"
+        elif -67.5 <= angle_deg < -22.5: return "Zona Sudeste"
+        
+        return "Talhão"
+        
     for i in range(k):
-        original_idx = sorted_indices[i]
+        c_lat, c_lon = centers[i]
+        
+        # Points belonging to this physical zone
+        cluster_indices = [j for j in range(len(clean_pixels)) if labels[j] == i]
         
         cluster_points = [
             {"lat": clean_pixels[j]["lat"], "lon": clean_pixels[j]["lon"]} 
-            for j in range(len(clean_pixels)) if labels[j] == original_idx
+            for j in cluster_indices
         ]
+        
+        # Calculate real-world NDVI average for this specific geographical group
+        ndvi_values = [clean_pixels[j]["ndvi"] for j in cluster_indices]
+        ndvi_avg = float(np.mean(ndvi_values)) if ndvi_values else 0.0
+        
+        # Dynamic Risk/Color mapping based on the combined physical area average
+        if ndvi_avg < 0.45:
+            color = "#ef4444" # Red (Critical)
+            productivity = "Baixa"
+        elif ndvi_avg < 0.60:
+            color = "#eab308" # Yellow (Medium)
+            productivity = "Média"
+        else:
+            color = "#22c55e" # Green (High)
+            productivity = "Alta"
+            
+        direction_name = get_directional_name(c_lat, c_lon)
         
         result_zones.append({
             "id": i,
-            "name": names[i] if i < len(names) else f"Zona {i+1}",
-            "color": colors[i] if i < len(colors) else "#cccccc",
+            "name": f"{direction_name} ({productivity})",
+            "color": color,
             "coordinates": cluster_points,
-            "ndvi_avg": float(centers[original_idx][0]),
+            "ndvi_avg": ndvi_avg,
             "area_percentage": len(cluster_points) / len(clean_pixels)
         })
         
+    # No sorting required as we don't depend on NDVI progression anymore, 
+    # but the API contract expects sorted_indices for raster generation mapping
+    # Just return sequential indices
+    sorted_indices = np.arange(k)
+    
     if return_internals:
         return result_zones, labels, sorted_indices, clean_pixels
     return result_zones
