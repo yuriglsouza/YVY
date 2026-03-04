@@ -1239,26 +1239,16 @@ export default function FarmDetails() {
           currentReading={latestReading || null}
           previousReading={
             (() => {
-              // Se tivermos menos de 2 registros no banco, obviamente não há "anterior"
-              if (!sortedReadings || sortedReadings.length < 2) return null;
-
-              const current = latestReading || sortedReadings[sortedReadings.length - 1];
-              const currentTime = new Date(current.date).getTime();
-              const targetDiff = 7 * 24 * 60 * 60 * 1000; // Alvo ideal: 7 dias antes
-
-              // Filtra rigidamente leituras que sejam DE FATO anteriores à Leitura Atual que está na tela
-              const pastReadings = sortedReadings.filter(r => new Date(r.date).getTime() < currentTime && r.id !== current.id);
-
-              // Se tudo que temos foi gerado quase junto, apenas pege o registro imediatamente anterior da array 
-              // para não ficar com "Indisponível" na tela do Relatório
-              if (pastReadings.length === 0) return sortedReadings[sortedReadings.length - 2];
-
-              // Procura matemática pela data mais perto de (Hoje - 7 Dias), mantendo flexibilidade (reduce)
-              return pastReadings.reduce((closest, candidate) => {
-                const currentDiff = Math.abs((currentTime - new Date(candidate.date).getTime()) - targetDiff);
-                const closestDiff = Math.abs((currentTime - new Date(closest.date).getTime()) - targetDiff);
-                return currentDiff < closestDiff ? candidate : closest;
-              });
+              if (sortedReadings.length < 2) return null;
+              if (!latestReading) return sortedReadings[sortedReadings.length - 2];
+              const latestTime = new Date(latestReading.date).getTime();
+              // Procurar agressivamente por uma leitura que seja no mínimo 20 dias mais velha que a atual
+              const olderReadings = sortedReadings.filter(r => (latestTime - new Date(r.date).getTime()) > 20 * 24 * 60 * 60 * 1000);
+              if (olderReadings.length > 0) {
+                return olderReadings[olderReadings.length - 1]; // pega a mais recente dentre as velhas
+              }
+              // Se não tiver (ex: cliente sincronizou hoje e ontem pela 1º vez), devolve a estritamente anterior
+              return sortedReadings[sortedReadings.length - 2];
             })()
           }
           historyData={chartData || []}
