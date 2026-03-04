@@ -1241,14 +1241,21 @@ export default function FarmDetails() {
             (() => {
               if (sortedReadings.length < 2) return null;
               if (!latestReading) return sortedReadings[sortedReadings.length - 2];
-              const latestTime = new Date(latestReading.date).getTime();
-              // Procurar agressivamente por uma leitura que seja no mínimo 10 dias mais velha que a atual
-              const olderReadings = sortedReadings.filter(r => (latestTime - new Date(r.date).getTime()) > 10 * 24 * 60 * 60 * 1000);
-              if (olderReadings.length > 0) {
-                return olderReadings[olderReadings.length - 1]; // pega a mais recente dentre as velhas
-              }
-              // Se não tiver (ex: cliente sincronizou hoje e ontem pela 1º vez), devolve a estritamente anterior
-              return sortedReadings[sortedReadings.length - 2];
+
+              const currentTime = new Date(latestReading.date).getTime();
+              const targetDiff = 10 * 24 * 60 * 60 * 1000; // Alvo Exato: 10 dias atrás
+
+              // 1. Removemos Leituras futuras (erros de fuso) ou a própria Leitura Atual pra não duplicar
+              const pastReadings = sortedReadings.filter(r => new Date(r.date).getTime() < currentTime && r.id !== latestReading.id);
+
+              if (pastReadings.length === 0) return sortedReadings[sortedReadings.length - 2];
+
+              // 2. Reduce "Caçador": Procura a data onde a Diferença até Hoje seja a *Mais Próxima* de 10 dias (targetDiff)
+              return pastReadings.reduce((closest, candidate) => {
+                const candidateDiff = Math.abs((currentTime - new Date(candidate.date).getTime()) - targetDiff);
+                const closestDiff = Math.abs((currentTime - new Date(closest.date).getTime()) - targetDiff);
+                return candidateDiff < closestDiff ? candidate : closest;
+              });
             })()
           }
           historyData={chartData || []}
