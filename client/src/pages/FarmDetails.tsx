@@ -1242,8 +1242,8 @@ export default function FarmDetails() {
               if (sortedReadings.length < 2) return null;
               if (!latestReading) return sortedReadings[sortedReadings.length - 2];
               const latestTime = new Date(latestReading.date).getTime();
-              // Procurar agressivamente por uma leitura que seja no mínimo 20 dias mais velha que a atual
-              const olderReadings = sortedReadings.filter(r => (latestTime - new Date(r.date).getTime()) > 20 * 24 * 60 * 60 * 1000);
+              // Procurar agressivamente por uma leitura que seja no mínimo 10 dias mais velha que a atual
+              const olderReadings = sortedReadings.filter(r => (latestTime - new Date(r.date).getTime()) > 10 * 24 * 60 * 60 * 1000);
               if (olderReadings.length > 0) {
                 return olderReadings[olderReadings.length - 1]; // pega a mais recente dentre as velhas
               }
