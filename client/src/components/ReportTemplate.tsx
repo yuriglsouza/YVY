@@ -113,15 +113,16 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
             return {
                 zone: z.name,
                 ndvi: nv ? nv.toFixed(2) : "N/A",
+                area: z.areaHa ? parseFloat(z.areaHa).toFixed(1) : "N/A",
                 risk: riskClass,
                 isRisk: nv < 0.45
             };
         })
         : [
-            { zone: "Pivot 1 Central", ndvi: "0.71", risk: "Baixo", isRisk: false },
-            { zone: "Área de Borda (N)", ndvi: "0.55", risk: "Médio", isRisk: false },
-            { zone: "Várzea Leste", ndvi: "0.41", risk: "ZONA CRÍTICA", isRisk: true },
-            { zone: "Talhão Leste", ndvi: "0.62", risk: "Baixo", isRisk: false },
+            { zone: "Pivot 1 Central", ndvi: "0.71", area: "12.5", risk: "Baixo", isRisk: false },
+            { zone: "Área de Borda (N)", ndvi: "0.55", area: "8.0", risk: "Médio", isRisk: false },
+            { zone: "Várzea Leste", ndvi: "0.41", area: "22.4", risk: "ZONA CRÍTICA", isRisk: true },
+            { zone: "Talhão Leste", ndvi: "0.62", area: "15.1", risk: "Baixo", isRisk: false },
         ];
 
     const hashID = Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
@@ -396,6 +397,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                                 <tr>
                                     <th className="py-2 px-3 font-bold text-[10px] uppercase tracking-wider">Zon. / Talhão</th>
                                     <th className="py-2 px-3 font-bold text-[10px] uppercase tracking-wider text-center">NDVI</th>
+                                    <th className="py-2 px-3 font-bold text-[10px] uppercase tracking-wider text-center">Área (ha)</th>
                                     <th className="py-2 px-3 font-bold text-[10px] uppercase tracking-wider text-center">Risco</th>
                                 </tr>
                             </thead>
@@ -404,6 +406,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                                     <tr key={idx} className="border-b border-[#D0D0D0] last:border-0 bg-white text-xs">
                                         <td className="py-1 px-3 font-light text-black">{z.zone}</td>
                                         <td className="py-1 px-3 font-bold text-[#2F447F] text-center">{z.ndvi}</td>
+                                        <td className="py-1 px-3 font-light text-black text-center">{z.area}</td>
                                         <td className={`py-1 px-3 font-bold text-center uppercase text-[10px] tracking-wider ${z.isRisk ? 'text-red-700' : 'text-[#172649]'}`}>{z.risk}</td>
                                     </tr>
                                 ))}
