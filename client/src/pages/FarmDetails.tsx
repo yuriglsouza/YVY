@@ -333,6 +333,16 @@ export default function FarmDetails() {
       // Print notification
       toast({ title: "Iniciando captura", description: "O motor está renderizando os gráficos em alta definição..." });
 
+      // FORCE PRELOAD of all images to ensure offline or off-screen images (like previousReading) are ready for html2canvas
+      const images = Array.from(reportRef.current.querySelectorAll('img'));
+      await Promise.all(images.map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise((resolve) => {
+          img.onload = resolve;
+          img.onerror = resolve; // resolve anyway to avoid locking the entire PDF generation
+        });
+      }));
+
       // Capture Page HTML Engine
       const canvas = await html2canvas(reportRef.current, {
         scale: 2, // High resolution (retina alike)
