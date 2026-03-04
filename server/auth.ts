@@ -70,8 +70,9 @@ export function setupAuth(app: Express) {
                                 receiveAlerts: true,
                             });
                         } else {
-                            // Check if user should be admin based on env var
-                            const isAdminEmail = email === process.env.ADMIN_EMAIL;
+                            // Check if user should be admin based on env var (allows multiple emails separated by comma)
+                            const adminEmails = (process.env.ADMIN_EMAIL || "").split(",").map(e => e.trim().toLowerCase());
+                            const isAdminEmail = adminEmails.includes(email.toLowerCase());
                             const shouldUpdateRole = isAdminEmail && user.role !== 'admin';
 
                             if (user.avatarUrl !== avatarUrl || user.name !== name || shouldUpdateRole) {

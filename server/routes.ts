@@ -238,9 +238,11 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
   }
 
   // 2. Admin (always receives a copy if configured)
-  const adminEmail = process.env.ADMIN_EMAIL;
-  if (adminEmail && !recipients.some(r => r.email === adminEmail)) {
-    recipients.push({ email: adminEmail, name: "Admin" });
+  const adminEmails = (process.env.ADMIN_EMAIL || "").split(",").map(e => e.trim());
+  for (const admin of adminEmails) {
+    if (admin && !recipients.some(r => r.email === admin)) {
+      recipients.push({ email: admin, name: "Admin" });
+    }
   }
 
   if (recipients.length === 0) return;
@@ -587,7 +589,8 @@ export async function registerRoutes(
               const user = await storage.getUser(farm.userId);
               if (user) ownerEmail = user.email;
             }
-            const emailsToNotify = Array.from(new Set([adminEmail, ownerEmail].filter(Boolean) as string[]));
+            const adminEmails = (process.env.ADMIN_EMAIL || "yuriglsouza@gmail.com").split(",").map(e => e.trim());
+            const emailsToNotify = Array.from(new Set([...adminEmails, ownerEmail].filter(Boolean) as string[]));
             for (const email of emailsToNotify) {
               await sendEmail({
                 to: email,
@@ -685,7 +688,8 @@ export async function registerRoutes(
           if (user) ownerEmail = user.email;
         }
 
-        const emailsToNotify = Array.from(new Set([adminEmail, ownerEmail].filter(Boolean) as string[]));
+        const adminEmails = (process.env.ADMIN_EMAIL || "yuriglsouza@gmail.com").split(",").map(e => e.trim());
+        const emailsToNotify = Array.from(new Set([...adminEmails, ownerEmail].filter(Boolean) as string[]));
         for (const email of emailsToNotify) {
           await sendEmail({
             to: email,

@@ -11,7 +11,7 @@ export function setupCronJobs() {
         const farms = await storage.getFarms();
 
         // E-mail Admin/Godmode solicitado pelo dono
-        const adminEmail = process.env.ADMIN_EMAIL || "yuriglsouza@gmail.com";
+        const adminEmails = (process.env.ADMIN_EMAIL || "yuriglsouza@gmail.com").split(',').map(e => e.trim());
 
         for (const farm of farms) {
             try {
@@ -31,7 +31,7 @@ export function setupCronJobs() {
                     }
 
                     // Lista deduplicada de e-mails pra não enviar 2x
-                    const emailsToNotify = Array.from(new Set([adminEmail, ownerEmail].filter(Boolean) as string[]));
+                    const emailsToNotify = Array.from(new Set([...adminEmails, ownerEmail].filter(Boolean) as string[]));
 
                     for (const email of emailsToNotify) {
                         try {

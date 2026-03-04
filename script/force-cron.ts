@@ -8,7 +8,7 @@ async function forceCronSync() {
     const farms = await storage.getFarms();
 
     // E-mail Admin/Godmode solicitado pelo dono
-    const adminEmail = process.env.ADMIN_EMAIL || "yuriglsouza@gmail.com";
+    const adminEmails = (process.env.ADMIN_EMAIL || "yuriglsouza@gmail.com").split(',').map(e => e.trim());
 
     for (const farm of farms) {
         try {
@@ -26,7 +26,7 @@ async function forceCronSync() {
                     if (user) ownerEmail = user.email;
                 }
 
-                const emailsToNotify = Array.from(new Set([adminEmail, ownerEmail].filter(Boolean) as string[]));
+                const emailsToNotify = Array.from(new Set([...adminEmails, ownerEmail].filter(Boolean) as string[]));
                 console.log(`[Teste Cron] Enviando emails para: ${emailsToNotify.join(", ")}`);
 
                 for (const email of emailsToNotify) {

@@ -179,7 +179,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const role = insertUser.email === process.env.ADMIN_EMAIL ? "admin" : (insertUser.role ?? "user");
+    const adminEmails = (process.env.ADMIN_EMAIL || "").split(",").map(e => e.trim().toLowerCase());
+    const role = adminEmails.includes(insertUser.email.toLowerCase()) ? "admin" : (insertUser.role ?? "user");
 
     const [user] = await db!.insert(users).values({ ...insertUser, role }).returning();
 
@@ -436,7 +437,8 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.userIdCounter++;
-    const role = insertUser.email === process.env.ADMIN_EMAIL ? "admin" : (insertUser.role ?? "user");
+    const adminEmails = (process.env.ADMIN_EMAIL || "").split(",").map(e => e.trim().toLowerCase());
+    const role = adminEmails.includes(insertUser.email.toLowerCase()) ? "admin" : (insertUser.role ?? "user");
 
     const user: User = {
       ...insertUser,
