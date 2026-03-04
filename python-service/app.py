@@ -217,15 +217,20 @@ async def startup_event():
 
         # Still write to file as backup/standard env var
         creds_path = os.path.abspath("yvy-service-account.json")
-        with open(creds_path, "w") as f:
-            f.write(creds_json)
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds_path
-        print(f"Auth: Service credentials loaded to {creds_path}")
-    else:
-        print("Auth: No JSON credentials found in env, strictly relying on local auth or default path.")
-    
     # Initialize Earth Engine with explicit credentials
     satellite_analysis.init_earth_engine(project_id, credentials)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # In production, restrict this to your Vercel domains
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/ping")
+def ping():
+    return {"status": "ok", "message": "YVY Python AI Engine is awake"}
 
 class SatelliteRequest(BaseModel):
     lat: float

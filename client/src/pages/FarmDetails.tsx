@@ -135,6 +135,14 @@ export default function FarmDetails() {
   const [selectedReadingIdx, setSelectedReadingIdx] = React.useState<number | null>(null);
   const reportRef = React.useRef<HTMLDivElement>(null);
 
+  // WARM-UP PING: Acorda o serviço de Inteligência Artificial no Render.com (que tem coldstart longo e dá timeout na Vercel)
+  React.useEffect(() => {
+    // Fire and forget genérico para a URL base conhecida do AI Engine
+    fetch('https://yvy.onrender.com/ping')
+      .then(res => console.log('Pinged AI Engine:', res.ok))
+      .catch(err => console.debug('AI Ping pending/fail', err));
+  }, []);
+
   // Calculate a fallback bounds if the reading doesn't have it but the farm has polygon/coords
   const fallbackBounds = React.useMemo(() => {
     if (!farm) return null;
