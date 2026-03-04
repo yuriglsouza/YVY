@@ -968,7 +968,7 @@ export default function FarmDetails() {
                                 <Popup>
                                   <div className="text-xs">
                                     <strong>{zone.name} (T{zIdx + 1})</strong><br />
-                                    Área: {(zone as any)['areaHa'] ? Number((zone as any)['areaHa']).toFixed(1) : "N/A"} ha<br />
+                                    Área: {(zone as any)['areaHa'] ? (Number((zone as any)['areaHa']) * 10000).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) : "N/A"} m²<br />
                                     Média Saúde: {zone.ndvi_avg ? zone.ndvi_avg.toFixed(2) : "N/A"}<br />
                                     Lat: {point.lat.toFixed(6)}<br />
                                     Lon: {point.lon.toFixed(6)}

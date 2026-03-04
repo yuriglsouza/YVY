@@ -964,13 +964,23 @@ export async function registerRoutes(
         if (response.ok) {
           const zonesData = await response.json();
 
+          // Calculate correct area and inject into response for frontend
+          // Python returns area_percentage as a fraction (0.0 to 1.0)
+          const processedZones = (zonesData.zones || zonesData).map((z: any) => {
+            const calculatedAreaHa = z.area_percentage ? (farm.sizeHa * z.area_percentage) : 0;
+            return {
+              ...z,
+              areaHa: calculatedAreaHa
+            };
+          });
+
           // Save zones to DB for history
           try {
-            const zonesToSave = (zonesData.zones || zonesData).map((z: any) => ({
+            const zonesToSave = processedZones.map((z: any) => ({
               name: z.name || z.label || 'Zona',
               color: z.color || '#22C55E',
               coordinates: z.coordinates || z.points || [],
-              areaHa: z.area_percentage ? (farm.sizeHa * z.area_percentage / 100) : 0,
+              areaHa: z.areaHa,
               ndviAvg: z.ndvi_avg || z.ndviAvg || null,
             }));
             await storage.saveZones(farmId, zonesToSave);
@@ -979,7 +989,10 @@ export async function registerRoutes(
             console.error("Failed to save zones to history:", saveErr);
           }
 
-          return res.json(zonesData);
+          return res.json({
+            ...zonesData,
+            zones: processedZones
+          });
         }
       } catch (e) {
         console.error("Python Service /cluster failed:", e);
