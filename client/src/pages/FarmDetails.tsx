@@ -930,10 +930,10 @@ export default function FarmDetails() {
                       return (
                         <React.Fragment key={`zone-group-${zone.id}`}>
                           {/* Render Solid Polygon if possible */}
-                          {polygonCoords.length >= 3 && (
+                          {polygonCoords.length >= 3 ? (
                             <LeafletPolygon
                               positions={polygonCoords}
-                              pathOptions={{ color: zone.color, fillColor: zone.color, fillOpacity: 0.35, weight: 2 }}
+                              pathOptions={{ color: zone.color, fillColor: zone.color, fillOpacity: 0.4, weight: 2 }}
                             >
                               <Popup>
                                 <div className="text-xs">
@@ -943,25 +943,25 @@ export default function FarmDetails() {
                                 </div>
                               </Popup>
                             </LeafletPolygon>
+                          ) : (
+                            /* Render individual points only if polygon couldn't be generated */
+                            zone.coordinates.map((point, index) => (
+                              <Circle
+                                key={`${zone.id}-${index}`}
+                                center={[point.lat, point.lon]}
+                                radius={8}
+                                pathOptions={{ color: zone.color, fillColor: zone.color, fillOpacity: 0.8, stroke: false }}
+                              >
+                                <Popup>
+                                  <div className="text-xs">
+                                    <strong>Amostra {zone.name}</strong><br />
+                                    Lat: {point.lat.toFixed(6)}<br />
+                                    Lon: {point.lon.toFixed(6)}
+                                  </div>
+                                </Popup>
+                              </Circle>
+                            ))
                           )}
-
-                          {/* Render the individual Grid Points inside */}
-                          {zone.coordinates.map((point, index) => (
-                            <Circle
-                              key={`${zone.id}-${index}`}
-                              center={[point.lat, point.lon]}
-                              radius={6} // Slightly smaller dots
-                              pathOptions={{ color: zone.color, fillColor: '#ffffff', fillOpacity: 0.8, stroke: true, weight: 1 }}
-                            >
-                              <Popup>
-                                <div className="text-xs">
-                                  <strong>Amostra {zone.name}</strong><br />
-                                  Lat: {point.lat.toFixed(6)}<br />
-                                  Lon: {point.lon.toFixed(6)}
-                                </div>
-                              </Popup>
-                            </Circle>
-                          ))}
                         </React.Fragment>
                       );
                     })}
