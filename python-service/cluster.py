@@ -166,7 +166,7 @@ def cluster_pixels(pixels, k=3, return_internals=False):
         return result_zones, labels, sorted_indices, clean_pixels
     return result_zones
 
-def generate_raster_image(pixels, labels, sorted_indices, k=3, polygon=None):
+def generate_raster_image(pixels, labels, sorted_indices, k=3, polygon=None, zones=None):
     """
     Generates a smooth transparent PNG raster image from K-Means classified pixels.
     Uses scipy spatial interpolation to fill the entire area with smooth zone colors.
@@ -177,11 +177,24 @@ def generate_raster_image(pixels, labels, sorted_indices, k=3, polygon=None):
     from scipy.interpolate import griddata
 
     # Zone colors (RGBA) matching the K-Means zone order
-    zone_colors_rgba = [
-        (239, 68, 68, 140),   # Red   - Baixa Produtividade
-        (234, 179, 8, 140),   # Yellow - Média Produtividade
-        (34, 197, 94, 140),   # Green  - Alta Produtividade
-    ]
+    zone_colors_rgba = []
+    if zones and len(zones) == k:
+        for z in zones:
+            hex_color = z.get('color', '#cccccc').lstrip('#')
+            try:
+                r = int(hex_color[0:2], 16)
+                g = int(hex_color[2:4], 16)
+                b = int(hex_color[4:6], 16)
+                zone_colors_rgba.append((r, g, b, 140))
+            except:
+                zone_colors_rgba.append((128, 128, 128, 140))
+    else:
+        # Fallback if zones were not provided
+        zone_colors_rgba = [
+            (239, 68, 68, 140),   # Red
+            (234, 179, 8, 140),   # Yellow 
+            (34, 197, 94, 140),   # Green
+        ]
 
     # Build mapping from original cluster index to sorted zone index
     mapping = {int(sorted_indices[new_idx]): new_idx for new_idx in range(k)}
