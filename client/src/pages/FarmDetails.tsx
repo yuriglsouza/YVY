@@ -350,6 +350,11 @@ export default function FarmDetails() {
               reader.readAsDataURL(blob);
             });
             img.src = base64Url;
+            img.removeAttribute('crossorigin');
+            img.removeAttribute('crossOrigin');
+            img.removeAttribute('referrerpolicy');
+            img.removeAttribute('referrerPolicy');
+            img.crossOrigin = null;
             // tiny delay to ensure DOM repaints the image from base64 string
             await new Promise(r => setTimeout(r, 100));
           } else if (!img.complete) {
@@ -360,6 +365,11 @@ export default function FarmDetails() {
           }
         } catch (e) {
           console.warn("Failed proxy base64 conversion for img:", img.src, e);
+          img.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZTVlN2ViIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZpbGw9IiM5Y2EzYWYiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+SW1hZ2VtIEluZGlzcG9uw612ZWw8L3RleHQ+PC9zdmc+';
+          img.removeAttribute('crossorigin');
+          img.removeAttribute('crossOrigin');
+          img.crossOrigin = null;
+          await new Promise(r => setTimeout(r, 100));
         }
       }));
 
