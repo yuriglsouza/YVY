@@ -101,80 +101,70 @@ def cluster_pixels(pixels, k=3, return_internals=False):
 
 def generate_raster_image(pixels, labels, sorted_indices, k=3):
     """
-    Generates a transparent PNG raster image from K-Means classified pixels.
-    Each pixel is painted with the solid color of its zone.
+    Generates a smooth transparent PNG raster image from K-Means classified pixels.
+    Uses scipy spatial interpolation to fill the entire area with smooth zone colors.
     Returns: (base64_png_string, [[lat_min, lon_min], [lat_max, lon_max]])
     """
-    from PIL import Image
+    from PIL import Image, ImageFilter
+    from scipy.interpolate import griddata
 
     # Zone colors (RGBA) matching the K-Means zone order
     zone_colors_rgba = [
-        (239, 68, 68, 160),   # Red   - Baixa Produtividade
-        (234, 179, 8, 160),   # Yellow - Média Produtividade
-        (34, 197, 94, 160),   # Green  - Alta Produtividade
+        (239, 68, 68, 140),   # Red   - Baixa Produtividade
+        (234, 179, 8, 140),   # Yellow - Média Produtividade
+        (34, 197, 94, 140),   # Green  - Alta Produtividade
     ]
 
     # Build mapping from original cluster index to sorted zone index
     mapping = {int(sorted_indices[new_idx]): new_idx for new_idx in range(k)}
 
-    # Extract lat/lon arrays
+    # Extract lat/lon and zone labels
     lats = np.array([p["lat"] for p in pixels])
     lons = np.array([p["lon"] for p in pixels])
+    zone_labels = np.array([mapping.get(int(labels[i]), 0) for i in range(len(pixels))])
 
     lat_min, lat_max = float(lats.min()), float(lats.max())
     lon_min, lon_max = float(lons.min()), float(lons.max())
 
-    # Determine grid resolution based on the data spread
-    # Use unique sorted values to figure out the grid step
-    unique_lats = np.sort(np.unique(np.round(lats, 6)))
-    unique_lons = np.sort(np.unique(np.round(lons, 6)))
+    # Add small padding to bounds (2% of range)
+    lat_pad = (lat_max - lat_min) * 0.02
+    lon_pad = (lon_max - lon_min) * 0.02
+    lat_min -= lat_pad
+    lat_max += lat_pad
+    lon_min -= lon_pad
+    lon_max += lon_pad
 
-    rows = len(unique_lats)
-    cols = len(unique_lons)
+    # Create a dense output grid (200x200 for smooth look)
+    grid_res = 200
+    grid_lats = np.linspace(lat_max, lat_min, grid_res)  # top to bottom
+    grid_lons = np.linspace(lon_min, lon_max, grid_res)
+    grid_lon_mesh, grid_lat_mesh = np.meshgrid(grid_lons, grid_lats)
 
-    # Safety: cap resolution to avoid giant images
-    if rows > 200:
-        rows = 200
-    if cols > 200:
-        cols = 200
-    
-    # Minimum sensible size
-    rows = max(rows, 5)
-    cols = max(cols, 5)
+    # Interpolate zone labels onto the dense grid using nearest-neighbor
+    # (nearest is correct for categorical data like zone IDs)
+    grid_zones = griddata(
+        points=np.column_stack([lons, lats]),
+        values=zone_labels,
+        xi=(grid_lon_mesh, grid_lat_mesh),
+        method='nearest'
+    )
 
-    # Create RGBA image (transparent by default)
-    img = Image.new("RGBA", (cols, rows), (0, 0, 0, 0))
+    # Paint the image
+    img = Image.new("RGBA", (grid_res, grid_res), (0, 0, 0, 0))
     img_pixels = img.load()
 
-    # Map each data point to its grid cell and paint it
-    for idx, p in enumerate(pixels):
-        # Normalize lat/lon to grid row/col
-        if lat_max == lat_min:
-            row = 0
-        else:
-            # Flip row: lat increases upward but image row 0 is top
-            row = int((1.0 - (p["lat"] - lat_min) / (lat_max - lat_min)) * (rows - 1))
-        
-        if lon_max == lon_min:
-            col = 0
-        else:
-            col = int((p["lon"] - lon_min) / (lon_max - lon_min) * (cols - 1))
-        
-        row = max(0, min(rows - 1, row))
-        col = max(0, min(cols - 1, col))
+    for row in range(grid_res):
+        for col in range(grid_res):
+            zone_idx = int(grid_zones[row, col])
+            color = zone_colors_rgba[zone_idx] if zone_idx < len(zone_colors_rgba) else (128, 128, 128, 140)
+            img_pixels[col, row] = color
 
-        zone_idx = mapping.get(int(labels[idx]), 0)
-        color = zone_colors_rgba[zone_idx] if zone_idx < len(zone_colors_rgba) else (128, 128, 128, 160)
-        img_pixels[col, row] = color
-
-    # Scale up the image for smoother look (nearest neighbor to keep crisp zones)
-    scale_factor = max(1, 400 // max(rows, cols))
-    if scale_factor > 1:
-        img = img.resize((cols * scale_factor, rows * scale_factor), Image.NEAREST)
+    # Apply a slight gaussian blur to smooth hard edges between zones
+    img = img.filter(ImageFilter.GaussianBlur(radius=2))
 
     # Export to base64
     buffer = io.BytesIO()
-    img.save(buffer, format="PNG")
+    img.save(buffer, format="PNG", optimize=True)
     buffer.seek(0)
     b64 = base64.b64encode(buffer.read()).decode("utf-8")
 

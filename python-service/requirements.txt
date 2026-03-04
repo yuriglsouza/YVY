@@ -7,3 +7,4 @@ pydantic
 google-auth
 pandas
 Pillow
+scipy
