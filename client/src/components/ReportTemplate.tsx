@@ -107,13 +107,14 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
 
     // Zonas de Risco Reais ou Fallback
     const znData = zones && zones.length > 0
-        ? zones.map(z => {
-            const nv = z.ndvi_avg || 0;
+        ? zones.map((z: any) => {
+            const nv = parseFloat(z.ndvi_avg || z.ndviAvg || z.ndvi) || 0;
+            const area = parseFloat(z.areaHa || z.area_ha || z.area) || 0;
             const riskClass = nv < 0.45 ? "ZONA CRÍTICA" : nv < 0.60 ? "Médio" : "Baixo";
             return {
-                zone: z.name,
+                zone: z.name || z.label || `Zona`,
                 ndvi: nv ? nv.toFixed(2) : "N/A",
-                area: z.areaHa ? (parseFloat(z.areaHa) * 10000).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) : "N/A",
+                area: area ? (area * 10000).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) : "N/A",
                 risk: riskClass,
                 isRisk: nv < 0.45
             };

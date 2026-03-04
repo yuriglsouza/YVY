@@ -333,43 +333,28 @@ export default function FarmDetails() {
       // Print notification
       toast({ title: "Iniciando captura", description: "O motor está renderizando os gráficos em alta definição..." });
 
-      // FORCE PRELOAD and CORS bypass by fetching through our own Proxy (zero CORS blocks) and converting to Base64
+      // FORCE PRELOAD using Proxy Endpoint natively
       const images = Array.from(reportRef.current.querySelectorAll('img'));
       await Promise.all(images.map(async (img) => {
         try {
           if (img.src && img.src.startsWith('http') && !img.src.includes('data:image')) {
             const isLocalIcon = img.src.includes(window.location.host) && !img.src.includes('supabase') && !img.src.includes('render');
-            const targetUrl = isLocalIcon ? img.src : `/api/proxy-image?url=${encodeURIComponent(img.src)}`;
 
-            const response = await fetch(targetUrl);
-            const blob = await response.blob();
-            const base64Url = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.onerror = reject;
-              reader.readAsDataURL(blob);
-            });
-            img.src = base64Url;
-            img.removeAttribute('crossorigin');
-            img.removeAttribute('crossOrigin');
-            img.removeAttribute('referrerpolicy');
-            img.removeAttribute('referrerPolicy');
-            img.crossOrigin = null;
-            // tiny delay to ensure DOM repaints the image from base64 string
-            await new Promise(r => setTimeout(r, 100));
-          } else if (!img.complete) {
+            if (!isLocalIcon && !img.src.includes('/api/proxy-image')) {
+              // Altera a tag img para o Proxy interno
+              img.src = `/api/proxy-image?url=${encodeURIComponent(img.src)}`;
+              img.crossOrigin = "anonymous";
+            }
+          }
+
+          if (!img.complete) {
             await new Promise((resolve) => {
               img.onload = resolve;
               img.onerror = resolve;
             });
           }
         } catch (e) {
-          console.warn("Failed proxy base64 conversion for img:", img.src, e);
-          img.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZTVlN2ViIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZpbGw9IiM5Y2EzYWYiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+SW1hZ2VtIEluZGlzcG9uw612ZWw8L3RleHQ+PC9zdmc+';
-          img.removeAttribute('crossorigin');
-          img.removeAttribute('crossOrigin');
-          img.crossOrigin = null;
-          await new Promise(r => setTimeout(r, 100));
+          console.warn("Image load failed before PDF:", img.src, e);
         }
       }));
 
