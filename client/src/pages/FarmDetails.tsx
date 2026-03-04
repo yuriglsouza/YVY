@@ -980,13 +980,13 @@ export default function FarmDetails() {
                     {farm.polygon && Array.isArray(farm.polygon) && (farm.polygon as [number, number][]).length >= 3 ? (
                       <LeafletPolygon
                         positions={(farm.polygon as [number, number][]).map(([lon, lat]) => [lat, lon] as [number, number])}
-                        pathOptions={{ color: '#10b981', fillColor: '#10b981', fillOpacity: 0.2 }}
+                        pathOptions={{ color: '#2F447F', fillColor: '#2F447F', fillOpacity: 0.2 }}
                       />
                     ) : (
                       <Circle
                         center={[farm.latitude, farm.longitude]}
                         radius={Math.sqrt((farm.sizeHa * 10000) / Math.PI)}
-                        pathOptions={{ color: '#10b981', fillColor: '#10b981', fillOpacity: 0.2 }}
+                        pathOptions={{ color: '#2F447F', fillColor: '#2F447F', fillOpacity: 0.2 }}
                       />
                     )}
                   </MapContainer>
