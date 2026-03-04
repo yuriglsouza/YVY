@@ -1429,5 +1429,30 @@ export async function registerRoutes(
     }
   });
 
+  // Endpoint proxy para imagens externas (usado pelo html2canvas no PDF)
+  app.get("/api/proxy-image", async (req, res) => {
+    try {
+      const imageUrl = req.query.url as string;
+      if (!imageUrl) return res.status(400).send("URL query param is required");
+
+      const response = await fetch(imageUrl);
+      if (!response.ok) {
+        throw new Error(`External server responded with ${response.status}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      const contentType = response.headers.get("content-type") || "image/png";
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cache-Control", "public, max-age=86400"); // 24 hours
+      res.send(buffer);
+    } catch (error: any) {
+      console.error("[Proxy Image] Error fetching url:", error);
+      res.status(500).send("Failed to load proxied image");
+    }
+  });
+
   return httpServer;
 }

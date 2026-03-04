@@ -333,32 +333,14 @@ export default function FarmDetails() {
       // Print notification
       toast({ title: "Iniciando captura", description: "O motor está renderizando os gráficos em alta definição..." });
 
-      // FORCE PRELOAD and CORS bypass by converting external images to Base64 locally
+      // FORCE PRELOAD of all images to ensure offline or off-screen images (like previousReading) are ready for html2canvas
       const images = Array.from(reportRef.current.querySelectorAll('img'));
-      await Promise.all(images.map(async (img) => {
-        try {
-          // Apenas tenta converter imagens remotas que não sejam base64 local
-          if (img.src && img.src.startsWith('http') && !img.src.includes('data:image')) {
-            const response = await fetch(img.src);
-            const blob = await response.blob();
-            const base64Url = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.onerror = reject;
-              reader.readAsDataURL(blob);
-            });
-            img.src = base64Url;
-            // pequeno delay pra forçar o DOM a pintar o base64
-            await new Promise(r => setTimeout(r, 100));
-          } else if (!img.complete) {
-            await new Promise((resolve) => {
-              img.onload = resolve;
-              img.onerror = resolve;
-            });
-          }
-        } catch (e) {
-          console.warn("Failed to preload/convert image to base64:", e);
-        }
+      await Promise.all(images.map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise((resolve) => {
+          img.onload = resolve;
+          img.onerror = resolve; // resolve anyway to avoid locking the entire PDF generation
+        });
       }));
 
       // Capture Page HTML Engine

@@ -150,7 +150,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                 <div className="flex bg-gray-50 rounded p-4 border border-[#D0D0D0] mb-8 justify-between items-center shadow-sm">
                     <div>
                         <p className="text-[10px] text-[#2F447F] uppercase font-bold tracking-wider">Unidade Produtiva</p>
-                        <p className="text-lg font-bold text-[#172649] truncate max-w-[120mm]">{farm.name}</p>
+                        <p className="text-lg font-bold text-[#172649] pb-1 truncate max-w-[120mm]">{farm.name}</p>
                     </div>
                     <div>
                         <p className="text-[10px] text-[#2F447F] uppercase font-bold tracking-wider">Data de Emissão</p>
@@ -294,7 +294,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                         <div className="h-[75mm] w-full flex items-center justify-center bg-gray-200">
                             {previousReading?.satelliteImage ? (
                                 <img
-                                    src={previousReading.satelliteImage}
+                                    src={`/api/proxy-image?url=${encodeURIComponent(previousReading.satelliteImage)}`}
                                     className="w-full h-full object-cover"
                                     crossOrigin="anonymous"
                                     referrerPolicy="no-referrer"
@@ -313,7 +313,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                         <div className="h-[75mm] w-full flex items-center justify-center bg-gray-100 relative">
                             {currentReading?.satelliteImage ? (
                                 <img
-                                    src={currentReading.satelliteImage}
+                                    src={`/api/proxy-image?url=${encodeURIComponent(currentReading.satelliteImage)}`}
                                     className="w-full h-full object-cover"
                                     crossOrigin="anonymous"
                                     referrerPolicy="no-referrer"
@@ -459,7 +459,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                         <p className="mt-2 opacity-80 text-[9px] uppercase tracking-wide">A análise possui caráter técnico-preditivo da SYAZ e deve ser validada in loco para decisões exclusivas de crédito rural.</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-sm font-bold text-white uppercase tracking-wider" style={{ fontFamily: 'Arial, sans-serif' }}>YVY Engine v2.4.1</p>
+                        <p className="text-sm font-bold text-white uppercase tracking-wider" style={{ fontFamily: 'Arial, sans-serif' }}>SYAZ Engine v2.4.1</p>
                         <p className="text-[10px] text-[#D0D0D0] mt-1 uppercase tracking-widest">Página 3 de 3</p>
                     </div>
                 </div>
