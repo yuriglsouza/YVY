@@ -1243,19 +1243,28 @@ export default function FarmDetails() {
               if (!latestReading) return sortedReadings[sortedReadings.length - 2];
 
               const currentTime = new Date(latestReading.date).getTime();
-              const targetDiff = 10 * 24 * 60 * 60 * 1000; // Alvo Exato: 10 dias atrás
+              const targetDiff = 10 * 24 * 60 * 60 * 1000; // Alvo: 10 dias atrás
 
-              // 1. Removemos Leituras futuras (erros de fuso) ou a própria Leitura Atual pra não duplicar
-              const pastReadings = sortedReadings.filter(r => new Date(r.date).getTime() < currentTime && r.id !== latestReading.id);
+              // Filtra leituras do passado garantindo que não seja a imagem de hoje
+              const pastReadings = sortedReadings.filter(r =>
+                new Date(r.date).getTime() < currentTime &&
+                r.id !== latestReading.id
+              );
 
               if (pastReadings.length === 0) return sortedReadings[sortedReadings.length - 2];
 
-              // 2. Reduce "Caçador": Procura a data onde a Diferença até Hoje seja a *Mais Próxima* de 10 dias (targetDiff)
-              return pastReadings.reduce((closest, candidate) => {
+              // Reduce "Caçador"
+              const chosenReading = pastReadings.reduce((closest, candidate) => {
                 const candidateDiff = Math.abs((currentTime - new Date(candidate.date).getTime()) - targetDiff);
                 const closestDiff = Math.abs((currentTime - new Date(closest.date).getTime()) - targetDiff);
                 return candidateDiff < closestDiff ? candidate : closest;
               });
+
+              // DEBUG: Imprime no console do navegador (F12) qual foi a foto escolhida!
+              console.log("🎯 IA Caçadora escolheu a data antiga:", chosenReading.date);
+              console.log("🔗 URL da Imagem Antiga:", chosenReading.satelliteImage);
+
+              return chosenReading;
             })()
           }
           historyData={chartData || []}
