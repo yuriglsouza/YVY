@@ -117,7 +117,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(readings)
       .where(eq(readings.farmId, farmId))
-      .orderBy(desc(readings.date), desc(readings.createdAt), desc(readings.id));
+      .orderBy(desc(readings.date), sql`${readings.createdAt} DESC NULLS LAST`, desc(readings.id));
   }
 
   async getReading(id: number): Promise<Reading | undefined> {
@@ -130,7 +130,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(readings)
       .where(eq(readings.farmId, farmId))
-      .orderBy(desc(readings.date), desc(readings.createdAt), desc(readings.id))
+      .orderBy(desc(readings.date), sql`${readings.createdAt} DESC NULLS LAST`, desc(readings.id))
       .limit(1);
     return reading;
   }
