@@ -507,6 +507,13 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{
               await storage.createReading(pastReading);
             }
           }
+          console.log("[SATELLITE_SYNC_RESPONSE_DEBUG]", {
+            farmId,
+            hasSatelliteImage: Boolean(result.satellite_image),
+            hasThermalImage: Boolean(result.thermal_image),
+            hasBounds: Boolean(result.bounds),
+            isSimulated: result.isSimulated || false,
+          });
 
           const newReadingData: Partial<InsertReading> = {
             farmId,

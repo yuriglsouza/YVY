@@ -434,6 +434,16 @@ export default function FarmDetails() {
             <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
               {latestReading ? (
                 <>
+                  {(() => {
+                    console.log("[SATELLITE_UI_DEBUG]", {
+                      readingId: latestReading.id,
+                      isSimulated: latestReading.isSimulated,
+                      satelliteImage: latestReading.satelliteImage,
+                      thermalImage: latestReading.thermalImage,
+                      bounds: latestReading.imageBounds
+                    });
+                    return null;
+                  })()}
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card p-6 rounded-2xl border border-border shadow-sm">
                     <Gauge value={latestReading.ndvi} label={(latestReading.cloudCover ?? 0) > 0.6 ? "NDVI (Obstruído ☁️)" : "NDVI"} {...getGaugeStatus(latestReading.ndvi, 'NDVI')} />
                   </motion.div>
@@ -464,7 +474,7 @@ export default function FarmDetails() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-8">
-                {mapReading?.satelliteImage && (
+                {mapReading && (
                   <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-card p-6 rounded-2xl border border-border shadow-sm">
                     <div className="flex items-center justify-between mb-4">
                       <h2 className="text-xl font-display font-bold flex items-center gap-2">

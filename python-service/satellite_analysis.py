@@ -373,7 +373,12 @@ def analyze_farm(roi, start_date, end_date, size_ha):
             sys.stderr.write(f"Warning: Failed to generate thumb URL: {e}\n")
             thumb_url = None
             prev_thumb_url = None
-            thermal_url = None
+        print(json.dumps({
+            "__debug_type": "SATELLITE_IMAGE_DEBUG",
+            "has_rgb_url": bool(thumb_url),
+            "has_thermal_url": bool(thermal_url),
+            "has_prev_url": bool(prev_thumb_url)
+        }), file=sys.stderr)
         
 
         # Carbon Calculation
