@@ -4,6 +4,7 @@ import json
 import datetime
 import math
 import argparse
+import os
 
 # Inicializa o Earth Engine (Lazy Loading)
 def init_earth_engine(project_id=None, credentials=None):
