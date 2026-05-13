@@ -271,6 +271,7 @@ class SatelliteRequest(BaseModel):
     lon: float
     size: float
     polygon: Optional[list] = None  # [[lon,lat], [lon,lat], ...] GeoJSON order
+    date: Optional[str] = None # YYYY-MM-DD format
 
 class ClusterRequest(BaseModel):
     lat: float
@@ -348,8 +349,20 @@ def analyze_satellite(req: SatelliteRequest):
                 roi = point.buffer(radius_m)
                 print(f"Using circular ROI with radius {radius_m:.0f}m")
             
-            end_date = datetime.datetime.now()
-            start_date = end_date - datetime.timedelta(days=30)
+            if req.date:
+                try:
+                    requested_date = datetime.datetime.strptime(req.date, "%Y-%m-%d")
+                    # Use ±15 days window as requested for backfill
+                    start_date = (requested_date - datetime.timedelta(days=15)).strftime("%Y-%m-%d")
+                    end_date = (requested_date + datetime.timedelta(days=15)).strftime("%Y-%m-%d")
+                    print(f"Using requested centered window: {start_date} to {end_date}")
+                except ValueError:
+                    end_date = datetime.datetime.now().strftime("%Y-%m-%d")
+                    start_date = (datetime.datetime.now() - datetime.timedelta(days=30)).strftime("%Y-%m-%d")
+                    print(f"Invalid date format: {req.date}, using default 30-day window from now")
+            else:
+                end_date = datetime.datetime.now().strftime("%Y-%m-%d")
+                start_date = (datetime.datetime.now() - datetime.timedelta(days=30)).strftime("%Y-%m-%d")
             
             satellite_analysis.analyze_farm(roi, start_date, end_date, req.size)
             
