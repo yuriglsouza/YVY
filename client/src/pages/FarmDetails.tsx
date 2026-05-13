@@ -352,16 +352,19 @@ export default function FarmDetails() {
                       }
                       
                       if (data.isMock) {
+                        const isColdStart = data.details?.includes("PYTHON_COLD_START_TIMEOUT");
                         toast({
-                          title: "Simulação Ativada",
-                          description: data.message || "Dados simulados gerados devido à falha na conexão.",
-                          variant: "default",
-                          className: "border-l-4 border-yellow-500"
+                          title: isColdStart ? "Serviço Inicializando" : "Simulação Ativada",
+                          description: isColdStart 
+                            ? "O serviço de satélite estava inativo e está acordando. Tentamos gerar dados simulados para não interromper seu fluxo. Tente sincronizar novamente em 30 segundos."
+                            : (data.message || "Dados simulados gerados devido à falha na conexão."),
+                          variant: isColdStart ? "default" : "default",
+                          className: isColdStart ? "border-l-4 border-blue-500" : "border-l-4 border-yellow-500"
                         });
                       } else {
                         toast({ 
-                          title: "Dados Atualizados", 
-                          description: "Sincronização com Sentinel concluída. Agora você pode gerar a análise com IA." 
+                          title: "Sincronização Concluída", 
+                          description: "Dados reais do Sentinel-2 e Landsat processados com sucesso!" 
                         });
                       }
 
@@ -384,7 +387,7 @@ export default function FarmDetails() {
                 className="rounded-xl border-primary/20 hover:bg-primary/5 hover:text-primary"
               >
                 <RefreshCw className={cn("w-4 h-4 mr-2", refreshReadings.isPending && "animate-spin")} />
-                {refreshReadings.isPending ? "Sincronizando..." : "Sincronizar Satélite"}
+                {refreshReadings.isPending ? "Processando Satélite..." : "Sincronizar Satélite"}
               </Button>
               <Button
                 variant="outline"

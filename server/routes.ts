@@ -403,6 +403,38 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
 }
 
 
+// Helper to wake up Render Free services
+async function ensurePythonServiceIsAwake(url: string, retries = 3): Promise<{ success: boolean; details?: string }> {
+  for (let i = 0; i < retries; i++) {
+    const startedAt = Date.now();
+    try {
+      console.log(`[PYTHON_WARMUP] Attempt ${i + 1}/${retries} for ${url}/warmup`);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000); // 20s for wakeup
+      
+      const response = await fetch(`${url}/warmup`, { signal: controller.signal });
+      clearTimeout(timeout);
+      
+      const elapsed = Date.now() - startedAt;
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`[PYTHON_WARMUP] Success in ${elapsed}ms:`, data);
+        return { success: true, details: `Acordado em ${elapsed}ms` };
+      }
+      
+      console.warn(`[PYTHON_WARMUP] Attempt ${i + 1} returned ${response.status} in ${elapsed}ms`);
+    } catch (err: any) {
+      const elapsed = Date.now() - startedAt;
+      console.warn(`[PYTHON_WARMUP] Attempt ${i + 1} failed in ${elapsed}ms: ${err.message}`);
+      // Exponential backoff
+      if (i < retries - 1) {
+        await new Promise(r => setTimeout(r, 2000 * (i + 1)));
+      }
+    }
+  }
+  return { success: false, details: "Serviço Python não respondeu ao warmup após múltiplas tentativas." };
+}
+
 // Exported so cron job can use it natively
 export async function syncFarmSatelliteData(farmId: number): Promise<{ 
   message: string, 
@@ -541,31 +573,62 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{
 
       if (process.env.PYTHON_SERVICE_URL) {
         try {
-          console.log(`Calling Python Service: ${process.env.PYTHON_SERVICE_URL}/satellite`);
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 90000); // 90s timeout (Render cold start)
-          const response = await fetch(`${process.env.PYTHON_SERVICE_URL}/satellite`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              lat: farm.latitude,
-              lon: farm.longitude,
-              size: farm.sizeHa,
-              polygon: farm.polygon || null
-            }),
-            signal: controller.signal
-          });
-          clearTimeout(timeout);
-
-          if (!response.ok) {
-            throw new Error(`Service returned ${response.status}`);
+          const serviceUrl = process.env.PYTHON_SERVICE_URL;
+          
+          // PHASE 1: Warmup (Wake up Render service)
+          const wakeupResult = await ensurePythonServiceIsAwake(serviceUrl);
+          if (!wakeupResult.success) {
+             return fallbackToMock(`PYTHON_COLD_START_TIMEOUT: ${wakeupResult.details}`);
           }
 
-          const result = await response.json();
-          await handleSuccess(result);
-          return;
+          // PHASE 2: Actual Sync with its own retry logic
+          let syncSuccess = false;
+          let lastError = "";
+          
+          for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+              console.log(`[SATELLITE_SYNC] Calling Python Service: ${serviceUrl}/satellite (Attempt ${attempt}/2)`);
+              const startedAt = Date.now();
+              const controller = new AbortController();
+              const timeout = setTimeout(() => controller.abort(), 120000); // 2 min timeout for heavy processing
+              
+              const response = await fetch(`${serviceUrl}/satellite`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  lat: farm.latitude,
+                  lon: farm.longitude,
+                  size: farm.sizeHa,
+                  polygon: farm.polygon || null
+                }),
+                signal: controller.signal
+              });
+              clearTimeout(timeout);
+              const elapsed = Date.now() - startedAt;
+
+              if (response.ok) {
+                const result = await response.json();
+                console.log(`[SATELLITE_SYNC] Success in ${elapsed}ms`);
+                await handleSuccess(result);
+                syncSuccess = true;
+                break;
+              } else {
+                const errText = await response.text();
+                lastError = `HTTP_${response.status}: ${errText}`;
+                console.error(`[SATELLITE_SYNC] Attempt ${attempt} failed: ${lastError}`);
+              }
+            } catch (e: any) {
+              lastError = e.message;
+              console.error(`[SATELLITE_SYNC] Attempt ${attempt} exception: ${lastError}`);
+            }
+            
+            if (attempt < 2) await new Promise(r => setTimeout(r, 3000));
+          }
+
+          if (syncSuccess) return;
+          console.warn("[SATELLITE_SYNC] All attempts failed, falling back to local script or mock...");
         } catch (e: any) {
-          console.error("Python Service Failed:", e.message || e);
+          console.error("[SATELLITE_ERROR]", e);
         }
       }
 
@@ -604,6 +667,10 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
+
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", service: "yvy-backend", timestamp: new Date().toISOString() });
+  });
 
   // TEMPORARY MANUAL CRON TRIGGER
   app.get("/api/force-cron", async (req: any, res: any) => {

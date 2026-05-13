@@ -248,7 +248,38 @@ class ClusterRequest(BaseModel):
 
 @app.get("/")
 def health_check():
-    return {"status": "ok", "service": "yvy-python-microservice"}
+    ee_ready = False
+    try:
+        # Simple test to check if EE is actually working
+        ee.ApiFunction.listApiMethods()
+        ee_ready = True
+    except:
+        ee_ready = False
+        
+    return {
+        "status": "ok", 
+        "service": "yvy-python-microservice",
+        "earthEngineReady": ee_ready,
+        "version": "1.1.0"
+    }
+
+@app.get("/warmup")
+async def warmup():
+    """Endpoint to trigger initialization and check readiness"""
+    try:
+        # Check if initialized
+        ee.ApiFunction.listApiMethods()
+        return {"status": "ready", "earthEngineReady": True}
+    except Exception as e:
+        # If not ready, try to re-init if credentials exist
+        print(f"Warmup: EE not ready, attempt re-init: {e}")
+        try:
+            # Re-run startup logic or a subset
+            await startup_event()
+            ee.ApiFunction.listApiMethods()
+            return {"status": "initialized", "earthEngineReady": True}
+        except Exception as retry_e:
+            return {"status": "error", "earthEngineReady": False, "error": str(retry_e)}
 
 @app.post("/satellite")
 def analyze_satellite(req: SatelliteRequest):

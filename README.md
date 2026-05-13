@@ -30,6 +30,10 @@ O projeto utiliza Drizzle ORM. Para aplicar alterações no schema:
 2. **Produção (Recomendado)**: `npx drizzle-kit migrate`
    *As migrations versionadas estão localizadas na pasta `/migrations`.*
 
+### Manutenção (Keep-Alive)
+No plano gratuito do Render, os serviços entram em modo de espera após 15 minutos de inatividade. Para evitar atrasos na primeira sincronização:
+- Utilize um monitor de uptime (ex: UptimeRobot ou Cron-job.org) para pingar o endpoint `/ping` do serviço Python e `/api/health` do backend a cada 10-14 minutos.
+
 ### Execução
 - Desenvolvimento: `npm run dev`
 - Produção: `npm run build && npm run start`
