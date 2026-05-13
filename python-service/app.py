@@ -277,7 +277,8 @@ async def warmup(request: Request):
         ee.ApiFunction.listApiMethods()
         return {
             "status": "ok", 
-            "service": "yvy-python-satellite", 
+            "service": "python-satellite", 
+            "version": "base64-storage-contract-v1",
             "earthEngineReady": True,
             "simulationAllowed": False
         }
@@ -288,7 +289,8 @@ async def warmup(request: Request):
             ee.ApiFunction.listApiMethods()
             return {
                 "status": "ok", 
-                "service": "yvy-python-satellite", 
+                "service": "python-satellite", 
+                "version": "base64-storage-contract-v1",
                 "earthEngineReady": True,
                 "simulationAllowed": False
             }

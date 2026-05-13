@@ -352,6 +352,15 @@ export default function FarmDetails() {
                 onClick={() => {
                   refreshReadings.mutate(farmId, {
                     onSuccess: (data: any) => {
+                      if (data.success === false) {
+                        toast({ 
+                          title: "Erro na Sincronização", 
+                          description: data.message || "Falha ao processar dados de satélite.", 
+                          variant: "destructive" 
+                        });
+                        return;
+                      }
+
                       setSelectedReadingIdx(null);
                       if (data.readingId) {
                         setLatestSyncedReadingId(data.readingId);

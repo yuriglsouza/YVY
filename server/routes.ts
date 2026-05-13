@@ -444,6 +444,9 @@ async function ensurePythonServiceIsAwake(url: string, retries = 3): Promise<{ s
       if (response.ok) {
         const data = await response.json();
         console.log(`[PYTHON_WARMUP] Success in ${elapsed}ms:`, data);
+        if (data.version) {
+          console.log(`[PYTHON_SERVICE_VERSION] ${data.version}`);
+        }
         if (data.earthEngineReady === false) {
           return { success: false, details: data.message || "Google Earth Engine não está pronto", geeReady: false };
         }
@@ -534,15 +537,22 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{
             isSimulated: result.isSimulated || false,
           });
 
-          console.log("[SATELLITE_PYTHON_IMAGE_PAYLOAD]", {
+          console.log("[SATELLITE_PYTHON_CONTRACT]", {
             hasSatelliteBase64: Boolean(result.satellite_image_base64),
-            satelliteBase64Length: result.satellite_image_base64?.length || 0,
             hasThermalBase64: Boolean(result.thermal_image_base64),
+            satelliteBase64Length: result.satellite_image_base64?.length || 0,
             thermalBase64Length: result.thermal_image_base64?.length || 0,
-            stillHasGeeUrl: Boolean(
-              result.satellite_image?.includes?.("earthengine.googleapis.com")
-            ),
+            hasLegacySatelliteUrl: Boolean(result.satellite_image?.includes?.("earthengine.googleapis.com")),
+            hasLegacyThermalUrl: Boolean(result.thermal_image?.includes?.("earthengine.googleapis.com"))
           });
+
+          if (!result.satellite_image_base64 && result.satellite_image?.includes("earthengine.googleapis.com")) {
+            return resolve({
+              success: false,
+              code: "PYTHON_CONTRACT_INVALID",
+              message: "O serviço Python retornou contrato antigo sem imagens em Base64."
+            });
+          }
           
           let finalSatelliteUrl: string | null = null;
           let finalThermalUrl: string | null = null;
@@ -1530,8 +1540,18 @@ export async function registerRoutes(
   app.post(api.farms.refreshReadings.path, async (req, res) => {
     const farmId = Number(req.params.id);
     const result = await syncFarmSatelliteData(farmId);
+
+    if (result.success === false) {
+      let statusCode = 500;
+      if (result.code === "PYTHON_WARMUP_UNAUTHORIZED") statusCode = 401;
+      else if (result.code === "PYTHON_CONTRACT_INVALID") statusCode = 502;
+      else if (result.code === "GEE_AUTH_ERROR" || result.details?.includes("PYTHON_COLD_START_TIMEOUT")) statusCode = 503;
+      
+      return res.status(statusCode).json(result);
+    }
+
     if (result.error) {
-      return res.status(404).json({ message: result.error });
+      return res.status(400).json({ message: result.error });
     }
     await storage.updateFarm(farmId, { lastSyncAt: new Date() });
     res.json(result);
