@@ -1,7 +1,7 @@
 import os
 import json
 import math
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -264,8 +264,14 @@ def health_check():
     }
 
 @app.get("/warmup")
-async def warmup():
+async def warmup(request: Request):
     """Endpoint to trigger initialization and check readiness"""
+    expected_secret = os.environ.get("HEARTBEAT_SECRET")
+    if expected_secret:
+        received_secret = request.headers.get("x-heartbeat-secret")
+        if received_secret != expected_secret:
+            raise HTTPException(status_code=401, detail="Unauthorized heartbeat")
+
     try:
         # Check if initialized
         ee.ApiFunction.listApiMethods()
