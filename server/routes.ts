@@ -411,7 +411,7 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
 
 
 // Helper to wake up Render Free services
-async function ensurePythonServiceIsAwake(url: string, retries = 3): Promise<{ success: boolean; details?: string; geeReady?: boolean }> {
+async function ensurePythonServiceIsAwake(url: string, retries = 3): Promise<{ success: boolean; details?: string; geeReady?: boolean; code?: string }> {
   for (let i = 0; i < retries; i++) {
     const startedAt = Date.now();
     try {
@@ -419,7 +419,25 @@ async function ensurePythonServiceIsAwake(url: string, retries = 3): Promise<{ s
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 20000); // 20s for wakeup
       
-      const response = await fetch(`${url}/warmup`, { signal: controller.signal });
+      const heartbeatSecret = process.env.HEARTBEAT_SECRET || process.env.PYTHON_WARMUP_SECRET;
+      
+      if (i === 0) {
+        console.log("[PYTHON_WARMUP_AUTH]", {
+          hasHeartbeatSecret: Boolean(process.env.HEARTBEAT_SECRET),
+          hasPythonWarmupSecret: Boolean(process.env.PYTHON_WARMUP_SECRET),
+        });
+      }
+
+      const headers: Record<string, string> = {};
+      if (heartbeatSecret) {
+        headers["x-heartbeat-secret"] = heartbeatSecret;
+      }
+      
+      const response = await fetch(`${url}/warmup`, { 
+        method: "GET",
+        headers,
+        signal: controller.signal 
+      });
       clearTimeout(timeout);
       
       const elapsed = Date.now() - startedAt;
@@ -430,6 +448,15 @@ async function ensurePythonServiceIsAwake(url: string, retries = 3): Promise<{ s
           return { success: false, details: data.message || "Google Earth Engine não está pronto", geeReady: false };
         }
         return { success: true, details: `Acordado em ${elapsed}ms`, geeReady: true };
+      }
+
+      if (response.status === 401) {
+        return { 
+          success: false, 
+          details: "O backend Node não está autorizado a chamar o warmup do serviço Python. Configure HEARTBEAT_SECRET no backend.", 
+          geeReady: false, 
+          code: "PYTHON_WARMUP_UNAUTHORIZED" 
+        };
       }
       
       console.warn(`[PYTHON_WARMUP] Attempt ${i + 1} returned ${response.status} in ${elapsed}ms`);
@@ -675,6 +702,14 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{
           // PHASE 1: Warmup (Wake up Render service)
           const wakeupResult = await ensurePythonServiceIsAwake(serviceUrl);
           if (!wakeupResult.success) {
+             if (wakeupResult.code === "PYTHON_WARMUP_UNAUTHORIZED") {
+               resolve({
+                 success: false,
+                 code: "PYTHON_WARMUP_UNAUTHORIZED",
+                 message: wakeupResult.details || "Não autorizado a chamar o serviço Python."
+               });
+               return;
+             }
              return fallbackToMock(`PYTHON_COLD_START_TIMEOUT: ${wakeupResult.details}`);
           }
 
@@ -1698,6 +1733,15 @@ export async function registerRoutes(
     try {
       const imageUrl = req.query.url as string;
       if (!imageUrl) return res.status(400).send("URL query param is required");
+
+      // Tratamento gentil para URLs antigas do Earth Engine que quebravam o PDF (401)
+      if (imageUrl.includes("earthengine.googleapis.com")) {
+        console.warn("[Proxy Image] Ignorando URL temporária legada do Earth Engine:", imageUrl);
+        const transparentPixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64");
+        res.setHeader("Content-Type", "image/png");
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        return res.send(transparentPixel);
+      }
 
       const response = await fetch(imageUrl);
       if (!response.ok) {

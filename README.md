@@ -42,7 +42,12 @@ No seu repositório GitHub, vá em **Settings > Secrets and variables > Actions*
 O serviço de satélite requer autenticação com o **Google Earth Engine (GEE)**. Adicione as seguintes variáveis no painel do Render:
 - `GEE_PROJECT_ID`: O ID do seu projeto no Google Cloud (que tem a API do GEE ativada).
 - `GOOGLE_APPLICATION_CREDENTIALS_JSON`: O conteúdo JSON completo da sua Service Account do Google.
-- `HEARTBEAT_SECRET` (Opcional): A mesma chave configurada no GitHub.
+- `HEARTBEAT_SECRET`: O segredo que autoriza o warmup.
+
+#### Configuração no Backend Node (Vercel ou Render)
+O backend Express que gerencia a sincronização também precisa saber o segredo para conseguir acordar o serviço Python.
+Adicione nas variáveis do seu backend:
+- `HEARTBEAT_SECRET`: A **mesma chave** configurada no GitHub e no Render. (Alternativamente, você pode usar `PYTHON_WARMUP_SECRET`).
 
 #### Configuração de Storage Persistente (Imagens de Satélite)
 As URLs de visualização do Google Earth Engine são temporárias e expiram rapidamente. O sistema baixa a imagem em tempo real e armazena de forma permanente.
