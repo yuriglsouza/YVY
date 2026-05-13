@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, real, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, real, date, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -83,7 +83,11 @@ export const reports = pgTable("reports", {
   content: text("content").notNull(), // The AI analysis text (informal)
   formalContent: text("formal_content"), // The technical report for PDF
   readingsSnapshot: jsonb("readings_snapshot"), // Store the readings used for this report
-  sourceReadingId: integer("source_reading_id"),
+  sourceReadingId: integer("source_reading_id").references(() => readings.id),
+}, (table) => {
+  return {
+    sourceReadingIdIdx: index("source_reading_id_idx").on(table.sourceReadingId),
+  };
 });
 
 export const insertReportSchema = createInsertSchema(reports).omit({ id: true, date: true });

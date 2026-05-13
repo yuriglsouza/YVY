@@ -1,0 +1,2 @@
+ALTER TABLE "reports" ADD CONSTRAINT "reports_source_reading_id_readings_id_fk" FOREIGN KEY ("source_reading_id") REFERENCES "public"."readings"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "source_reading_id_idx" ON "reports" USING btree ("source_reading_id");

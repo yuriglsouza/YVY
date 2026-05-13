@@ -8,6 +8,13 @@
       "when": 1778632332291,
       "tag": "0000_update_schema_robustness",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778632634565,
+      "tag": "0001_update_schema_robustness_v2",
+      "breakpoints": true
     }
   ]
 }
