@@ -16,22 +16,20 @@ jobs:
           PYTHON_SERVICE_URL: ${{ secrets.PYTHON_SERVICE_URL }}
           HEARTBEAT_SECRET: ${{ secrets.HEARTBEAT_SECRET }}
         run: |
-          if [ -z "$PYTHON_SERVICE_URL" ]; then
-            echo "PYTHON_SERVICE_URL secret is not configured"
-            exit 1
-          fi
-
-          echo "Pinging Python warmup endpoint..."
+          # Remove trailing slash if present to avoid //warmup
+          CLEAN_URL=$(echo "${PYTHON_SERVICE_URL}" | sed 's/\/$//')
+          
+          echo "Pinging: ${CLEAN_URL}/warmup"
 
           if [ -z "$HEARTBEAT_SECRET" ]; then
             curl --fail --show-error --silent \
               --max-time 60 \
-              "$PYTHON_SERVICE_URL/warmup"
+              "${CLEAN_URL}/warmup"
           else
             curl --fail --show-error --silent \
               --max-time 60 \
               -H "x-heartbeat-secret: $HEARTBEAT_SECRET" \
-              "$PYTHON_SERVICE_URL/warmup"
+              "${CLEAN_URL}/warmup"
           fi
 
           echo "Python service heartbeat completed successfully."
