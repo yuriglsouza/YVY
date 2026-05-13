@@ -178,12 +178,8 @@ async function generateAgronomistReport(
     // Log error to file for debugging
     const fs = await import("fs");
     fs.appendFileSync("debug_errors.log", `\n\n--- ${new Date().toISOString()} ---\n`);
-    fs.appendFileSync("debug_errors.log", `AI_ERROR: ${JSON.stringify(err, Object.getOwnPropertyNames(err))}\n`);
-
-    return {
-      content: "Erro ao gerar análise. Tente novamente em instantes.",
-      formalContent: "Erro na geração do relatório técnico."
-    };
+    // Rethrow to be caught by the route handler for non-silent failure
+    throw err;
   }
 }
 
