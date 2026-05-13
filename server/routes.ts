@@ -462,6 +462,25 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{
   createdAt?: Date | null,
   updatedIndexes?: any
 }> {
+  console.log("[SATELLITE_STORAGE_VERSION]", {
+    version: "storage-persistence-enabled",
+    bucket: process.env.SUPABASE_STORAGE_BUCKET,
+    hasSupabaseUrl: Boolean(process.env.SUPABASE_URL),
+    hasServiceRole: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+  });
+
+  if (!process.env.SUPABASE_URL) {
+    throw new Error("SUPABASE_URL ausente no backend");
+  }
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY ausente no backend");
+  }
+
+  if (!process.env.SUPABASE_STORAGE_BUCKET) {
+    throw new Error("SUPABASE_STORAGE_BUCKET ausente no backend");
+  }
+
   try {
     const farm = await storage.getFarm(farmId);
     if (!farm) {
@@ -479,47 +498,23 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{
 
           let existingTodayReading = prevReadings.find(r => r.date && new Date(r.date).toISOString().split('T')[0] === resultDateStr);
 
-          // Lógica inquebrável para a "Leitura Anterior"
-          if (result.prev_satellite_image) {
-            const resultTime = resultDateObj.getTime();
-
-            // Encontra exatamente a mesma leitura velha que o Frontend exibirá (> 20 dias atrás)
-            const targetPastReading = prevReadings.find(r => {
-              if (!r.date) return false;
-              const rTime = new Date(r.date).getTime();
-              return (resultTime - rTime) > 20 * 24 * 60 * 60 * 1000;
-            });
-
-            if (targetPastReading) {
-              // Se encontrou uma leitura mock ou verdadeira do passado, salva o link real de satélite nela!
-              await storage.updateReading(targetPastReading.id, { satelliteImage: result.prev_satellite_image });
-              console.log(`Updated Previous Reading ID ${targetPastReading.id} with fresh satellite_image URL`);
-            } else {
-              // Nenhuma leitura com mais de 20 dias existe. Vamos criar uma "Ghost Reading" realística de 30 dias atrás.
-              const mockPastDate = new Date(resultDateObj);
-              mockPastDate.setDate(mockPastDate.getDate() - 30);
-              const pastReading: InsertReading = {
-                farmId,
-                date: mockPastDate.toISOString(),
-                ndvi: Math.max(0, (result.ndvi || 0.5) - 0.05),
-                ndwi: result.ndwi || 0,
-                ndre: result.ndre || 0,
-                rvi: result.rvi || 0,
-                otci: result.otci || 0,
-                temperature: result.temperature || 0,
-                cloudCover: 0,
-                satelliteImage: result.prev_satellite_image,
-                thermalImage: result.thermal_image,
-              };
-              await storage.createReading(pastReading);
-            }
-          }
+          // A lógica de prev_satellite_image foi removida porque não usamos mais URLs temporárias do Earth Engine.
           console.log("[SATELLITE_SYNC_RESPONSE_DEBUG]", {
             farmId,
             hasSatelliteImageBase64: Boolean(result.satellite_image_base64),
             hasThermalImageBase64: Boolean(result.thermal_image_base64),
             hasBounds: Boolean(result.bounds),
             isSimulated: result.isSimulated || false,
+          });
+
+          console.log("[SATELLITE_PYTHON_IMAGE_PAYLOAD]", {
+            hasSatelliteBase64: Boolean(result.satellite_image_base64),
+            satelliteBase64Length: result.satellite_image_base64?.length || 0,
+            hasThermalBase64: Boolean(result.thermal_image_base64),
+            thermalBase64Length: result.thermal_image_base64?.length || 0,
+            stillHasGeeUrl: Boolean(
+              result.satellite_image?.includes?.("earthengine.googleapis.com")
+            ),
           });
           
           let finalSatelliteUrl: string | null = null;
@@ -530,31 +525,53 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{
              if (result.satellite_image_base64) {
                  const buffer = Buffer.from(result.satellite_image_base64, "base64");
                  const path = `farms/${farmId}/readings/${timestamp}/satellite.png`;
+                 
+                 console.log("[SUPABASE_STORAGE_UPLOAD_START]", {
+                   bucket: supabaseBucket,
+                   satellitePath: path,
+                   satelliteBytes: buffer.length,
+                 });
+
                  const { error } = await supabase.storage.from(supabaseBucket).upload(path, buffer, {
                      contentType: result.satellite_image_content_type || "image/png",
                      upsert: true,
                  });
                  if (error) {
                      console.error("Supabase Upload Error (Satellite):", error);
-                     return resolve({ success: false, code: "SATELLITE_IMAGE_STORAGE_ERROR", message: "Não foi possível salvar a imagem de satélite no Storage." });
+                     return resolve({ success: false, code: "SATELLITE_IMAGE_STORAGE_ERROR", message: "Não foi possível salvar a imagem de satélite no Supabase Storage." });
                  }
                  const { data } = supabase.storage.from(supabaseBucket).getPublicUrl(path);
                  finalSatelliteUrl = data.publicUrl;
+                 
+                 console.log("[SUPABASE_STORAGE_UPLOAD_SUCCESS]", {
+                   satellitePublicUrl: finalSatelliteUrl,
+                 });
              }
              
              if (result.thermal_image_base64) {
                  const buffer = Buffer.from(result.thermal_image_base64, "base64");
                  const path = `farms/${farmId}/readings/${timestamp}/thermal.png`;
+
+                 console.log("[SUPABASE_STORAGE_UPLOAD_START]", {
+                   bucket: supabaseBucket,
+                   thermalPath: path,
+                   thermalBytes: buffer.length,
+                 });
+
                  const { error } = await supabase.storage.from(supabaseBucket).upload(path, buffer, {
                      contentType: result.thermal_image_content_type || "image/png",
                      upsert: true,
                  });
                  if (error) {
                      console.error("Supabase Upload Error (Thermal):", error);
-                     return resolve({ success: false, code: "SATELLITE_IMAGE_STORAGE_ERROR", message: "Não foi possível salvar a imagem térmica no Storage." });
+                     return resolve({ success: false, code: "SATELLITE_IMAGE_STORAGE_ERROR", message: "Não foi possível salvar a imagem térmica no Supabase Storage." });
                  }
                  const { data } = supabase.storage.from(supabaseBucket).getPublicUrl(path);
                  finalThermalUrl = data.publicUrl;
+
+                 console.log("[SUPABASE_STORAGE_UPLOAD_SUCCESS]", {
+                   thermalPublicUrl: finalThermalUrl,
+                 });
              }
           }
 
@@ -575,6 +592,13 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{
             carbonStock: result.carbon_stock,
             co2Equivalent: result.co2_equivalent
           };
+
+          if (newReadingData.satelliteImage?.includes("earthengine.googleapis.com")) {
+            throw new Error("BUG: tentativa de salvar URL temporária do Earth Engine em satelliteImage");
+          }
+          if (newReadingData.thermalImage?.includes("earthengine.googleapis.com")) {
+            throw new Error("BUG: tentativa de salvar URL temporária do Earth Engine em thermalImage");
+          }
 
           let finalReading;
           if (existingTodayReading) {
