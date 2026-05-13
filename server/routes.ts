@@ -7,6 +7,13 @@ import { z } from "zod";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { type Reading, type InsertReading, insertFarmSchema, insertReadingSchema, insertReportSchema, insertUserSchema, insertClientSchema, insertTaskSchema } from "../shared/schema.js";
 import { sendEmail, buildAlertEmailHTML, buildWeeklyReportEmailHTML } from "./email.js";
+import { createClient } from "@supabase/supabase-js";
+
+// Initialize Supabase Storage Client (Server-side ONLY)
+const supabaseUrl = process.env.SUPABASE_URL || "";
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const supabaseBucket = process.env.SUPABASE_STORAGE_BUCKET || "satellite-images";
+const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
 // Mock Satellite Data Generator
 function generateMockReadings(farmId: number, count = 10) {
@@ -509,11 +516,47 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{
           }
           console.log("[SATELLITE_SYNC_RESPONSE_DEBUG]", {
             farmId,
-            hasSatelliteImage: Boolean(result.satellite_image),
-            hasThermalImage: Boolean(result.thermal_image),
+            hasSatelliteImageBase64: Boolean(result.satellite_image_base64),
+            hasThermalImageBase64: Boolean(result.thermal_image_base64),
             hasBounds: Boolean(result.bounds),
             isSimulated: result.isSimulated || false,
           });
+          
+          let finalSatelliteUrl: string | null = null;
+          let finalThermalUrl: string | null = null;
+
+          if (supabase) {
+             const timestamp = Date.now();
+             if (result.satellite_image_base64) {
+                 const buffer = Buffer.from(result.satellite_image_base64, "base64");
+                 const path = `farms/${farmId}/readings/${timestamp}/satellite.png`;
+                 const { error } = await supabase.storage.from(supabaseBucket).upload(path, buffer, {
+                     contentType: result.satellite_image_content_type || "image/png",
+                     upsert: true,
+                 });
+                 if (error) {
+                     console.error("Supabase Upload Error (Satellite):", error);
+                     return resolve({ success: false, code: "SATELLITE_IMAGE_STORAGE_ERROR", message: "Não foi possível salvar a imagem de satélite no Storage." });
+                 }
+                 const { data } = supabase.storage.from(supabaseBucket).getPublicUrl(path);
+                 finalSatelliteUrl = data.publicUrl;
+             }
+             
+             if (result.thermal_image_base64) {
+                 const buffer = Buffer.from(result.thermal_image_base64, "base64");
+                 const path = `farms/${farmId}/readings/${timestamp}/thermal.png`;
+                 const { error } = await supabase.storage.from(supabaseBucket).upload(path, buffer, {
+                     contentType: result.thermal_image_content_type || "image/png",
+                     upsert: true,
+                 });
+                 if (error) {
+                     console.error("Supabase Upload Error (Thermal):", error);
+                     return resolve({ success: false, code: "SATELLITE_IMAGE_STORAGE_ERROR", message: "Não foi possível salvar a imagem térmica no Storage." });
+                 }
+                 const { data } = supabase.storage.from(supabaseBucket).getPublicUrl(path);
+                 finalThermalUrl = data.publicUrl;
+             }
+          }
 
           const newReadingData: Partial<InsertReading> = {
             farmId,
@@ -525,8 +568,8 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{
             otci: result.otci,
             temperature: result.temperature,
             cloudCover: result.cloud_cover ?? 0,
-            satelliteImage: result.satellite_image,
-            thermalImage: result.thermal_image,
+            satelliteImage: finalSatelliteUrl || null,
+            thermalImage: finalThermalUrl || null,
             imageBounds: result.bounds,
             regionalNdvi: result.regional_ndvi,
             carbonStock: result.carbon_stock,

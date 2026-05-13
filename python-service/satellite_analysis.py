@@ -5,6 +5,8 @@ import datetime
 import math
 import argparse
 import os
+import requests
+import base64
 
 # Inicializa o Earth Engine (Lazy Loading)
 def init_earth_engine(project_id=None, credentials=None):
@@ -404,6 +406,35 @@ def analyze_farm(roi, start_date, end_date, size_ha):
         carbon_stock = total_biomass * 0.47
         co2_equivalent = carbon_stock * 3.67
 
+        # Converter URLs em Base64 para não enviar URLs temporárias ao Frontend
+        satellite_image_base64 = None
+        satellite_content_type = None
+        if thumb_url:
+            try:
+                sys.stderr.write(f"Downloading RGB thumbnail from GEE...\n")
+                r = requests.get(thumb_url, timeout=60)
+                if r.status_code == 200 and len(r.content) > 0:
+                    satellite_image_base64 = base64.b64encode(r.content).decode('utf-8')
+                    satellite_content_type = r.headers.get("content-type", "image/png")
+                else:
+                    sys.stderr.write(f"Warning: RGB thumbnail HTTP {r.status_code}\n")
+            except Exception as e:
+                sys.stderr.write(f"Warning: Failed to download RGB thumbnail: {e}\n")
+
+        thermal_image_base64 = None
+        thermal_content_type = None
+        if thermal_url:
+            try:
+                sys.stderr.write(f"Downloading Thermal thumbnail from GEE...\n")
+                rt = requests.get(thermal_url, timeout=60)
+                if rt.status_code == 200 and len(rt.content) > 0:
+                    thermal_image_base64 = base64.b64encode(rt.content).decode('utf-8')
+                    thermal_content_type = rt.headers.get("content-type", "image/png")
+                else:
+                    sys.stderr.write(f"Warning: Thermal thumbnail HTTP {rt.status_code}\n")
+            except Exception as e:
+                sys.stderr.write(f"Warning: Failed to download Thermal thumbnail: {e}\n")
+
         # Tratar casos onde não há imagem (valores None/Null)
         result = {
             "date": end_date_str,
@@ -414,9 +445,10 @@ def analyze_farm(roi, start_date, end_date, size_ha):
             "temperature": val_s3.get('lst', 0) if val_s3.get('lst') is not None else 0,
             "otci": val_otci.get('otci', 0) if val_otci.get('otci') is not None else 0,
             "cloud_cover": cloud_cover,
-            "satellite_image": thumb_url,
-            "thermal_image": thermal_url,
-            "prev_satellite_image": prev_thumb_url,
+            "satellite_image_base64": satellite_image_base64,
+            "satellite_image_content_type": satellite_content_type,
+            "thermal_image_base64": thermal_image_base64,
+            "thermal_image_content_type": thermal_content_type,
             "bounds": bounds_overlay,
             "regional_ndvi": regional_ndvi,
             "carbon_stock": carbon_stock,

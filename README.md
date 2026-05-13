@@ -44,6 +44,16 @@ O serviço de satélite requer autenticação com o **Google Earth Engine (GEE)*
 - `GOOGLE_APPLICATION_CREDENTIALS_JSON`: O conteúdo JSON completo da sua Service Account do Google.
 - `HEARTBEAT_SECRET` (Opcional): A mesma chave configurada no GitHub.
 
+#### Configuração de Storage Persistente (Imagens de Satélite)
+As URLs de visualização do Google Earth Engine são temporárias e expiram rapidamente. O sistema baixa a imagem em tempo real e armazena de forma permanente.
+Para que isso funcione, você deve configurar o **Supabase Storage**:
+1. Crie um bucket no seu projeto Supabase chamado `satellite-images`.
+2. Defina o bucket como **Público**.
+3. Configure as variáveis de ambiente obrigatórias no backend:
+   - `SUPABASE_URL`: A URL do seu projeto Supabase.
+   - `SUPABASE_SERVICE_ROLE_KEY`: A sua chave Service Role (NUNCA usar no frontend ou compartilhar).
+   - `SUPABASE_STORAGE_BUCKET=satellite-images`.
+
 > **Importante sobre Dados Simulados**: O sistema foi ajustado para bloquear simulações de satélite em produção. Se as credenciais do GEE estiverem incorretas, o aplicativo retornará erro. Para habilitar dados simulados explicitamente em desenvolvimento, adicione `ALLOW_SIMULATED_SATELLITE_DATA=true` no seu arquivo `.env`.
 
 > **Nota**: Manter o serviço acordado 24/7 consome aproximadamente 720 horas/mês. Monitore os limites do seu plano Render Free (geralmente 750h/mês).

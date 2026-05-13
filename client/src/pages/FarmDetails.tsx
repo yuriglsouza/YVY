@@ -489,7 +489,14 @@ export default function FarmDetails() {
                     <div className="w-full h-[600px] overflow-hidden rounded-xl border border-border/50 relative group bg-black/95">
                       {showThermal ? (
                         mapReading.thermalImage || mapReading.satelliteImage ? (
-                          <img src={mapReading.thermalImage || mapReading.satelliteImage} alt="Satellite View" className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105" />
+                          <>
+                            {mapReading.thermalImage?.includes("earthengine.googleapis.com") && (
+                              <div className="absolute top-0 left-0 right-0 z-50 bg-red-500/90 text-white text-xs text-center py-1 font-medium">
+                                Imagem temporária antiga detectada. Sincronize novamente para gerar uma imagem permanente.
+                              </div>
+                            )}
+                            <img src={mapReading.thermalImage || mapReading.satelliteImage} alt="Satellite View" className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105" />
+                          </>
                         ) : (
                           <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground/50">
                             <Cloud className="w-12 h-12 mb-4 opacity-50" />
@@ -498,7 +505,14 @@ export default function FarmDetails() {
                         )
                       ) : (
                         mapReading.satelliteImage ? (
-                          <img src={mapReading.satelliteImage} alt="Satellite View" className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105" />
+                          <>
+                            {mapReading.satelliteImage.includes("earthengine.googleapis.com") && (
+                              <div className="absolute top-0 left-0 right-0 z-50 bg-red-500/90 text-white text-xs text-center py-1 font-medium">
+                                Imagem temporária antiga detectada. Sincronize novamente para gerar uma imagem permanente.
+                              </div>
+                            )}
+                            <img src={mapReading.satelliteImage} alt="Satellite View" className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105" />
+                          </>
                         ) : (
                           <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground/50">
                             <Cloud className="w-12 h-12 mb-4 opacity-50" />

@@ -130,6 +130,9 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
 
     const getProxyUrl = (url?: string) => {
         if (!url) return undefined;
+        // Se for URL do Supabase, não precisa de proxy, pois é pública e tem CORS configurado
+        if (url.includes('supabase.co')) return url;
+        // Se for URL legada do Earth Engine, tentamos o proxy, mas se der 500 vai falhar graciosamente no onErrord a <img>
         if (url.includes(window.location.host) || url.includes('/api/proxy') || url.includes('data:image')) return url;
         return `/api/proxy-image?url=${encodeURIComponent(url)}`;
     };
