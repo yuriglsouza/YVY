@@ -17,17 +17,23 @@ export function useReports(farmId: number) {
 export function useGenerateReport() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (farmId: number) => {
+    mutationFn: async ({ farmId, sourceReadingId }: { farmId: number, sourceReadingId?: number }) => {
       const url = buildUrl(api.reports.generate.path, { id: farmId });
       const res = await fetch(url, {
         method: api.reports.generate.method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceReadingId }),
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Failed to generate report");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to generate report");
+      }
       return api.reports.generate.responses[201].parse(await res.json());
     },
-    onSuccess: (_, farmId) => {
+    onSuccess: (_, { farmId }) => {
       queryClient.invalidateQueries({ queryKey: [api.reports.list.path, farmId] });
+      queryClient.invalidateQueries({ queryKey: ["reports", farmId] });
     },
   });
 }

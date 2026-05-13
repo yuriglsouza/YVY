@@ -61,8 +61,9 @@ async function generateAgronomistReport(
 
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const modelName = process.env.GEMINI_MODEL || "gemini-1.5-flash";
     const model = genAI.getGenerativeModel({
-      model: "gemma-3-27b-it"
+      model: modelName
     });
 
     const isPerennial = cropType.toLowerCase().includes("banana") || cropType.toLowerCase().includes("fruti") || cropType.toLowerCase().includes("café");
@@ -164,12 +165,20 @@ async function generateAgronomistReport(
 
     return parsed;
 
-  } catch (err) {
-    console.error("AI Generation Error:", err);
-    // Log error to file
+  } catch (err: any) {
+    const modelName = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+    console.error("[AI_REPORT_ERROR]", {
+      farmId: reading.farmId,
+      readingId: reading.id,
+      modelName,
+      errorName: err?.name,
+      errorMessage: err?.message,
+    });
+
+    // Log error to file for debugging
     const fs = await import("fs");
     fs.appendFileSync("debug_errors.log", `\n\n--- ${new Date().toISOString()} ---\n`);
-    fs.appendFileSync("debug_errors.log", `ERROR: ${JSON.stringify(err, Object.getOwnPropertyNames(err))}\n`);
+    fs.appendFileSync("debug_errors.log", `AI_ERROR: ${JSON.stringify(err, Object.getOwnPropertyNames(err))}\n`);
 
     return {
       content: "Erro ao gerar análise. Tente novamente em instantes.",
@@ -399,7 +408,19 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
 
 
 // Exported so cron job can use it natively
-export async function syncFarmSatelliteData(farmId: number): Promise<{ message: string, reading?: any, isMock?: boolean, details?: string, error?: string }> {
+export async function syncFarmSatelliteData(farmId: number): Promise<{ 
+  message: string, 
+  reading?: any, 
+  isMock?: boolean, 
+  details?: string, 
+  error?: string,
+  success?: boolean,
+  farmId?: number,
+  readingId?: number,
+  date?: string,
+  createdAt?: Date | null,
+  updatedIndexes?: any
+}> {
   try {
     const farm = await storage.getFarm(farmId);
     if (!farm) {
@@ -479,7 +500,26 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{ message: 
             checkAndSendAlerts(finalReading as Reading, farmId).catch(console.error);
           }
 
-          resolve({ message: "Dados atualizados com sucesso", reading: finalReading });
+          if (!finalReading) {
+            throw new Error("Falha ao salvar leitura final");
+          }
+
+          resolve({ 
+            message: "Dados atualizados com sucesso", 
+            success: true,
+            farmId: farmId,
+            readingId: finalReading.id,
+            date: finalReading.date,
+            createdAt: finalReading.createdAt,
+            updatedIndexes: {
+              ndvi: finalReading.ndvi,
+              ndre: finalReading.ndre,
+              ndwi: finalReading.ndwi,
+              rvi: finalReading.rvi,
+              otci: finalReading.otci,
+              temperature: finalReading.temperature
+            }
+          });
         } catch (e: any) {
           await fallbackToMock(e.message || "Error processing result");
         }
@@ -1190,39 +1230,93 @@ export async function registerRoutes(
   });
 
   app.post(api.reports.generate.path, async (req, res) => {
-    const farmId = Number(req.params.id);
-    const reading = await storage.getLatestReading(farmId);
-    const farm = await storage.getFarm(farmId);
+    try {
+      const farmId = Number(req.params.id);
+      const { sourceReadingId } = req.body;
 
-    if (!reading || !farm) {
-      return res.status(404).json({ message: "No readings available to analyze" });
+      const farm = await storage.getFarm(farmId);
+      if (!farm) {
+        return res.status(404).json({ success: false, message: "Fazenda não encontrada." });
+      }
+
+      let reading;
+      if (sourceReadingId) {
+        reading = await storage.getReading(Number(sourceReadingId));
+        if (!reading) {
+          return res.status(400).json({ success: false, message: "A leitura informada não foi encontrada." });
+        }
+        if (reading.farmId !== farmId) {
+          return res.status(400).json({ success: false, message: "A leitura informada não pertence a esta fazenda." });
+        }
+      } else {
+        reading = await storage.getLatestReading(farmId);
+      }
+
+      if (!reading) {
+        return res.status(409).json({ 
+          success: false, 
+          message: "Nenhuma leitura de satélite encontrada. Sincronize os dados antes de gerar a análise." 
+        });
+      }
+
+      // Check for existing report for this EXACT reading to avoid duplicates
+      const existingReports = await storage.getReports(farmId);
+      const duplicate = existingReports.find(r => r.sourceReadingId === reading!.id);
+      if (duplicate) {
+        return res.status(200).json(duplicate);
+      }
+
+      // 1. Prediction Data (Optional)
+      const predictionDate = new Date();
+      predictionDate.setDate(predictionDate.getDate() + 30); 
+      const dateStr = predictionDate.toISOString().split('T')[0];
+      
+      let predValue = null;
+      let predictionWarning = null;
+      
+      try {
+        const predOutput = await getPrediction(farmId, dateStr);
+        if (predOutput.error) {
+          predictionWarning = predOutput.error;
+        } else {
+          predValue = predOutput.result !== undefined ? predOutput.result : null;
+        }
+      } catch (predErr) {
+        console.warn("[PREDICTION_SKIPPED]", predErr);
+        predictionWarning = "Erro ao processar predição de produtividade.";
+      }
+
+      // 2. Climate Forecast Data
+      const climateForecast = await fetchClimateForecast(farm.latitude, farm.longitude);
+
+      const reportData = await generateAgronomistReport(
+        reading,
+        farm.cropType,
+        predValue !== null ? { date: dateStr, value: predValue } : null,
+        climateForecast
+      );
+
+      const report = await storage.createReport({
+        farmId,
+        content: reportData.content,
+        formalContent: reportData.formalContent,
+        readingsSnapshot: reading,
+        sourceReadingId: reading.id
+      });
+
+      res.status(201).json({
+        ...report,
+        predictionAvailable: predValue !== null,
+        warnings: predictionWarning ? [predictionWarning] : []
+      });
+    } catch (error: any) {
+      console.error("[REPORT_GEN_ERROR]", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Erro ao gerar análise com IA.",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
-
-    // 1. Prediction Data
-    const predictionDate = new Date();
-    predictionDate.setDate(predictionDate.getDate() + 30); // Predict 30 days out
-    const dateStr = predictionDate.toISOString().split('T')[0];
-    const predOutput = await getPrediction(farmId, dateStr);
-    const predValue = predOutput.result !== undefined ? predOutput.result : null;
-
-    // 2. Climate Forecast Data
-    const climateForecast = await fetchClimateForecast(farm.latitude, farm.longitude);
-
-    const reportData = await generateAgronomistReport(
-      reading,
-      farm.cropType,
-      predValue !== null ? { date: dateStr, value: predValue } : null,
-      climateForecast
-    );
-
-    const report = await storage.createReport({
-      farmId,
-      content: reportData.content,
-      formalContent: reportData.formalContent,
-      readingsSnapshot: reading
-    });
-
-    res.status(201).json(report);
   });
 
 

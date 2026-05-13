@@ -68,6 +68,7 @@ export const readings = pgTable("readings", {
   regionalNdvi: real("regional_ndvi"), // Average NDVI of surrounding area (5km radius)
   carbonStock: real("carbon_stock"), // Estimated Carbon Stock (tonnes)
   co2Equivalent: real("co2_equivalent"), // Estimated CO2e (tonnes)
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertReadingSchema = createInsertSchema(readings).omit({ id: true });
@@ -82,6 +83,7 @@ export const reports = pgTable("reports", {
   content: text("content").notNull(), // The AI analysis text (informal)
   formalContent: text("formal_content"), // The technical report for PDF
   readingsSnapshot: jsonb("readings_snapshot"), // Store the readings used for this report
+  sourceReadingId: integer("source_reading_id"),
 });
 
 export const insertReportSchema = createInsertSchema(reports).omit({ id: true, date: true });

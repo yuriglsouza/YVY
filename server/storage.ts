@@ -24,6 +24,7 @@ export interface IStorage {
 
   // Readings
   getReadings(farmId: number): Promise<Reading[]>;
+  getReading(id: number): Promise<Reading | undefined>;
   getLatestReading(farmId: number): Promise<Reading | undefined>;
   createReading(reading: InsertReading): Promise<Reading>;
   updateReading(id: number, reading: Partial<InsertReading>): Promise<Reading | undefined>;
@@ -116,7 +117,12 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(readings)
       .where(eq(readings.farmId, farmId))
-      .orderBy(desc(readings.date), desc(readings.id));
+      .orderBy(desc(readings.date), desc(readings.createdAt), desc(readings.id));
+  }
+
+  async getReading(id: number): Promise<Reading | undefined> {
+    const [reading] = await db!.select().from(readings).where(eq(readings.id, id));
+    return reading;
   }
 
   async getLatestReading(farmId: number): Promise<Reading | undefined> {
@@ -124,7 +130,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(readings)
       .where(eq(readings.farmId, farmId))
-      .orderBy(desc(readings.date), desc(readings.id))
+      .orderBy(desc(readings.date), desc(readings.createdAt), desc(readings.id))
       .limit(1);
     return reading;
   }
@@ -511,12 +517,21 @@ export class MemStorage implements IStorage {
     }
   }
 
+  async getReading(id: number): Promise<Reading | undefined> {
+    return this.readings.get(id);
+  }
+
   async getReadings(farmId: number): Promise<Reading[]> {
     return Array.from(this.readings.values())
       .filter((r) => r.farmId === farmId)
       .sort((a, b) => {
         const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
-        return dateDiff !== 0 ? dateDiff : b.id - a.id;
+        if (dateDiff !== 0) return dateDiff;
+        
+        const createdDiff = (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0);
+        if (createdDiff !== 0) return createdDiff;
+        
+        return b.id - a.id;
       });
   }
 
@@ -530,6 +545,7 @@ export class MemStorage implements IStorage {
     const reading: Reading = {
       ...insertReading,
       id,
+      createdAt: new Date(),
       temperature: insertReading.temperature ?? null,
       otci: insertReading.otci ?? null,
       satelliteImage: insertReading.satelliteImage ?? null,
@@ -557,7 +573,8 @@ export class MemStorage implements IStorage {
       id,
       date: new Date(),
       readingsSnapshot: insertReport.readingsSnapshot || null,
-      formalContent: insertReport.formalContent || null
+      formalContent: insertReport.formalContent || null,
+      sourceReadingId: insertReport.sourceReadingId ?? null
     };
     this.reports.set(id, report);
     return report;

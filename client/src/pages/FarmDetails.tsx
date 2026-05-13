@@ -36,6 +36,7 @@ import { ReportTemplate } from "@/components/ReportTemplate";
 
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { api } from "@shared/routes";
 
 const getBase64FromUrl = async (url: string): Promise<string> => {
   const data = await fetch(url);
@@ -122,6 +123,7 @@ export default function FarmDetails() {
   const generateReport = useGenerateReport();
   const [showThermal, setShowThermal] = React.useState(false);
   const [selectedReadingIdx, setSelectedReadingIdx] = React.useState<number | null>(null);
+  const [latestSyncedReadingId, setLatestSyncedReadingId] = React.useState<number | null>(null);
   const reportRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -345,6 +347,10 @@ export default function FarmDetails() {
                   refreshReadings.mutate(farmId, {
                     onSuccess: (data: any) => {
                       setSelectedReadingIdx(null);
+                      if (data.readingId) {
+                        setLatestSyncedReadingId(data.readingId);
+                      }
+                      
                       if (data.isMock) {
                         toast({
                           title: "Simulação Ativada",
@@ -353,18 +359,32 @@ export default function FarmDetails() {
                           className: "border-l-4 border-yellow-500"
                         });
                       } else {
-                        toast({ title: "Dados Atualizados", description: "Sincronização com Sentinel concluída." });
+                        toast({ 
+                          title: "Dados Atualizados", 
+                          description: "Sincronização com Sentinel concluída. Agora você pode gerar a análise com IA." 
+                        });
                       }
+
+                      // Invalidate all related queries to ensure UI is fresh
+                      queryClient.invalidateQueries({ queryKey: [api.readings.list.path, farmId] });
+                      queryClient.invalidateQueries({ queryKey: [api.readings.latest.path, farmId] });
+                      queryClient.invalidateQueries({ queryKey: [api.farms.get.path, farmId] });
                     },
-                    onError: () => toast({ title: "Erro na Sincronização", description: "Falha crítica ao conectar ao servidor.", variant: "destructive" })
+                    onError: (err: any) => {
+                      toast({ 
+                        title: "Erro na Sincronização", 
+                        description: err.message || "Falha crítica ao conectar ao servidor.", 
+                        variant: "destructive" 
+                      });
+                    }
                   });
                 }}
-                disabled={refreshReadings.isPending}
+                disabled={refreshReadings.isPending || generateReport.isPending}
                 variant="outline"
                 className="rounded-xl border-primary/20 hover:bg-primary/5 hover:text-primary"
               >
                 <RefreshCw className={cn("w-4 h-4 mr-2", refreshReadings.isPending && "animate-spin")} />
-                Sincronizar Satélite
+                {refreshReadings.isPending ? "Sincronizando..." : "Sincronizar Satélite"}
               </Button>
               <Button
                 variant="outline"
@@ -587,13 +607,36 @@ export default function FarmDetails() {
                       <BrainCircuit className="w-5 h-5 text-accent" /> Agrônomo IA
                     </h2>
                     <Button
-                      onClick={() => generateReport.mutate(farmId)}
-                      disabled={generateReport.isPending}
+                      onClick={() => {
+                        generateReport.mutate({ 
+                          farmId, 
+                          sourceReadingId: latestSyncedReadingId || undefined 
+                        }, {
+                          onSuccess: () => {
+                            toast({
+                              title: "Análise Gerada",
+                              description: "O relatório da fazenda foi atualizado com sucesso."
+                            });
+                            // Reset the synced ID after it's used
+                            setLatestSyncedReadingId(null);
+                            // Invalidate to show new reports
+                            queryClient.invalidateQueries({ queryKey: [api.reports.list.path, farmId] });
+                          },
+                          onError: (error: any) => {
+                            toast({
+                              title: "Erro ao gerar análise",
+                              description: error.message || "Não foi possível gerar a análise com IA no momento.",
+                              variant: "destructive"
+                            });
+                          }
+                        });
+                      }}
+                      disabled={generateReport.isPending || refreshReadings.isPending || !latestReading}
                       size="sm"
                       className="bg-accent hover:bg-accent/90 text-accent-foreground rounded-lg"
                     >
                       {generateReport.isPending && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
-                      Analisar Dados
+                      {generateReport.isPending ? "Analisando..." : "Analisar Dados"}
                     </Button>
                   </div>
 
