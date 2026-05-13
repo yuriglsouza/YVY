@@ -85,8 +85,18 @@ export function useRefreshReadings() {
         method: api.farms.refreshReadings.method,
         credentials: "include"
       });
-      if (!res.ok) throw new Error("Failed to refresh readings");
-      return res.json();
+      
+      const errorData = !res.ok ? await res.json().catch(() => ({})) : null;
+      if (!res.ok) {
+        throw new Error(errorData?.message || errorData?.code || `Erro ${res.status}: Sincronização falhou`);
+      }
+      
+      const data = await res.json();
+      if (data.success === false) {
+        throw new Error(data.message || data.code || "Sincronização retornou erro inesperado");
+      }
+      
+      return data;
     },
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: [api.readings.list.path, id] });

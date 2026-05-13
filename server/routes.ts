@@ -969,14 +969,20 @@ export async function registerRoutes(
     const adminSecret = process.env.ADMIN_SECRET;
     const providedSecret = req.headers["x-admin-secret"];
     
-    if (adminSecret && providedSecret === adminSecret) {
+    const isAuthorizedBySecret = adminSecret && providedSecret === adminSecret;
+    const isAuthorizedByUser = req.isAuthenticated() && (req.user as any)?.role === "admin";
+
+    if (isAuthorizedBySecret || isAuthorizedByUser) {
+      req.isAdmin = true;
       return next();
     }
     
-    if (req.isAuthenticated() && (req.user as any)?.role === "admin") {
-      return next();
-    }
-    
+    console.warn("[ADMIN_BACKFILL_AUTH_FAILED]", { 
+      hasAdminSecretEnv: !!adminSecret, 
+      hasRequestSecret: !!providedSecret,
+      isAuthenticated: req.isAuthenticated()
+    });
+
     res.status(403).json({ message: "Acesso negado. Requer privilégios de administrador ou secret válido." });
   };
 
@@ -1441,11 +1447,8 @@ export async function registerRoutes(
   // Admin: Backfill images for a historical reading
   app.post("/api/admin/readings/:id/backfill-images", isAdminOrSecret, async (req, res) => {
     const readingId = Number(req.params.id);
-    const user = req.user as any;
-
-    if (user?.role !== "admin") {
-      return res.status(403).json({ message: "Apenas administradores podem realizar backfill." });
-    }
+    
+    console.log("[ADMIN_BACKFILL_IMAGE_REQUEST]", { readingId });
 
     try {
       const reading = await storage.getReading(readingId);
@@ -1551,10 +1554,7 @@ export async function registerRoutes(
 
   // Admin: Bulk backfill images for all readings missing them
   app.post("/api/admin/readings/backfill-bulk", isAdminOrSecret, async (req, res) => {
-    const user = req.user as any;
-    if (user?.role !== "admin") {
-      return res.status(403).json({ message: "Apenas administradores podem realizar backfill." });
-    }
+    console.log("[ADMIN_BACKFILL_PENDING_START]");
 
     try {
       // This is a slow operation, we'll return a message and run it in background or just limit it
