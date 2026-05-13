@@ -189,37 +189,70 @@ async def predict_ndvi(req: PredictionRequest):
         traceback.print_exc()
         return {"error": str(e)}
 
+earth_engine_ready = False
+
+def ensure_earth_engine_ready():
+    global earth_engine_ready
+    print("[WARMUP_GEE_CHECK_START]")
+    try:
+        import os
+        import json
+        from google.oauth2 import service_account
+
+        # Setup Google Credentials from Env Var (for Render)
+        creds_json = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+        project_id = None
+        credentials = None
+
+        if creds_json:
+            try:
+                creds_data = json.loads(creds_json)
+                project_id = creds_data.get("project_id")
+                print(f"Auth: Found project_id in JSON: {project_id}")
+                
+                # Create explicit credentials object
+                credentials = service_account.Credentials.from_service_account_info(
+                    creds_data,
+                    scopes=["https://www.googleapis.com/auth/earthengine"]
+                )
+                print("Auth: Created explicit ServiceAccountCredentials object with EE scope.")
+                
+            except Exception as e:
+                print(f"Auth: Error parsing JSON credentials: {e}")
+
+        # Initialize Earth Engine with explicit credentials
+        satellite_analysis.init_earth_engine(project_id, credentials)
+        
+        # Test runtime
+        ee.Number(1).getInfo()
+        earth_engine_ready = True
+        print("[WARMUP_GEE_CHECK_SUCCESS]", {
+            "earthEngineReady": True,
+            "project_id_present": bool(project_id or os.getenv("GEE_PROJECT_ID"))
+        })
+        return {
+            "ready": True,
+            "error": None
+        }
+    except Exception as e:
+        earth_engine_ready = False
+        print("[WARMUP_GEE_CHECK_ERROR]", {
+            "type": type(e).__name__,
+            "message": str(e)
+        })
+        return {
+            "ready": False,
+            "error": {
+                "type": type(e).__name__,
+                "message": str(e)
+            }
+        }
+
 @app.on_event("startup")
 async def startup_event():
-    import os
-    import json
-    from google.oauth2 import service_account
-
-    # Setup Google Credentials from Env Var (for Render)
-    creds_json = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON")
-    project_id = None
-    credentials = None
-
-    if creds_json:
-        try:
-            creds_data = json.loads(creds_json)
-            project_id = creds_data.get("project_id")
-            print(f"Auth: Found project_id in JSON: {project_id}")
-            
-            # Create explicit credentials object
-            credentials = service_account.Credentials.from_service_account_info(
-                creds_data,
-                scopes=["https://www.googleapis.com/auth/earthengine"]
-            )
-            print("Auth: Created explicit ServiceAccountCredentials object with EE scope.")
-            
-        except Exception as e:
-            print(f"Auth: Error parsing JSON credentials: {e}")
-
-        # Still write to file as backup/standard env var
-        creds_path = os.path.abspath("yvy-service-account.json")
-    # Initialize Earth Engine with explicit credentials
-    satellite_analysis.init_earth_engine(project_id, credentials)
+    print("[WARMUP_START]")
+    result = ensure_earth_engine_ready()
+    print("[STARTUP_GEE_READY]", result)
 
 app.add_middleware(
     CORSMiddleware,
@@ -248,33 +281,29 @@ class ClusterRequest(BaseModel):
 
 @app.get("/")
 def health_check():
-    ee_ready = False
-    try:
-        # Simple test to check if EE is actually working
-        ee.ApiFunction.listApiMethods()
-        ee_ready = True
-    except:
-        ee_ready = False
-        
+    global earth_engine_ready
     return {
         "status": "ok", 
         "service": "yvy-python-microservice",
-        "earthEngineReady": ee_ready,
+        "earthEngineReady": earth_engine_ready,
         "version": "1.1.0"
     }
 
 @app.get("/warmup")
 async def warmup(request: Request):
     """Endpoint to trigger initialization and check readiness"""
+    print("[WARMUP_START] Received /warmup request")
     expected_secret = os.environ.get("HEARTBEAT_SECRET")
     if expected_secret:
         received_secret = request.headers.get("x-heartbeat-secret")
         if received_secret != expected_secret:
             raise HTTPException(status_code=401, detail="Unauthorized heartbeat")
 
-    try:
-        # Check if initialized
-        ee.ApiFunction.listApiMethods()
+    # Force check
+    result = ensure_earth_engine_ready()
+    
+    if result["ready"]:
+        print("[WARMUP_RESPONSE] Returning OK")
         return {
             "status": "ok", 
             "service": "python-satellite", 
@@ -282,27 +311,17 @@ async def warmup(request: Request):
             "earthEngineReady": True,
             "simulationAllowed": False
         }
-    except Exception as e:
-        print(f"Warmup: EE not ready, attempt re-init: {e}")
-        try:
-            await startup_event()
-            ee.ApiFunction.listApiMethods()
-            return {
-                "status": "ok", 
-                "service": "python-satellite", 
-                "version": "base64-storage-contract-v1",
-                "earthEngineReady": True,
-                "simulationAllowed": False
-            }
-        except Exception as retry_e:
-            return {
-                "status": "degraded", 
-                "service": "yvy-python-satellite", 
-                "earthEngineReady": False, 
-                "code": "GEE_AUTH_ERROR",
-                "message": "Google Earth Engine não autenticado.",
-                "simulationAllowed": False
-            }
+    else:
+        print(f"[WARMUP_RESPONSE] Returning Degraded: {result['error']}")
+        return {
+            "status": "degraded", 
+            "service": "yvy-python-satellite", 
+            "version": "base64-storage-contract-v1",
+            "earthEngineReady": False, 
+            "code": "GEE_AUTH_ERROR",
+            "message": f"Google Earth Engine não autenticado. {result['error'].get('message', '')}",
+            "simulationAllowed": False
+        }
 
 @app.post("/satellite")
 def analyze_satellite(req: SatelliteRequest):
