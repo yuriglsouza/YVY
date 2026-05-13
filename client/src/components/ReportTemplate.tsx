@@ -301,16 +301,27 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                             <p className="font-bold text-xs text-[#2F447F] uppercase tracking-wider">Leitura Anterior</p>
                             <p className="text-sm font-light text-gray-600">{previousReading ? format(new Date(previousReading.date), "dd/MM/yyyy") : "Sem registro anterior"}</p>
                         </div>
-                        <div className="h-[75mm] w-full flex items-center justify-center bg-gray-200">
-                            {previousReading?.satelliteImage ? (
-                                <img
-                                    src={getProxyUrl(previousReading.satelliteImage)}
-                                    className="w-full h-full object-cover"
-                                    crossOrigin="anonymous"
-                                />
-                            ) : (
-                                <span className="text-xs text-gray-400 font-light">Indisponível</span>
-                            )}
+                        <div className="h-[75mm] w-full flex items-center justify-center bg-gray-200 relative">
+                            {(() => {
+                                if (!previousReading?.satelliteImage) {
+                                    return <span className="text-xs text-gray-500 font-light px-4 text-center">Indisponível<br/><span className="text-[10px]">Sem leitura anterior registrada</span></span>;
+                                }
+                                if (previousReading.satelliteImage.includes("earthengine.googleapis.com")) {
+                                    return <span className="text-xs text-gray-500 font-light px-4 text-center">Imagem anterior indisponível<br/><span className="text-[10px]">Motivo: leitura antiga sem imagem permanente.</span></span>;
+                                }
+                                return (
+                                    <>
+                                        <img
+                                            src={getProxyUrl(previousReading.satelliteImage)}
+                                            className="w-full h-full object-cover"
+                                            crossOrigin="anonymous"
+                                        />
+                                        <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded text-[10px] font-bold shadow text-[#172649] border border-[#2F447F]">
+                                            L2A Sentinel-2 / Histórico
+                                        </div>
+                                    </>
+                                );
+                            })()}
                         </div>
                     </div>
 

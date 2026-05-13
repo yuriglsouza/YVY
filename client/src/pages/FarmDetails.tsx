@@ -1116,14 +1116,20 @@ export default function FarmDetails() {
           currentReading={latestReading || null}
           previousReading={
             (() => {
-              if (sortedReadings.length < 2) return null;
-              if (!latestReading) return sortedReadings[sortedReadings.length - 2];
-              const latestTime = new Date(latestReading.date).getTime();
-              const olderReadings = sortedReadings.filter(r => (latestTime - new Date(r.date).getTime()) > 20 * 24 * 60 * 60 * 1000);
-              if (olderReadings.length > 0) {
-                return olderReadings[olderReadings.length - 1];
+              // 1. Prioritize backend's deterministic snapshot if available
+              const reportSnapshot = reports?.[0]?.readingsSnapshot as any;
+              if (reportSnapshot?.previousReading) {
+                return reportSnapshot.previousReading;
               }
-              return sortedReadings[sortedReadings.length - 2];
+              
+              // 2. Fallback to same logic as backend (deterministic)
+              if (!latestReading || sortedReadings.length < 2) return null;
+              
+              return sortedReadings.find(r => 
+                r.id < latestReading.id && 
+                r.satelliteImage && 
+                r.satelliteImage !== latestReading.satelliteImage
+              ) || null;
             })()
           }
           historyData={chartData || []}

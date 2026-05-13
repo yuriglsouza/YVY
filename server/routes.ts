@@ -1464,6 +1464,43 @@ export async function registerRoutes(
         });
       }
 
+      // Buscar a leitura anterior para comparar no PDF
+      const allReadings = await storage.getReadings(farmId);
+      // Order descending by date, then by id
+      const sortedReadings = allReadings.sort((a, b) => {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        if (dateA !== dateB) return dateB - dateA;
+        return b.id - a.id;
+      });
+
+      let previousReading = sortedReadings.find(r => 
+        r.id < reading.id && 
+        r.satelliteImage && 
+        r.satelliteImage !== reading.satelliteImage
+      ) || null;
+
+      const previousImageIsLegacyGee = Boolean(previousReading?.satelliteImage?.includes("earthengine.googleapis.com"));
+      
+      console.log("[REPORT_VISUAL_EVIDENCE]", {
+        farmId,
+        currentReadingId: reading.id,
+        currentReadingDate: reading.date,
+        hasCurrentImage: Boolean(reading.satelliteImage),
+        currentImageIsSupabase: Boolean(reading.satelliteImage?.includes("supabase.co")),
+        previousReadingId: previousReading?.id,
+        previousReadingDate: previousReading?.date,
+        hasPreviousImage: Boolean(previousReading?.satelliteImage),
+        previousImageIsSupabase: Boolean(previousReading?.satelliteImage?.includes("supabase.co")),
+        previousImageIsLegacyGee,
+        sameImageDetected: previousReading?.satelliteImage === reading.satelliteImage
+      });
+
+      // Clear previous reading if it's identical to current (safety check, already handled by find, but just to be sure)
+      if (previousReading?.satelliteImage === reading.satelliteImage) {
+        previousReading = null;
+      }
+
       // Check for existing report for this EXACT reading to avoid duplicates
       const existingReports = await storage.getReports(farmId);
       // Block AI generation if the reading is simulated and simulation is not allowed in production
@@ -1515,7 +1552,7 @@ export async function registerRoutes(
         farmId,
         content: reportData.content,
         formalContent: reportData.formalContent,
-        readingsSnapshot: reading,
+        readingsSnapshot: { currentReading: reading, previousReading: previousReading },
         sourceReadingId: reading.id
       });
 
