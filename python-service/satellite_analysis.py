@@ -56,11 +56,22 @@ def get_sentinel2_indices(roi, start_date, end_date):
     s2 = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
         .filterDate(start_date, end_date) \
         .filterBounds(roi) \
-        .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 80)) \
-        .map(mask_s2_clouds)
+        .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 60))
+        
+    # Verifica se a coleção está vazia (muita nuvem no período)
+    count = s2.size().getInfo()
+    if count == 0:
+        print(f"Warning: Sentinel-2 collection empty for {start_date} to {end_date}. Expanding to 90 days.", file=sys.stderr)
+        # Tenta buscar nos últimos 90 dias para garantir uma imagem base
+        fallback_start = ee.Date(end_date).advance(-90, 'day').format('YYYY-MM-dd').getInfo()
+        s2 = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
+            .filterDate(fallback_start, end_date) \
+            .filterBounds(roi) \
+            .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 80)) # Tolerância maior
+            
+    s2 = s2.map(mask_s2_clouds)
 
     # Cria um mosaico usando a mediana (bom para remover nuvens residuais)
-    # ou o pixel mais verde (greenest pixel)
     composite = s2.median().clip(roi)
     
     # Se a composição estiver vazia (muitas nuvens/sem imagem), retorna None
