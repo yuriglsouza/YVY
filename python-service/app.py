@@ -275,17 +275,32 @@ async def warmup(request: Request):
     try:
         # Check if initialized
         ee.ApiFunction.listApiMethods()
-        return {"status": "ready", "earthEngineReady": True}
+        return {
+            "status": "ok", 
+            "service": "yvy-python-satellite", 
+            "earthEngineReady": True,
+            "simulationAllowed": False
+        }
     except Exception as e:
-        # If not ready, try to re-init if credentials exist
         print(f"Warmup: EE not ready, attempt re-init: {e}")
         try:
-            # Re-run startup logic or a subset
             await startup_event()
             ee.ApiFunction.listApiMethods()
-            return {"status": "initialized", "earthEngineReady": True}
+            return {
+                "status": "ok", 
+                "service": "yvy-python-satellite", 
+                "earthEngineReady": True,
+                "simulationAllowed": False
+            }
         except Exception as retry_e:
-            return {"status": "error", "earthEngineReady": False, "error": str(retry_e)}
+            return {
+                "status": "degraded", 
+                "service": "yvy-python-satellite", 
+                "earthEngineReady": False, 
+                "code": "GEE_AUTH_ERROR",
+                "message": "Google Earth Engine não autenticado.",
+                "simulationAllowed": False
+            }
 
 @app.post("/satellite")
 def analyze_satellite(req: SatelliteRequest):

@@ -404,7 +404,7 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
 
 
 // Helper to wake up Render Free services
-async function ensurePythonServiceIsAwake(url: string, retries = 3): Promise<{ success: boolean; details?: string }> {
+async function ensurePythonServiceIsAwake(url: string, retries = 3): Promise<{ success: boolean; details?: string; geeReady?: boolean }> {
   for (let i = 0; i < retries; i++) {
     const startedAt = Date.now();
     try {
@@ -419,7 +419,10 @@ async function ensurePythonServiceIsAwake(url: string, retries = 3): Promise<{ s
       if (response.ok) {
         const data = await response.json();
         console.log(`[PYTHON_WARMUP] Success in ${elapsed}ms:`, data);
-        return { success: true, details: `Acordado em ${elapsed}ms` };
+        if (data.earthEngineReady === false) {
+          return { success: false, details: data.message || "Google Earth Engine não está pronto", geeReady: false };
+        }
+        return { success: true, details: `Acordado em ${elapsed}ms`, geeReady: true };
       }
       
       console.warn(`[PYTHON_WARMUP] Attempt ${i + 1} returned ${response.status} in ${elapsed}ms`);
@@ -432,7 +435,7 @@ async function ensurePythonServiceIsAwake(url: string, retries = 3): Promise<{ s
       }
     }
   }
-  return { success: false, details: "Serviço Python não respondeu ao warmup após múltiplas tentativas." };
+  return { success: false, details: "Serviço Python não respondeu ao warmup após múltiplas tentativas.", geeReady: false };
 }
 
 // Exported so cron job can use it natively
@@ -443,6 +446,9 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{
   details?: string, 
   error?: string,
   success?: boolean,
+  code?: string,
+  simulationUsed?: boolean,
+  dataSource?: string,
   farmId?: number,
   readingId?: number,
   date?: string,
@@ -555,18 +561,35 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{
 
       const fallbackToMock = async (reason: string) => {
         console.warn(`[Satellite Fallback] Reason: ${reason}`);
+        
+        // CHECK IF SIMULATION IS ALLOWED
+        const isSimulationAllowed = process.env.ALLOW_SIMULATED_SATELLITE_DATA === 'true';
+        if (!isSimulationAllowed) {
+            console.error(`[Satellite Fallback Blocked] GEE Failed and simulation is not allowed. Reason: ${reason}`);
+            resolve({
+                success: false,
+                code: "GEE_AUTH_ERROR",
+                message: "Google Earth Engine não autenticado ou indisponível. Configure as credenciais no Render antes de sincronizar dados reais.",
+                simulationUsed: false
+            });
+            return;
+        }
+
         const [mockReading] = generateMockReadings(farmId, 1);
         mockReading.date = new Date().toISOString().split('T')[0];
         mockReading.satelliteImage = "https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80";
         mockReading.thermalImage = "https://images.unsplash.com/photo-1577705998148-6da4f3963bc1?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80";
+        (mockReading as any).isSimulated = true;
 
-        await storage.createReading(mockReading);
+        await storage.createReading(mockReading as any);
         checkAndSendAlerts(mockReading as Reading, farmId).catch(console.error);
 
         resolve({
-          message: "⚠️ Simulação: Satélite indisponível (Auth GEE pendente)",
+          message: "⚠️ Dados simulados usados porque o GEE está indisponível.",
           reading: mockReading,
           isMock: true,
+          simulationUsed: true,
+          dataSource: "simulation",
           details: reason
         });
       };
@@ -1324,6 +1347,16 @@ export async function registerRoutes(
 
       // Check for existing report for this EXACT reading to avoid duplicates
       const existingReports = await storage.getReports(farmId);
+      // Block AI generation if the reading is simulated and simulation is not allowed in production
+      const isSimulationAllowed = process.env.ALLOW_SIMULATED_SATELLITE_DATA === 'true';
+      if (reading.isSimulated && !isSimulationAllowed) {
+        return res.status(403).json({
+          success: false,
+          code: "SIMULATED_READING_NOT_ALLOWED",
+          message: "Esta leitura é simulada. Faça uma sincronização real de satélite antes de gerar a análise com IA."
+        });
+      }
+
       const duplicate = existingReports.find(r => r.sourceReadingId === reading!.id);
       if (duplicate) {
         return res.status(200).json(duplicate);

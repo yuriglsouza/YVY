@@ -68,6 +68,7 @@ export const readings = pgTable("readings", {
   regionalNdvi: real("regional_ndvi"), // Average NDVI of surrounding area (5km radius)
   carbonStock: real("carbon_stock"), // Estimated Carbon Stock (tonnes)
   co2Equivalent: real("co2_equivalent"), // Estimated CO2e (tonnes)
+  isSimulated: boolean("is_simulated").default(false).notNull(), // Flag to track simulated data
   createdAt: timestamp("created_at").defaultNow(),
 });
 

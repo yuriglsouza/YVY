@@ -15,6 +15,13 @@
       "when": 1778632634565,
       "tag": "0001_update_schema_robustness_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778636252976,
+      "tag": "0002_add_reading_simulation_flags",
+      "breakpoints": true
     }
   ]
 }

@@ -554,7 +554,8 @@ export class MemStorage implements IStorage {
       imageBounds: (insertReading.imageBounds ?? null) as any,
       carbonStock: insertReading.carbonStock ?? null,
       co2Equivalent: insertReading.co2Equivalent ?? null,
-      cloudCover: insertReading.cloudCover ?? null
+      cloudCover: insertReading.cloudCover ?? null,
+      isSimulated: insertReading.isSimulated ?? false
     };
     this.readings.set(id, reading);
     return reading;

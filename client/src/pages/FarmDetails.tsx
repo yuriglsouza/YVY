@@ -310,6 +310,12 @@ export default function FarmDetails() {
                       Radar SAR Ativo
                     </Badge>
                   )}
+                  {latestReading?.isSimulated && (
+                    <Badge variant="destructive" className="w-fit bg-red-600 text-white hover:bg-red-700 flex items-center gap-1.5 shadow-sm">
+                      <Radio className="w-3 h-3" />
+                      Dados Simulados (Satélite real indisponível)
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>
@@ -634,9 +640,10 @@ export default function FarmDetails() {
                           }
                         });
                       }}
-                      disabled={generateReport.isPending || refreshReadings.isPending || !latestReading}
+                      disabled={generateReport.isPending || refreshReadings.isPending || !latestReading || (latestReading.isSimulated && import.meta.env.MODE === 'production')}
                       size="sm"
                       className="bg-accent hover:bg-accent/90 text-accent-foreground rounded-lg"
+                      title={latestReading?.isSimulated && import.meta.env.MODE === 'production' ? "Indisponível para dados simulados em produção" : ""}
                     >
                       {generateReport.isPending && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
                       {generateReport.isPending ? "Analisando..." : "Analisar Dados"}

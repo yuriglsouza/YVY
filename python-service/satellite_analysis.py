@@ -10,6 +10,12 @@ def init_earth_engine(project_id=None, credentials=None):
     try:
         print(f"Earth Engine Init: Attempting to initialize (Project: {project_id})...")
         
+        print("[GEE_AUTH_CHECK]", {
+            "has_project_id": bool(project_id or os.getenv("GEE_PROJECT_ID")),
+            "has_credentials_json": bool(os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")),
+            "has_credentials_obj": bool(credentials)
+        })
+
         # Priority 1: Explicit Credentials Object
         if credentials:
             print("Earth Engine Init: Using provided ServiceAccountCredentials object.")
@@ -25,10 +31,14 @@ def init_earth_engine(project_id=None, credentials=None):
              
         print("Earth Engine initialized successfully.")
     except Exception as e:
-        print(f"Error: Earth Engine init failed: {e}")
+        print("[GEE_AUTH_ERROR]", {
+            "type": type(e).__name__,
+            "message": str(e)
+        })
         # Não tentamos mais ee.Authenticate() aqui porque no servidor (Render) não temos browser/gcloud
         # Apenas logamos o erro fatal
         print(json.dumps({"error": f"Falha crítica na inicialização do Earth Engine: {str(e)}"}))
+        raise e # Re-raise to let the caller know it failed
 
 
 def mask_s2_clouds(image):

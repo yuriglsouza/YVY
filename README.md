@@ -39,7 +39,12 @@ No seu repositório GitHub, vá em **Settings > Secrets and variables > Actions*
 - `HEARTBEAT_SECRET` (Opcional): Uma chave segura para proteger o endpoint de warmup.
 
 #### Configuração no Render
-Se usar o `HEARTBEAT_SECRET`, adicione-o também nas variáveis de ambiente do serviço no Render com o mesmo valor.
+O serviço de satélite requer autenticação com o **Google Earth Engine (GEE)**. Adicione as seguintes variáveis no painel do Render:
+- `GEE_PROJECT_ID`: O ID do seu projeto no Google Cloud (que tem a API do GEE ativada).
+- `GOOGLE_APPLICATION_CREDENTIALS_JSON`: O conteúdo JSON completo da sua Service Account do Google.
+- `HEARTBEAT_SECRET` (Opcional): A mesma chave configurada no GitHub.
+
+> **Importante sobre Dados Simulados**: O sistema foi ajustado para bloquear simulações de satélite em produção. Se as credenciais do GEE estiverem incorretas, o aplicativo retornará erro. Para habilitar dados simulados explicitamente em desenvolvimento, adicione `ALLOW_SIMULATED_SATELLITE_DATA=true` no seu arquivo `.env`.
 
 > **Nota**: Manter o serviço acordado 24/7 consome aproximadamente 720 horas/mês. Monitore os limites do seu plano Render Free (geralmente 750h/mês).
 

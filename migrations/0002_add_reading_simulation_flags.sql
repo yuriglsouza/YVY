@@ -1,0 +1,1 @@
+ALTER TABLE "readings" ADD COLUMN "is_simulated" boolean DEFAULT false NOT NULL;
