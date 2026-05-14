@@ -185,7 +185,13 @@ def analyze_farm(roi, start_date, end_date, size_ha):
     """
     Executa a análise completa para a fazenda.
     """
-    # Datas
+    # Garantir que temos objetos datetime para cálculos temporais
+    if isinstance(start_date, str):
+        start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
+    if isinstance(end_date, str):
+        end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d')
+
+    # Datas em formato string para filtros do Earth Engine
     end_date_str = end_date.strftime('%Y-%m-%d')
     start_date_str = start_date.strftime('%Y-%m-%d')
 
