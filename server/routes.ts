@@ -130,22 +130,8 @@ async function generateAgronomistReport(
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
-
-    // Clean markdown code blocks if present
     const cleanJson = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
-
     const parsed = JSON.parse(cleanJson);
-
-    // Ensure backwards compatibility if model returns old format, or strictly new format
-    // We will save the structured part into the formalContent usually, or specific fields if we update schema.
-    // For now, let's embed the structured data into formalContent string if needed or keep using the fields.
-    // Ideally we should update the DB schema to store 'structuredAnalysis' JSONB, but to avoid migration now:
-    // We will append the structured parts to formalContent in a specific format if the frontend expects string.
-
-    // Actually, looking at the prompt, formalContent IS a string in the JSON.
-    // The prompt asks for "formalContent": "TEXTO_COMPLETO..."
-    // BUT we also asked for "structuredAnalysis".
-    // Let's store structuredAnalysis in a way we can retrieve it? 
     // The current schema has 'content' and 'formalContent'.
     // Let's serialize the structuredAnalysis into formalContent so the frontend can parse it back, 
     // OR just rely on the AI generating a great text in 'formalContent'.
