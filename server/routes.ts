@@ -1460,12 +1460,14 @@ export async function registerRoutes(
       console.log("[READING_IMAGE_BACKFILL_START]", { readingId, date: reading.date, farmId: farm.id });
 
       const pythonUrl = process.env.PYTHON_SERVICE_URL || "http://127.0.0.1:5000";
+      console.log("[READING_IMAGE_BACKFILL_STEP_1] Waking up Python at:", pythonUrl);
       await ensurePythonServiceIsAwake(pythonUrl);
 
       const heartbeatSecret = process.env.HEARTBEAT_SECRET;
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (heartbeatSecret) headers["x-heartbeat-secret"] = heartbeatSecret;
 
+      console.log("[READING_IMAGE_BACKFILL_STEP_2] Requesting images from GEE...");
       const pythonResponse = await fetch(`${pythonUrl}/satellite`, {
         method: "POST",
         headers,
@@ -1480,16 +1482,19 @@ export async function registerRoutes(
 
       if (!pythonResponse.ok) {
         const errorText = await pythonResponse.text();
+        console.error("[READING_IMAGE_BACKFILL_STEP_2_FAILED]", errorText);
         throw new Error(`Python service failed: ${errorText}`);
       }
 
       const result = await pythonResponse.json();
-      console.log("[READING_IMAGE_BACKFILL_GEE_IMAGE_FOUND]", {
+      console.log("[READING_IMAGE_BACKFILL_STEP_3] GEE Results received", {
         hasSatelliteBase64: !!result.satellite_image_base64,
-        hasThermalBase64: !!result.thermal_image_base64
+        hasThermalBase64: !!result.thermal_image_base64,
+        dateReal: result.date || reading.date
       });
 
       if (!result.satellite_image_base64) {
+        console.warn("[READING_IMAGE_BACKFILL_STEP_3_EMPTY]");
         return res.status(502).json({ 
           success: false, 
           code: "BACKFILL_NO_IMAGE", 
@@ -1501,40 +1506,48 @@ export async function registerRoutes(
       let finalThermalUrl = reading.thermalImage;
 
       if (supabase) {
+        console.log("[READING_IMAGE_BACKFILL_STEP_4] Uploading to Supabase Storage...");
         if (result.satellite_image_base64) {
           const buffer = Buffer.from(result.satellite_image_base64, "base64");
           const path = `farms/${farm.id}/readings/${reading.id}/satellite.png`;
-          const { error } = await supabase.storage.from(supabaseBucket).upload(path, buffer, {
+          const { error: upError } = await supabase.storage.from(supabaseBucket).upload(path, buffer, {
             contentType: "image/png",
             upsert: true,
           });
-          if (error) throw error;
+          if (upError) {
+            console.error("[READING_IMAGE_BACKFILL_STEP_4_SAT_FAILED]", upError);
+            throw upError;
+          }
           const { data } = supabase.storage.from(supabaseBucket).getPublicUrl(path);
           finalSatelliteUrl = data.publicUrl;
-          console.log("[READING_IMAGE_BACKFILL_UPLOAD_SUCCESS] Satellite:", finalSatelliteUrl);
         }
 
         if (result.thermal_image_base64) {
           const buffer = Buffer.from(result.thermal_image_base64, "base64");
           const path = `farms/${farm.id}/readings/${reading.id}/thermal.png`;
-          const { error } = await supabase.storage.from(supabaseBucket).upload(path, buffer, {
+          const { error: upError } = await supabase.storage.from(supabaseBucket).upload(path, buffer, {
             contentType: "image/png",
             upsert: true,
           });
-          if (error) throw error;
+          if (upError) {
+            console.error("[READING_IMAGE_BACKFILL_STEP_4_THERM_FAILED]", upError);
+            throw upError;
+          }
           const { data } = supabase.storage.from(supabaseBucket).getPublicUrl(path);
           finalThermalUrl = data.publicUrl;
-          console.log("[READING_IMAGE_BACKFILL_UPLOAD_SUCCESS] Thermal:", finalThermalUrl);
         }
+      } else {
+        console.warn("[READING_IMAGE_BACKFILL_STEP_4_SKIPPED] Supabase not configured");
       }
 
+      console.log("[READING_IMAGE_BACKFILL_STEP_5] Updating Database...");
       await storage.updateReading(reading.id, {
         satelliteImage: finalSatelliteUrl,
         thermalImage: finalThermalUrl,
         isSimulated: false
       });
 
-      console.log("[READING_IMAGE_BACKFILL_DB_UPDATED]", { readingId });
+      console.log("[READING_IMAGE_BACKFILL_SUCCESS]", { readingId, url: finalSatelliteUrl });
 
       res.json({
         success: true,
