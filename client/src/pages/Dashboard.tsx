@@ -16,10 +16,6 @@ import {
   Tooltip,
   CartesianGrid,
   Cell,
-  PieChart,
-  Pie,
-  AreaChart,
-  Area
 } from "recharts";
 import {
   Select,
@@ -30,11 +26,26 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 
-const COLORS = ['#22C55E', '#EAB308', '#dc2626'];
-
 import { type Farm, type Reading } from "@shared/schema";
 
 type FarmWithReading = Farm & { latestReading?: Reading };
+type HealthStatus = 'Ótimo' | 'Atenção' | 'Crítico' | 'Sem dados';
+
+const getHealthStatus = (reading?: Reading): HealthStatus => {
+  if (!reading) return 'Sem dados';
+  if (reading.ndvi > 0.6) return 'Ótimo';
+  if (reading.ndvi > 0.3) return 'Atenção';
+  return 'Crítico';
+};
+
+const getHealthFill = (status: HealthStatus) => {
+  if (status === 'Ótimo') return 'url(#gradOptimal)';
+  if (status === 'Atenção') return 'url(#gradWarning)';
+  if (status === 'Crítico') return 'url(#gradCritical)';
+  return '#64748B';
+};
+
+const formatFarmName = (name: string) => name.length > 14 ? `${name.slice(0, 12)}…` : name;
 
 export default function Dashboard() {
   const { data: user } = useUser();
@@ -71,25 +82,18 @@ export default function Dashboard() {
   const ndviData = farms?.map(f => ({
     id: f.id,
     name: f.name,
-    ndvi: f.latestReading?.ndvi || 0,
-    status: (f.latestReading?.ndvi || 0) > 0.6 ? 'Ótimo' : (f.latestReading?.ndvi || 0) > 0.3 ? 'Atenção' : 'Crítico'
+    ndvi: f.latestReading?.ndvi ?? 0,
+    status: getHealthStatus(f.latestReading),
   })) || [];
+
+  const alertFarms = ndviData.filter(farm => farm.status !== 'Ótimo');
+  const chartMinWidth = Math.max(720, ndviData.length * 84);
 
   const alertsData = [
     { name: 'Saudável', value: ndviData.filter(d => d.status === 'Ótimo').length },
     { name: 'Atenção', value: ndviData.filter(d => d.status === 'Atenção').length },
     { name: 'Crítico', value: ndviData.filter(d => d.status === 'Crítico').length },
   ].filter(d => d.value > 0);
-
-  // Mock trend data for demonstration (since we don't have historical API handy in this view)
-  const healthTrendData = [
-    { month: 'Jan', avg: 0.4 },
-    { month: 'Fev', avg: 0.5 },
-    { month: 'Mar', avg: 0.6 },
-    { month: 'Abr', avg: 0.55 },
-    { month: 'Mai', avg: 0.7 },
-    { month: 'Jun', avg: 0.75 },
-  ];
 
   return (
     <div className="min-h-screen flex">
@@ -183,13 +187,19 @@ export default function Dashboard() {
           className="grid grid-cols-1 lg:grid-cols-4 gap-8"
         >
           {/* Main Chart: Health by Farm (3/4 width) */}
-          <div className="orbital-card p-6 rounded-lg col-span-1 lg:col-span-3 bg-card">
-            <h3 className="text-lg font-bold font-display uppercase tracking-wider mb-6 flex items-center gap-2">
-              <Activity className="w-5 h-5 text-primary" /> Análise de Saúde (NDVI) por Unidade
-            </h3>
-            <div className="h-[280px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={ndviData}>
+          <div className="orbital-card p-6 rounded-lg col-span-1 lg:col-span-3 bg-card h-[420px] overflow-hidden flex flex-col">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-lg font-bold font-display uppercase tracking-wider flex items-center gap-2">
+                <Activity className="w-5 h-5 text-primary" /> Análise de Saúde (NDVI) por Unidade
+              </h3>
+              <span className="text-xs text-muted-foreground font-mono">
+                {ndviData.length} {ndviData.length === 1 ? 'unidade' : 'unidades'}
+              </span>
+            </div>
+            <div className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden pb-2">
+              <div className="h-full" style={{ minWidth: `${chartMinWidth}px` }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={ndviData} margin={{ top: 8, right: 12, left: -8, bottom: 18 }} barCategoryGap="24%">
                   <defs>
                     <linearGradient id="gradOptimal" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#10B981" stopOpacity={1} />
@@ -205,8 +215,17 @@ export default function Dashboard() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#A1A1AA' }} axisLine={false} tickLine={false} dy={10} />
-                  <YAxis domain={[0, 1]} tick={{ fontSize: 12, fill: '#A1A1AA' }} axisLine={false} tickLine={false} />
+                  <XAxis
+                    dataKey="name"
+                    interval={0}
+                    height={46}
+                    tickFormatter={formatFarmName}
+                    tick={{ fontSize: 11, fill: '#A1A1AA' }}
+                    axisLine={false}
+                    tickLine={false}
+                    dy={10}
+                  />
+                  <YAxis domain={[0, 1]} ticks={[0, 0.25, 0.5, 0.75, 1]} tick={{ fontSize: 11, fill: '#A1A1AA' }} axisLine={false} tickLine={false} />
                   <Tooltip
                     cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                     contentStyle={{ backgroundColor: '#18181B', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}
@@ -217,22 +236,23 @@ export default function Dashboard() {
                     {ndviData.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
-                        fill={entry.status === 'Ótimo' ? 'url(#gradOptimal)' : entry.status === 'Atenção' ? 'url(#gradWarning)' : 'url(#gradCritical)'}
+                        fill={getHealthFill(entry.status)}
                       />
                     ))}
                   </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
 
           {/* Secondary Chart: Priority Alerts (1/4 width) */}
-          <div className="orbital-card p-6 rounded-lg col-span-1 lg:col-span-1 bg-card flex flex-col h-full">
+          <div className="orbital-card p-6 rounded-lg col-span-1 lg:col-span-1 bg-card flex flex-col h-[420px] overflow-hidden">
             <h3 className="text-lg font-bold font-display uppercase tracking-wider mb-6 flex items-center gap-2 text-destructive">
               <AlertTriangle className="w-5 h-5" /> Alertas
             </h3>
             <div className="flex-1 overflow-y-auto pr-2 space-y-3 min-h-[200px]">
-              {ndviData.filter(d => d.status !== 'Ótimo').length === 0 ? (
+              {alertFarms.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center opacity-70">
                   <div className="p-4 bg-emerald-500/10 rounded-full mb-3">
                     <Sprout className="w-8 h-8 text-emerald-500" />
@@ -240,14 +260,14 @@ export default function Dashboard() {
                   <p className="text-sm font-display font-semibold text-emerald-500">Nominal</p>
                 </div>
               ) : (
-                ndviData.filter(d => d.status !== 'Ótimo').map((farm, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 rounded-md bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
+                alertFarms.map((farm) => (
+                  <div key={farm.id} className="flex items-center justify-between p-3 rounded-md bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
                     <div className="flex items-center gap-3">
-                      <div className={`w-1.5 h-8 rounded-full ${farm.status === 'Crítico' ? 'bg-destructive' : 'bg-yellow-500'}`} />
+                      <div className={`w-1.5 h-8 rounded-full ${farm.status === 'Crítico' ? 'bg-destructive' : farm.status === 'Atenção' ? 'bg-yellow-500' : 'bg-slate-500'}`} />
                       <div className="overflow-hidden">
                         <p className="font-bold text-foreground text-xs uppercase tracking-wide truncate max-w-[80px]">{farm.name}</p>
-                        <p className={`text-[10px] font-mono font-medium ${farm.status === 'Crítico' ? 'text-destructive' : 'text-yellow-500'}`}>
-                          NDVI: {farm.ndvi.toFixed(2)}
+                        <p className={`text-[10px] font-mono font-medium ${farm.status === 'Crítico' ? 'text-destructive' : farm.status === 'Atenção' ? 'text-yellow-500' : 'text-slate-400'}`}>
+                          {farm.status === 'Sem dados' ? 'Sem leitura' : `NDVI: ${farm.ndvi.toFixed(2)}`}
                         </p>
                       </div>
                     </div>
@@ -263,7 +283,7 @@ export default function Dashboard() {
             {/* Footer summary */}
             <div className="mt-auto pt-4 border-t border-white/10 flex justify-between items-center text-xs text-muted-foreground uppercase tracking-wider font-mono">
               <span>Total:</span>
-              <span className="text-foreground font-bold">{ndviData.filter(d => d.status !== 'Ótimo').length}</span>
+              <span className="text-foreground font-bold">{alertFarms.length}</span>
             </div>
           </div>
 
