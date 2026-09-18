@@ -271,11 +271,11 @@ export function CreateFarmDialog() {
           description: `${data.name} foi adicionada.`,
         });
       },
-      onError: () => {
+      onError: (error) => {
         toast({
           variant: "destructive",
           title: "Erro ao criar fazenda",
-          description: "Verifique os dados e tente novamente."
+          description: error.message || "Verifique os dados e tente novamente."
         });
       }
     });

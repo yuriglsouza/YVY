@@ -1,9 +1,16 @@
+require('dotenv').config();
 const { Client } = require('pg');
+
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL is required. Configure it in a local .env file.');
+}
+
 const client = new Client({
-  connectionString: 'postgresql://postgres:jBZr1SqcNt26nolO@db.nuzhtqxfasucecfmkwfw.supabase.co:5432/postgres',
+  connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
-client.connect().then(() => client.query('SELECT * FROM readings WHERE farm_id = 4 ORDER BY date DESC LIMIT 1')).then(res => {
-    console.log(res.rows[0]);
-    process.exit(0);
-});
+
+client.connect()
+  .then(() => client.query('SELECT * FROM readings WHERE farm_id = $1 ORDER BY date DESC LIMIT 1', [4]))
+  .then(res => console.log(res.rows[0]))
+  .finally(() => client.end());

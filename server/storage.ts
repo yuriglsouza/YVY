@@ -163,10 +163,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteFarm(id: number): Promise<void> {
-    // Delete related data first (manual cascade for safety)
-    await db!.delete(readings).where(eq(readings.farmId, id));
-    await db!.delete(reports).where(eq(reports.farmId, id));
-    await db!.delete(farms).where(eq(farms.id, id));
+    // Keep the manual cascade atomic. Reports must be removed before readings
+    // because reports.source_reading_id references readings.id.
+    await db!.transaction(async (tx) => {
+      await tx.delete(reports).where(eq(reports.farmId, id));
+      await tx.delete(alerts).where(eq(alerts.farmId, id));
+      await tx.delete(tasks).where(eq(tasks.farmId, id));
+      await tx.delete(zones).where(eq(zones.farmId, id));
+      await tx.delete(readings).where(eq(readings.farmId, id));
+      await tx.delete(farms).where(eq(farms.id, id));
+    });
   }
 
   async getUser(id: number): Promise<User | undefined> {
@@ -427,6 +433,14 @@ export class MemStorage implements IStorage {
       if (value.farmId === id) reportsToDelete.push(key);
     });
     reportsToDelete.forEach(key => this.reports.delete(key));
+
+    // Cleanup tasks and alerts associated with the farm as well.
+    const tasksToDelete: number[] = [];
+    this.tasks.forEach((value, key) => {
+      if (value.farmId === id) tasksToDelete.push(key);
+    });
+    tasksToDelete.forEach(key => this.tasks.delete(key));
+    this.alertsLog = this.alertsLog.filter(alert => alert.farmId !== id);
   }
 
   async getUser(id: number): Promise<User | undefined> {

@@ -5,7 +5,7 @@ import { db } from "./db.js";
 import { api } from "../shared/routes.js";
 import { z } from "zod";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { type Reading, type InsertReading, insertFarmSchema, insertReadingSchema, insertReportSchema, insertUserSchema, insertClientSchema, insertTaskSchema } from "../shared/schema.js";
+import { type Farm, type Reading, type InsertReading, insertFarmSchema, insertReadingSchema, insertReportSchema, insertUserSchema, insertClientSchema, insertTaskSchema } from "../shared/schema.js";
 import { sendEmail, buildAlertEmailHTML, buildWeeklyReportEmailHTML } from "./email.js";
 import { createClient } from "@supabase/supabase-js";
 
@@ -972,6 +972,31 @@ export async function registerRoutes(
     res.status(403).json({ message: "Acesso negado. Requer privilégios de administrador ou secret válido." });
   };
 
+  const updateUserSettingsSchema = z.object({
+    email: z.string().email("Informe um e-mail válido."),
+    receiveAlerts: z.boolean(),
+  }).strict();
+
+  const requireFarmAccess = async (req: any, res: any, next: any) => {
+    const farmId = Number(req.params.id);
+    if (!Number.isInteger(farmId) || farmId <= 0) {
+      return res.status(400).json({ message: "Identificador de fazenda inválido." });
+    }
+
+    const farm = await storage.getFarm(farmId);
+    if (!farm) {
+      return res.status(404).json({ message: "Fazenda não encontrada." });
+    }
+
+    const user = req.user as { id: number; role: string };
+    if (user.role !== "admin" && farm.userId !== user.id) {
+      return res.status(403).json({ message: "Você não tem permissão para acessar esta fazenda." });
+    }
+
+    req.farm = farm as Farm;
+    next();
+  };
+
   // === FARMS (Protected) ===
   app.get("/api/farms", isAuthenticated, async (req, res) => {
     const user = req.user as any;
@@ -1024,7 +1049,8 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      res.status(500).json({ message: "Internal server error" });
+      console.error("[FARM_CREATE_ERROR]", err);
+      res.status(500).json({ message: "Não foi possível criar a fazenda. Tente novamente em instantes." });
     }
   });
 
@@ -1160,7 +1186,7 @@ export async function registerRoutes(
   });
 
   // Benchmark
-  app.get("/api/farms/:id/benchmark", async (req, res) => {
+  app.get("/api/farms/:id/benchmark", isAuthenticated, requireFarmAccess, async (req, res) => {
     const farmId = Number(req.params.id);
     const reading = await storage.getLatestReading(farmId);
 
@@ -1196,7 +1222,7 @@ export async function registerRoutes(
   });
 
   // Management Zones
-  app.post("/api/farms/:id/zones/generate", async (req, res) => {
+  app.post("/api/farms/:id/zones/generate", isAuthenticated, requireFarmAccess, async (req, res) => {
     const farmId = Number(req.params.id);
     const farm = await storage.getFarm(farmId);
 
@@ -1283,7 +1309,7 @@ export async function registerRoutes(
   });
 
   // Zone History
-  app.get("/api/farms/:id/zones/history", async (req, res) => {
+  app.get("/api/farms/:id/zones/history", isAuthenticated, requireFarmAccess, async (req, res) => {
     const farmId = Number(req.params.id);
     const allZones = await storage.getZoneHistory(farmId);
 
@@ -1351,10 +1377,17 @@ export async function registerRoutes(
   app.put("/api/farms/:id", isAuthenticated, async (req, res) => {
     try {
       const id = Number(req.params.id);
+      const user = req.user as any;
       const input = insertFarmSchema.partial().parse(req.body);
 
       const existing = await storage.getFarm(id);
       if (!existing) return res.status(404).json({ message: "Farm not found" });
+      if (user.role !== "admin" && existing.userId !== user.id) {
+        return res.status(403).json({ message: "Você não tem permissão para editar esta fazenda." });
+      }
+
+      // Ownership can only be assigned by the server.
+      delete input.userId;
 
       const updated = await storage.updateFarm(id, input);
       res.json(updated);
@@ -1366,29 +1399,38 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/farms/:id", async (req, res) => {
-    const id = Number(req.params.id);
-    const farm = await storage.getFarm(id);
-    if (!farm) return res.status(404).json({ message: "Farm not found" });
+  app.delete("/api/farms/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const user = req.user as any;
+      const farm = await storage.getFarm(id);
+      if (!farm) return res.status(404).json({ message: "Fazenda não encontrada." });
+      if (user.role !== "admin" && farm.userId !== user.id) {
+        return res.status(403).json({ message: "Você não tem permissão para excluir esta fazenda." });
+      }
 
-    await storage.deleteFarm(id);
-    res.status(204).end();
+      await storage.deleteFarm(id);
+      res.status(204).end();
+    } catch (error) {
+      console.error("[FARM_DELETE_ERROR]", error);
+      res.status(500).json({ message: "Não foi possível excluir a fazenda. Tente novamente em instantes." });
+    }
   });
 
   // Readings
-  app.get(api.readings.list.path, async (req, res) => {
+  app.get(api.readings.list.path, isAuthenticated, requireFarmAccess, async (req, res) => {
     const readings = await storage.getReadings(Number(req.params.id));
     res.json(readings);
   });
 
-  app.get(api.readings.latest.path, async (req, res) => {
+  app.get(api.readings.latest.path, isAuthenticated, requireFarmAccess, async (req, res) => {
     const reading = await storage.getLatestReading(Number(req.params.id));
     if (!reading) return res.status(404).json({ message: "No readings found" });
     res.json(reading);
   });
 
   // Export Readings as CSV
-  app.get("/api/farms/:id/readings/export-csv", async (req, res) => {
+  app.get("/api/farms/:id/readings/export-csv", isAuthenticated, requireFarmAccess, async (req, res) => {
     const farmId = Number(req.params.id);
     const farm = await storage.getFarm(farmId);
     if (!farm) return res.status(404).json({ message: "Farm not found" });
@@ -1425,7 +1467,7 @@ export async function registerRoutes(
   });
 
   // Reports
-  app.get(api.reports.list.path, async (req, res) => {
+  app.get(api.reports.list.path, isAuthenticated, requireFarmAccess, async (req, res) => {
     const reports = await storage.getReports(Number(req.params.id));
     res.json(reports);
   });
@@ -1602,7 +1644,7 @@ export async function registerRoutes(
   });
 
   // Debug Endpoint
-  app.get("/api/debug", (req, res) => {
+  app.get("/api/debug", isAdminOrSecret, (req, res) => {
     res.json({
       env: process.env.NODE_ENV,
       db_url_set: !!process.env.DATABASE_URL,
@@ -1612,7 +1654,7 @@ export async function registerRoutes(
     });
   });
 
-  app.post(api.reports.generate.path, async (req, res) => {
+  app.post(api.reports.generate.path, isAuthenticated, requireFarmAccess, async (req, res) => {
     try {
       const farmId = Number(req.params.id);
       const { sourceReadingId } = req.body;
@@ -1752,7 +1794,7 @@ export async function registerRoutes(
 
 
   // Refresh Readings (Real Satellite Data)
-  app.post(api.farms.refreshReadings.path, async (req, res) => {
+  app.post(api.farms.refreshReadings.path, isAuthenticated, requireFarmAccess, async (req, res) => {
     const farmId = Number(req.params.id);
     const result = await syncFarmSatelliteData(farmId);
 
@@ -1910,7 +1952,7 @@ export async function registerRoutes(
   }
 
   // Predictive Model Endpoint
-  app.get("/api/farms/:id/prediction", async (req, res) => {
+  app.get("/api/farms/:id/prediction", isAuthenticated, requireFarmAccess, async (req, res) => {
     const farmId = Number(req.params.id);
     const date = req.query.date as string;
     const tempModifier = req.query.tempModifier ? parseFloat(req.query.tempModifier as string) : 0;
@@ -1951,7 +1993,7 @@ export async function registerRoutes(
 
   app.put("/api/settings", isAuthenticated, async (req, res) => {
     try {
-      const input = insertUserSchema.parse(req.body);
+      const input = updateUserSettingsSchema.parse(req.body);
       // Ensure we only update the logged-in user
       const user = await storage.updateUser((req.user as any).id, input);
       res.json(user);
@@ -1964,7 +2006,7 @@ export async function registerRoutes(
   });
 
   // Endpoint proxy para imagens externas (usado pelo html2canvas no PDF)
-  app.get("/api/proxy-image", async (req, res) => {
+  app.get("/api/proxy-image", isAuthenticated, async (req, res) => {
     try {
       const imageUrl = req.query.url as string;
       if (!imageUrl) return res.status(400).send("URL query param is required");

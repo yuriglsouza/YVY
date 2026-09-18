@@ -1,5 +1,5 @@
 import React from "react";
-import { useFarm, useRefreshReadings } from "@/hooks/use-farms";
+import { useDeleteFarm, useFarm, useRefreshReadings } from "@/hooks/use-farms";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useReadings, useLatestReading } from "@/hooks/use-readings";
@@ -36,6 +36,17 @@ import { ReportTemplate } from "@/components/ReportTemplate";
 
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { api } from "@shared/routes";
 
 const getBase64FromUrl = async (url: string): Promise<string> => {
@@ -103,6 +114,7 @@ export default function FarmDetails() {
   const { toast } = useToast();
   const [match, params] = useRoute("/farms/:id");
   const [location] = useLocation();
+  const deleteFarm = useDeleteFarm();
 
   let farmId = parseInt(params?.id || "0");
   if (!farmId || isNaN(farmId)) {
@@ -330,24 +342,44 @@ export default function FarmDetails() {
                   </Button>
                 </Link>
               )}
-              <Button
-                onClick={async () => {
-                  if (confirm("Tem certeza que deseja excluir esta fazenda? Esta ação não pode ser desfeita.")) {
-                    try {
-                      await fetch(`/api/farms/${farmId}`, { method: 'DELETE' });
-                      toast({ title: "Fazenda Excluída", description: "A fazenda foi removida com sucesso." });
-                      window.location.href = "/";
-                    } catch (error) {
-                      toast({ title: "Erro", description: "Falha ao excluir fazenda.", variant: "destructive" });
-                    }
-                  }
-                }}
-                variant="destructive"
-                className="rounded-xl"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Excluir
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="rounded-xl" disabled={deleteFarm.isPending}>
+                    {deleteFarm.isPending
+                      ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      : <Trash2 className="w-4 h-4 mr-2" />}
+                    Excluir
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Excluir {farm.name}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      A fazenda e seus dados associados serão removidos permanentemente. Esta ação não pode ser desfeita.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        deleteFarm.mutate(farmId, {
+                          onSuccess: () => {
+                            toast({ title: "Fazenda excluída", description: "A fazenda foi removida com sucesso." });
+                            window.location.href = "/farms";
+                          },
+                          onError: (error) => {
+                            toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+                          },
+                        });
+                      }}
+                    >
+                      Excluir definitivamente
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
               <Button
                 onClick={() => {
                   refreshReadings.mutate(farmId, {

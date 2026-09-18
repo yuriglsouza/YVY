@@ -76,6 +76,27 @@ export function useUpdateFarm() {
   });
 }
 
+export function useDeleteFarm() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const url = buildUrl(api.farms.delete.path, { id });
+      const res = await fetch(url, {
+        method: api.farms.delete.method,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || "Não foi possível excluir a fazenda.");
+      }
+    },
+    onSuccess: (_, id) => {
+      queryClient.removeQueries({ queryKey: [api.farms.get.path, id] });
+      queryClient.invalidateQueries({ queryKey: [api.farms.list.path] });
+    },
+  });
+}
+
 export function useRefreshReadings() {
   const queryClient = useQueryClient();
   return useMutation({

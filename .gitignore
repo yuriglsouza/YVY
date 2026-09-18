@@ -8,3 +8,5 @@ vite.config.ts.*
 .replit
 attached_assets
 *.log
+.vercel
+.env*.local
