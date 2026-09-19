@@ -151,7 +151,9 @@ export default function Dashboard() {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Área Monitorada</p>
-                <p className="text-2xl font-mono font-bold text-foreground">{totalArea} <span className="text-sm">ha</span></p>
+                <p className="flex items-baseline gap-1 whitespace-nowrap text-2xl font-mono font-bold text-foreground">
+                  {totalArea.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<span className="text-sm">ha</span>
+                </p>
               </div>
             </div>
           </div>
