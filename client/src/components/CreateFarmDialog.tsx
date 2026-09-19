@@ -19,6 +19,7 @@ import { Loader2, Plus, Pencil, Map, Keyboard, ImagePlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { uploadFarmImage } from "@/lib/farm-image-upload";
 import { validateFarmImageMetadata } from "@shared/farm-image";
+import { formatAreaHa } from "@/lib/format";
 
 // Lazy load the map picker to avoid SSR issues & reduce bundle for non-map users
 const PolygonMapPicker = lazy(() =>
@@ -251,7 +252,7 @@ function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmi
         <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg p-2">
           <div>📍 Lat: <span className="font-mono text-foreground">{form.watch("latitude")}</span></div>
           <div>📍 Lon: <span className="font-mono text-foreground">{form.watch("longitude")}</span></div>
-          <div>📐 Área: <span className="font-mono text-emerald-400 font-bold">{form.watch("sizeHa")} ha</span></div>
+          <div>📐 Área: <span className="font-mono text-emerald-400 font-bold">{formatAreaHa(form.watch("sizeHa"))}</span></div>
         </div>
       )}
 
@@ -266,7 +267,7 @@ function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmi
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="harvestDate">🌾 Data de Colheita</Label>
+          <Label htmlFor="harvestDate">🌾 Data prevista de colheita</Label>
           <Input
             id="harvestDate"
             type="date"

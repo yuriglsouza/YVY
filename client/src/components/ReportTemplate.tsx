@@ -1,4 +1,5 @@
 import React from "react";
+import { formatAreaHa } from "@/lib/format";
 import { format } from "date-fns";
 import QRCode from "react-qr-code";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
@@ -172,7 +173,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                     </div>
                     <div className="text-right">
                         <p className="text-[10px] text-[#2F447F] uppercase font-bold tracking-wider">Área Total</p>
-                        <p className="text-lg font-bold text-[#2F447F]">{farm.sizeHa} ha</p>
+                        <p className="text-lg font-bold text-[#2F447F]">{formatAreaHa(farm.sizeHa)}</p>
                     </div>
                 </div>
 

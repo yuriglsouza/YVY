@@ -24,7 +24,9 @@ import { ReportConfigDialog, ReportConfig } from "@/components/report-config-dia
 import { FinancialAnalysisDialog } from "@/components/financial-analysis-dialog";
 import { useUser } from "@/hooks/use-user";
 import { TaskBoard } from "@/components/task-board";
+import { CropCycleCard } from "@/components/crop-cycle-card";
 import { getEnvironmentalRiskStatus } from "@shared/environmental-risk";
+import { formatAreaHa } from "@/lib/format";
 
 import L from "leaflet";
 import icon from "leaflet/dist/images/marker-icon.png";
@@ -303,7 +305,7 @@ export default function FarmDetails() {
                   <Sprout className="w-3 h-3" /> {farm.cropType}
                 </span>
                 <span className="flex items-center gap-1 bg-secondary/30 px-2 py-1 rounded-md text-sm font-medium">
-                  <Ruler className="w-3 h-3" /> {farm.sizeHa} ha
+                  <Ruler className="w-3 h-3" /> {formatAreaHa(farm.sizeHa)}
                 </span>
               </div>
               <div className="flex flex-col gap-1 mt-4 sm:mt-0">
@@ -759,10 +761,14 @@ export default function FarmDetails() {
 
               <div className="lg:col-span-1 space-y-6">
                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}>
-                  <WeatherCard latitude={farm.latitude} longitude={farm.longitude} />
+                  <CropCycleCard plantingDate={farm.plantingDate} harvestDate={farm.harvestDate} />
                 </motion.div>
 
-                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }} className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden h-[400px] lg:h-[600px] relative">
+                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
+                  <WeatherCard latitude={farm.latitude} longitude={farm.longitude} cropType={farm.cropType} />
+                </motion.div>
+
+                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.35 }} className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden h-[400px] lg:h-[600px] relative">
                   <div className="absolute top-4 left-14 z-[400] bg-white/90 backdrop-blur px-4 py-2 rounded-lg shadow-sm border border-border/50">
                     <h3 className="font-bold text-sm flex items-center gap-2">
                       <MapIcon className="w-4 h-4 text-primary" /> Localização
@@ -920,7 +926,7 @@ export default function FarmDetails() {
                       <Popup>
                         <div className="text-center">
                           <strong>{farm.name}</strong><br />
-                          {farm.sizeHa} ha
+                          {formatAreaHa(farm.sizeHa)}
                         </div>
                       </Popup>
                     </Marker>

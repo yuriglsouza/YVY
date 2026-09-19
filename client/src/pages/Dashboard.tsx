@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState } from "react";
+import { formatDecimal } from "@/lib/format";
 
 import { type Farm, type Reading } from "@shared/schema";
 
@@ -152,7 +153,7 @@ export default function Dashboard() {
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Área Monitorada</p>
                 <p className="flex items-baseline gap-1 whitespace-nowrap text-2xl font-mono font-bold text-foreground">
-                  {totalArea.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<span className="text-sm">ha</span>
+                  {formatDecimal(totalArea)}<span className="text-sm">ha</span>
                 </p>
               </div>
             </div>

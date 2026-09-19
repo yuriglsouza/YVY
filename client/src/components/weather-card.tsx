@@ -1,12 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { CloudRain, Droplets, Thermometer, Wind, Loader2, Calendar } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CloudRain, Droplets, Thermometer, Wind, Loader2, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { assessApplicationWeather } from "@shared/agronomy";
 
 interface WeatherCardProps {
     latitude: number;
     longitude: number;
+    cropType?: string;
 }
 
 interface WeatherData {
@@ -25,7 +27,7 @@ interface WeatherData {
     };
 }
 
-export function WeatherCard({ latitude, longitude }: WeatherCardProps) {
+export function WeatherCard({ latitude, longitude, cropType }: WeatherCardProps) {
     const { data, isLoading, error } = useQuery({
         queryKey: ["weather", latitude, longitude],
         queryFn: async () => {
@@ -60,6 +62,12 @@ export function WeatherCard({ latitude, longitude }: WeatherCardProps) {
     }
 
     const { temperature_2m, relative_humidity_2m, rain, wind_speed_10m } = data.current;
+    const applicationWeather = assessApplicationWeather({
+        temperatureC: temperature_2m,
+        humidityPercent: relative_humidity_2m,
+        rainMm: rain,
+        windKmh: wind_speed_10m,
+    });
 
     // Slice off today (index 0) if we only want "next days", or keep 1-5
     const forecastDays = data.daily?.time ? data.daily.time.slice(1, 6) : [];
@@ -104,6 +112,26 @@ export function WeatherCard({ latitude, longitude }: WeatherCardProps) {
                             <span className="font-bold text-foreground">{rain > 0 ? `${rain}mm` : 'Sem chuva'}</span>
                         </div>
                     </div>
+                </div>
+
+                <div className="mb-4 rounded-xl border border-border/50 bg-background/30 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                        <span className="text-xs font-semibold uppercase tracking-wider">Condição para aplicação</span>
+                        <span className={`flex items-center gap-1 text-xs font-semibold ${applicationWeather.status === "compatible" ? "text-emerald-500" : "text-amber-500"}`}>
+                            {applicationWeather.status === "compatible"
+                                ? <><CheckCircle2 className="h-3.5 w-3.5" /> Meteorologia compatível</>
+                                : <><AlertTriangle className="h-3.5 w-3.5" /> Requer atenção</>}
+                        </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                        <span className={applicationWeather.checks.temperature ? "text-emerald-500" : "text-amber-500"}>Temperatura até 30°C</span>
+                        <span className={applicationWeather.checks.humidity ? "text-emerald-500" : "text-amber-500"}>Umidade a partir de 65%</span>
+                        <span className={applicationWeather.checks.wind ? "text-emerald-500" : "text-amber-500"}>Vento entre 3,2 e 8 km/h</span>
+                        <span className={applicationWeather.checks.rain ? "text-emerald-500" : "text-amber-500"}>Sem chuva no momento</span>
+                    </div>
+                    <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+                        Triagem meteorológica para {cropType || "a cultura"}. Não autoriza aplicação: confirme estágio da cultura, alvo, bula, receituário agronômico e condições medidas no talhão.
+                    </p>
                 </div>
 
                 {/* Previsão Futura */}

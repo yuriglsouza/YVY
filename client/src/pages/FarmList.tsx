@@ -1,4 +1,5 @@
 import { useFarms } from "@/hooks/use-farms";
+import { formatAreaHa } from "@/lib/format";
 import { useClients } from "@/hooks/use-clients";
 import { Sidebar, MobileNav } from "@/components/Sidebar";
 import { CreateFarmDialog, EditFarmDialog } from "@/components/CreateFarmDialog";
@@ -145,7 +146,7 @@ export default function FarmList() {
                                                     <div className="flex items-center gap-2 text-muted-foreground text-xs font-semibold uppercase tracking-wider mb-1">
                                                         <Ruler className="w-3 h-3" /> Tamanho
                                                     </div>
-                                                    <p className="font-semibold text-foreground">{farm.sizeHa} ha</p>
+                                                    <p className="font-semibold text-foreground">{formatAreaHa(farm.sizeHa)}</p>
                                                 </div>
                                             </div>
 
