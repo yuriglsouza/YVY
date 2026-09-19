@@ -9,11 +9,11 @@ import { Gauge } from "@/components/Gauge";
 import { Link, useRoute, useLocation } from "wouter";
 import { WeatherCard } from "@/components/weather-card";
 import { BenchmarkChart } from "@/components/benchmark-chart";
-import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit, Sprout, Ruler, Trash2, DollarSign, Leaf, CloudRain, Activity, ClipboardCheck, Cloud, Radio, Calendar, Beef, Scale, ShieldCheck, ShieldAlert, Download } from "lucide-react";
+import { Loader2, RefreshCw, FileText, Map as MapIcon, ChevronLeft, BrainCircuit, Sprout, Ruler, Trash2, DollarSign, Activity, Cloud, Radio, Calendar, Beef, Scale, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon as LeafletPolygon, LayersControl, ImageOverlay } from "react-leaflet";
-import { ResponsiveContainer, LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
 import { PredictiveChart } from "@/components/predictive-chart";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -23,9 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ReportConfigDialog, ReportConfig } from "@/components/report-config-dialog";
 import { FinancialAnalysisDialog } from "@/components/financial-analysis-dialog";
 import { useUser } from "@/hooks/use-user";
-import { TaskBoard } from "@/components/task-board";
 import { CropCycleCard } from "@/components/crop-cycle-card";
-import { getEnvironmentalRiskStatus } from "@shared/environmental-risk";
 import { formatAreaHa } from "@/lib/format";
 
 import L from "leaflet";
@@ -175,7 +173,15 @@ export default function FarmDetails() {
     ? sortedReadings[selectedReadingIdx]
     : latestReading;
 
-  interface Zone { id: number; name: string; color: string; coordinates: Array<{ lat: number, lon: number }>; ndvi_avg: number; area_percentage: number; }
+  interface Zone {
+    id: number;
+    name: string;
+    color: string;
+    coordinates: Array<{ lat: number, lon: number }>;
+    ndvi_avg: number;
+    area_percentage: number;
+    areaHa?: number;
+  }
   const [zones, setZones] = React.useState<Zone[]>([]);
   const [rasterImage, setRasterImage] = React.useState<string | null>(null);
   const [rasterBounds, setRasterBounds] = React.useState<[[number, number], [number, number]] | null>(null);
@@ -464,14 +470,6 @@ export default function FarmDetails() {
                 Pecuária (Lotação)
               </TabsTrigger>
             )}
-            <TabsTrigger value="sustainability" className="gap-2">
-              <Sprout className="w-4 h-4" />
-              Sustentabilidade (ESG)
-            </TabsTrigger>
-            <TabsTrigger value="tasks" className="gap-2 bg-emerald-500/10 text-emerald-600 data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
-              <ClipboardCheck className="w-4 h-4" />
-              Ações Diárias (Verificação)
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="monitoring">
@@ -791,7 +789,8 @@ export default function FarmDetails() {
                               color: z.color,
                               coordinates: z.coordinates,
                               ndvi_avg: z.ndviAvg || 0,
-                              area_percentage: z.areaHa ? (z.areaHa / (farm.sizeHa || 1)) * 100 : 33,
+                              area_percentage: z.areaHa ? z.areaHa / (farm.sizeHa || 1) : 0,
+                              areaHa: z.areaHa || 0,
                             }));
                             setZones(mappedZones);
                           }
@@ -952,134 +951,6 @@ export default function FarmDetails() {
             </div>
           </TabsContent>
 
-          <TabsContent value="sustainability" className="space-y-8 animate-in fade-in-50 duration-500">
-            {(() => {
-              const calcCarbonStock = (reading: any) => {
-                if (reading?.carbonStock && reading.carbonStock > 0) return reading.carbonStock;
-                const baseNdvi = Math.max(0, reading?.ndvi || 0);
-                return (farm?.sizeHa || 0) * baseNdvi * 45.5;
-              };
-              const calcCo2 = (reading: any) => {
-                if (reading?.co2Equivalent && reading.co2Equivalent > 0) return reading.co2Equivalent;
-                return calcCarbonStock(reading) * 3.67;
-              };
-
-              const currentCarbon = calcCarbonStock(latestReading);
-              const currentCo2 = calcCo2(latestReading);
-              const currentCredit = currentCo2 * 15 * 5.5;
-
-              const chartReadings = (readings || [])
-                .map(r => ({ ...r, displayCo2: calcCo2(r) }))
-                .filter(r => r.displayCo2 > 0)
-                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-              const environmentalStatus = getEnvironmentalRiskStatus(farm?.isDeforested);
-              const requiresEnvironmentalReview = environmentalStatus === "review_required";
-
-              return (
-                <>
-                  <div className={`p-6 rounded-2xl border shadow-sm flex flex-col md:flex-row items-start md:items-center gap-6 ${requiresEnvironmentalReview ? 'bg-amber-500/5 border-amber-500/20' : 'bg-slate-500/5 border-slate-500/20'}`}>
-                    <div className={`p-4 rounded-full ${requiresEnvironmentalReview ? 'bg-amber-500/20 text-amber-500' : 'bg-slate-500/20 text-slate-400'}`}>
-                      {requiresEnvironmentalReview ? <ShieldAlert className="w-10 h-10" /> : <ShieldCheck className="w-10 h-10" />}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className={`text-xl font-bold mb-1 ${requiresEnvironmentalReview ? 'text-amber-500' : 'text-slate-300'}`}>
-                        {requiresEnvironmentalReview ? 'Pendência ambiental registrada para revisão' : 'Status ambiental ainda não verificado'}
-                      </h3>
-                      <p className="text-muted-foreground text-sm leading-relaxed">
-                        {requiresEnvironmentalReview ? (
-                          <>Existe um sinalizador ambiental anterior associado a esta propriedade. Ele deve ser validado com dados oficiais e documentação antes de qualquer conclusão sobre desmatamento, embargo ou crédito rural.</>
-                        ) : (
-                          <>Nenhum alerta ambiental validado está registrado. Esta tela é informativa e não substitui consultas ao CAR, órgãos ambientais ou bases oficiais de embargo e uso do solo.</>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-                      <div className="flex items-center gap-4 mb-4">
-                        <div className="p-3 bg-green-500/20 rounded-full">
-                          <Leaf className="w-6 h-6 text-green-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Estoque de Carbono</p>
-                          <h3 className="text-2xl font-bold">{currentCarbon.toFixed(1)} t</h3>
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Biomassa estim. via Satélite (NDVI).</p>
-                    </div>
-
-                    <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-                      <div className="flex items-center gap-4 mb-4">
-                        <div className="p-3 bg-blue-500/20 rounded-full">
-                          <CloudRain className="w-6 h-6 text-blue-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">CO2 Equivalente</p>
-                          <h3 className="text-2xl font-bold">{currentCo2.toFixed(1)} tCO2e</h3>
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Potencial de sequestro atmosférico.</p>
-                    </div>
-
-                    <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-                      <div className="flex items-center gap-4 mb-4">
-                        <div className="p-3 bg-yellow-500/20 rounded-full">
-                          <DollarSign className="w-6 h-6 text-yellow-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Crédito Potencial</p>
-                          <h3 className="text-2xl font-bold">R$ {currentCredit.toFixed(2)}</h3>
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Estimativa (@ $15 USD/ton).</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-                    <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
-                      <Activity className="w-5 h-5 text-primary" />
-                      Evolução do Sequestro de CO2
-                    </h3>
-                    <div className="h-[300px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={chartReadings}>
-                          <defs>
-                            <linearGradient id="colorCo2" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                              <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                          <XAxis dataKey="date" tickFormatter={(date) => format(new Date(date), "dd/MM")} stroke="#666" />
-                          <YAxis stroke="#666" />
-                          <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none' }} />
-                          <Area type="monotone" dataKey="displayCo2" stroke="#10b981" fillOpacity={1} fill="url(#colorCo2)" name="tCO2e" />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
-                  <div className="bg-primary/5 border border-primary/20 rounded-xl p-6">
-                    <h4 className="font-semibold text-primary mb-2 flex items-center gap-2">
-                      <BrainCircuit className="w-5 h-5" />
-                      Como funciona nosso Modelo de Carbono?
-                    </h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      Utilizamos imagens de satélite Sentinel-2 e algoritmos de aprendizado de máquina para estimar a biomassa vegetal acima do solo.
-                      O modelo converte o vigor vegetativo (NDVI e EVI) em toneladas de matéria seca, e aplica fatores de conversão (IPCC Tier 1)
-                      para determinar o carbono estocado. O CO2 equivalente (tCO2e) representa quanto dióxido de carbono foi removido da atmosfera
-                      pela fotossíntese da sua lavoura.
-                      <br /><br />
-                      <strong>Nota:</strong> Esta é uma estimativa estratégica. A certificação de créditos de carbono requer auditoria de solo presencial.
-                    </p>
-                  </div>
-                </>
-              );
-            })()}
-          </TabsContent>
-
           {(farm?.cropType.toLowerCase().includes('pasto') || farm?.cropType.toLowerCase().includes('pastagem')) && (
             <TabsContent value="livestock" className="space-y-8 animate-in fade-in-50 duration-500">
               {(() => {
@@ -1144,9 +1015,6 @@ export default function FarmDetails() {
             </TabsContent>
           )}
 
-          <TabsContent value="tasks" className="animate-in fade-in-50 duration-500">
-            <TaskBoard farmId={farmId} />
-          </TabsContent>
         </Tabs>
 
         {/* Hidden Report Template for DOM Capture */}

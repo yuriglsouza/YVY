@@ -1,17 +1,20 @@
 
-import React, { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useMemo, useState } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calculator, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { calculateFinancialAnalysis } from "@shared/financial-analysis";
 
 interface Zone {
     id: number;
     name: string;
     color: string;
     area_percentage: number;
+    areaHa?: number;
+    ndvi_avg?: number;
 }
 
 interface FinancialAnalysisDialogProps {
@@ -31,46 +34,20 @@ export function FinancialAnalysisDialog({ zones, farmSizeHa }: FinancialAnalysis
     const [mediumYield, setMediumYield] = useState<number>(60);
     const [lowYield, setLowYield] = useState<number>(40);
 
-    // Results
-    const [results, setResults] = useState({
-        totalCost: 0,
-        grossRevenue: 0,
-        netProfit: 0,
-        roi: 0,
-        avgYield: 0
-    });
-
-    useEffect(() => {
-        if (!zones.length) return;
-
-        // 1. Calculate Areas
-        const highZone = zones.find(z => z.name === "Alta Produtividade")?.area_percentage || 0;
-        const mediumZone = zones.find(z => z.name === "Média Produtividade")?.area_percentage || 0;
-        const lowZone = zones.find(z => z.name === "Baixa Produtividade")?.area_percentage || 0;
-
-        // 2. Total Production (Bags)
-        const production = (
-            (highZone * farmSizeHa * highYield) +
-            (mediumZone * farmSizeHa * mediumYield) +
-            (lowZone * farmSizeHa * lowYield)
-        );
-
-        // 3. Financials
-        const totalCost = farmSizeHa * costPerHa;
-        const grossRevenue = production * pricePerBag;
-        const netProfit = grossRevenue - totalCost;
-        const roi = totalCost > 0 ? (netProfit / totalCost) * 100 : 0;
-        const avgYield = production / farmSizeHa;
-
-        setResults({
-            totalCost,
-            grossRevenue,
-            netProfit,
-            roi,
-            avgYield
-        });
-
-    }, [costPerHa, pricePerBag, highYield, mediumYield, lowYield, zones, farmSizeHa]);
+    const results = useMemo(() => calculateFinancialAnalysis({
+        farmSizeHa,
+        costPerHa,
+        pricePerBag,
+        highYield,
+        mediumYield,
+        lowYield,
+        zones: zones.map(zone => ({
+            name: zone.name,
+            areaPercentage: zone.area_percentage,
+            areaHa: zone.areaHa,
+            ndviAvg: zone.ndvi_avg,
+        })),
+    }), [costPerHa, farmSizeHa, highYield, lowYield, mediumYield, pricePerBag, zones]);
 
     const formatCurrency = (val: number) => {
         return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -90,6 +67,9 @@ export function FinancialAnalysisDialog({ zones, farmSizeHa }: FinancialAnalysis
                         <DollarSign className="w-5 h-5 text-green-600" />
                         Análise Financeira por Zona de Manejo
                     </DialogTitle>
+                    <DialogDescription>
+                        Simule custos, produtividade e retorno com base na área total e nas zonas de manejo disponíveis.
+                    </DialogDescription>
                 </DialogHeader>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
@@ -103,6 +83,8 @@ export function FinancialAnalysisDialog({ zones, farmSizeHa }: FinancialAnalysis
                                 <Label>Custo de Produção (R$/ha)</Label>
                                 <Input
                                     type="number"
+                                    min="0"
+                                    step="0.01"
                                     value={costPerHa}
                                     onChange={(e) => setCostPerHa(Number(e.target.value))}
                                 />
@@ -111,6 +93,8 @@ export function FinancialAnalysisDialog({ zones, farmSizeHa }: FinancialAnalysis
                                 <Label>Preço da Saca (R$)</Label>
                                 <Input
                                     type="number"
+                                    min="0"
+                                    step="0.01"
                                     value={pricePerBag}
                                     onChange={(e) => setPricePerBag(Number(e.target.value))}
                                 />
@@ -120,23 +104,23 @@ export function FinancialAnalysisDialog({ zones, farmSizeHa }: FinancialAnalysis
                         <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider pt-4">Produtividade Esperada (sc/ha)</h3>
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
-                                <Label className="text-green-600">Zona de Alta Vigor</Label>
+                                <Label className="text-green-600">Zona de alto vigor</Label>
                                 <Input
-                                    type="number" className="w-24 text-right"
+                                    type="number" min="0" step="0.1" className="w-24 text-right"
                                     value={highYield} onChange={(e) => setHighYield(Number(e.target.value))}
                                 />
                             </div>
                             <div className="flex items-center justify-between">
-                                <Label className="text-yellow-600">Zona de Média Vigor</Label>
+                                <Label className="text-yellow-600">Zona de médio vigor</Label>
                                 <Input
-                                    type="number" className="w-24 text-right"
+                                    type="number" min="0" step="0.1" className="w-24 text-right"
                                     value={mediumYield} onChange={(e) => setMediumYield(Number(e.target.value))}
                                 />
                             </div>
                             <div className="flex items-center justify-between">
-                                <Label className="text-red-600">Zona de Baixa Vigor</Label>
+                                <Label className="text-red-600">Zona de baixo vigor</Label>
                                 <Input
-                                    type="number" className="w-24 text-right"
+                                    type="number" min="0" step="0.1" className="w-24 text-right"
                                     value={lowYield} onChange={(e) => setLowYield(Number(e.target.value))}
                                 />
                             </div>
@@ -156,13 +140,20 @@ export function FinancialAnalysisDialog({ zones, farmSizeHa }: FinancialAnalysis
                             </Card>
                             <Card>
                                 <CardContent className="p-4">
-                                    <p className="text-xs text-muted-foreground">Lucro Líquido</p>
+                                    <p className="text-xs text-muted-foreground">Resultado Estimado</p>
                                     <p className={`text-lg font-bold ${results.netProfit > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                         {formatCurrency(results.netProfit)}
                                     </p>
                                 </CardContent>
                             </Card>
                         </div>
+
+                        <Card>
+                            <CardContent className="p-4">
+                                <p className="text-xs text-muted-foreground">Custo Total</p>
+                                <p className="text-lg font-bold text-foreground">{formatCurrency(results.totalCost)}</p>
+                            </CardContent>
+                        </Card>
 
                         <div className="bg-background p-4 rounded-lg border border-border shadow-sm flex items-center justify-around">
                             <div className="text-center">
@@ -181,9 +172,11 @@ export function FinancialAnalysisDialog({ zones, farmSizeHa }: FinancialAnalysis
                             </div>
                         </div>
 
-                        <p className="text-xs text-muted-foreground text-justify leading-relaxed">
-                            *Cálculo baseado na distribuição de área das zonas de manejo identificadas pelo satélite Sentinel-2.
-                            Serve como estimativa para planejamento financeiro.
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                            {results.usedFallback
+                                ? "*Ainda não há zonas de manejo disponíveis. A simulação usa a produtividade média informada para 100% da área."
+                                : "*Cálculo ponderado pela distribuição das zonas de manejo. Percentuais são normalizados para evitar distorções."}
+                            {" "}Estimativa para planejamento; não representa resultado contábil realizado.
                         </p>
 
                     </div>
