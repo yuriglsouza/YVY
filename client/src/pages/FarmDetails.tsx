@@ -24,6 +24,7 @@ import { ReportConfigDialog, ReportConfig } from "@/components/report-config-dia
 import { FinancialAnalysisDialog } from "@/components/financial-analysis-dialog";
 import { useUser } from "@/hooks/use-user";
 import { TaskBoard } from "@/components/task-board";
+import { getEnvironmentalRiskStatus } from "@shared/environmental-risk";
 
 import L from "leaflet";
 import icon from "leaflet/dist/images/marker-icon.png";
@@ -966,23 +967,24 @@ export default function FarmDetails() {
                 .filter(r => r.displayCo2 > 0)
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-              const isCompliant = !farm?.isDeforested;
+              const environmentalStatus = getEnvironmentalRiskStatus(farm?.isDeforested);
+              const requiresEnvironmentalReview = environmentalStatus === "review_required";
 
               return (
                 <>
-                  <div className={`p-6 rounded-2xl border shadow-sm flex flex-col md:flex-row items-start md:items-center gap-6 ${isCompliant ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-destructive/5 border-destructive/20'}`}>
-                    <div className={`p-4 rounded-full ${isCompliant ? 'bg-emerald-500/20 text-emerald-500' : 'bg-destructive/20 text-destructive'}`}>
-                      {isCompliant ? <ShieldCheck className="w-10 h-10" /> : <ShieldAlert className="w-10 h-10" />}
+                  <div className={`p-6 rounded-2xl border shadow-sm flex flex-col md:flex-row items-start md:items-center gap-6 ${requiresEnvironmentalReview ? 'bg-amber-500/5 border-amber-500/20' : 'bg-slate-500/5 border-slate-500/20'}`}>
+                    <div className={`p-4 rounded-full ${requiresEnvironmentalReview ? 'bg-amber-500/20 text-amber-500' : 'bg-slate-500/20 text-slate-400'}`}>
+                      {requiresEnvironmentalReview ? <ShieldAlert className="w-10 h-10" /> : <ShieldCheck className="w-10 h-10" />}
                     </div>
                     <div className="flex-1">
-                      <h3 className={`text-xl font-bold mb-1 ${isCompliant ? 'text-emerald-500' : 'text-destructive'}`}>
-                        {isCompliant ? 'Certidão de Conformidade Ambiental Ativa' : 'Alerta Crítico: Risco de Embargo (Uso do Solo)'}
+                      <h3 className={`text-xl font-bold mb-1 ${requiresEnvironmentalReview ? 'text-amber-500' : 'text-slate-300'}`}>
+                        {requiresEnvironmentalReview ? 'Pendência ambiental registrada para revisão' : 'Status ambiental ainda não verificado'}
                       </h3>
                       <p className="text-muted-foreground text-sm leading-relaxed">
-                        {isCompliant ? (
-                          <>A inteligência artificial orbital da SYAZ Monitoramento garante que este polígono encontra-se <b>Livre de Desmatamento</b> e desprovido de sobreposição em áreas de conservação restrita. Propriedade 100% elegível para linhas de Crédito Rural (Plano Safra / Funcafé) e Acordos de Moratória da Soja.</>
+                        {requiresEnvironmentalReview ? (
+                          <>Existe um sinalizador ambiental anterior associado a esta propriedade. Ele deve ser validado com dados oficiais e documentação antes de qualquer conclusão sobre desmatamento, embargo ou crédito rural.</>
                         ) : (
-                          <>O satélite detectou <b>Supressão Recente de Vegetação Nativa</b> nos limites do polígono. Operações de crédito bancário e financiamento agrícola podem ser bloqueadas até a submissão formal das licenças (ASV) ao IBAMA/Órgão Ambiental.</>
+                          <>Nenhum alerta ambiental validado está registrado. Esta tela é informativa e não substitui consultas ao CAR, órgãos ambientais ou bases oficiais de embargo e uso do solo.</>
                         )}
                       </p>
                     </div>
