@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,9 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState, lazy, Suspense } from "react";
-import { Loader2, Plus, Pencil, Map, Keyboard } from "lucide-react";
+import { useEffect, useState, lazy, Suspense } from "react";
+import { Loader2, Plus, Pencil, Map, Keyboard, ImagePlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { uploadFarmImage } from "@/lib/farm-image-upload";
+import { validateFarmImageMetadata } from "@shared/farm-image";
 
 // Lazy load the map picker to avoid SSR issues & reduce bundle for non-map users
 const PolygonMapPicker = lazy(() =>
@@ -25,11 +27,15 @@ const PolygonMapPicker = lazy(() =>
 
 type DrawMode = "manual" | "map";
 
-function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmit: (data: InsertFarm) => void, defaultValues?: Partial<InsertFarm>, isPending: boolean, submitLabel: string }) {
+function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmit: (data: InsertFarm) => Promise<void>, defaultValues?: Partial<InsertFarm>, isPending: boolean, submitLabel: string }) {
   const { data: clients } = useClients();
+  const { toast } = useToast();
   const [drawMode, setDrawMode] = useState<DrawMode>(
     defaultValues?.polygon ? "map" : "manual"
   );
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const form = useForm<InsertFarm>({
     resolver: zodResolver(insertFarmSchema),
@@ -45,6 +51,39 @@ function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmi
       ...defaultValues
     },
   });
+
+  useEffect(() => {
+    if (!imageFile) {
+      setImagePreview(null);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(imageFile);
+    setImagePreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [imageFile]);
+
+  const handleSubmit = async (data: InsertFarm) => {
+    let imageUrl = data.imageUrl;
+
+    if (imageFile) {
+      setIsUploadingImage(true);
+      try {
+        imageUrl = await uploadFarmImage(imageFile);
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Erro ao enviar foto",
+          description: error instanceof Error ? error.message : "Não foi possível enviar a foto.",
+        });
+        setIsUploadingImage(false);
+        return;
+      }
+      setIsUploadingImage(false);
+    }
+
+    await onSubmit({ ...data, imageUrl: imageUrl || null });
+  };
 
   const handlePolygonChange = (data: {
     polygon: [number, number][];
@@ -62,7 +101,7 @@ function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmi
   };
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+    <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 pt-4">
       <div className="grid gap-2">
         <Label htmlFor="name">Nome da Fazenda</Label>
         <Input
@@ -237,8 +276,44 @@ function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmi
         </div>
       </div>
 
-      <div className="grid gap-2">
-        <Label htmlFor="imageUrl">URL da Imagem (Opcional)</Label>
+      <div className="grid gap-3 rounded-xl border border-border bg-muted/20 p-4">
+        <div className="flex items-center gap-2">
+          <ImagePlus className="h-4 w-4 text-primary" />
+          <Label htmlFor="farmImage">Foto da fazenda ou talhão</Label>
+        </div>
+        <Input
+          id="farmImage"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="rounded-lg"
+          onChange={(event) => {
+            const file = event.target.files?.[0] || null;
+            if (!file) {
+              setImageFile(null);
+              return;
+            }
+
+            const validationError = validateFarmImageMetadata({ contentType: file.type, size: file.size });
+            if (validationError) {
+              toast({ variant: "destructive", title: "Foto inválida", description: validationError });
+              event.target.value = "";
+              setImageFile(null);
+              return;
+            }
+
+            setImageFile(file);
+          }}
+        />
+        <p className="text-xs text-muted-foreground">JPG, PNG ou WebP, com até 6 MB.</p>
+        {(imagePreview || form.watch("imageUrl")) && (
+          <img
+            src={imagePreview || form.watch("imageUrl") || ""}
+            alt="Prévia da fazenda"
+            className="h-36 w-full rounded-lg border border-border object-cover"
+          />
+        )}
+
+        <Label htmlFor="imageUrl" className="text-xs text-muted-foreground">Ou cole o endereço de uma imagem</Label>
         <Input
           id="imageUrl"
           {...form.register("imageUrl")}
@@ -248,9 +323,9 @@ function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmi
       </div>
 
       <div className="pt-4 flex justify-end gap-2">
-        <Button type="submit" disabled={isPending} className="rounded-xl bg-primary text-white w-full">
-          {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-          {submitLabel}
+        <Button type="submit" disabled={isPending || isUploadingImage} className="rounded-xl bg-primary text-white w-full">
+          {(isPending || isUploadingImage) ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+          {isUploadingImage ? "Enviando foto..." : submitLabel}
         </Button>
       </div>
     </form>
@@ -262,23 +337,21 @@ export function CreateFarmDialog() {
   const { toast } = useToast();
   const createFarm = useCreateFarm();
 
-  const onSubmit = (data: InsertFarm) => {
-    createFarm.mutate(data, {
-      onSuccess: () => {
-        setOpen(false);
-        toast({
-          title: "Fazenda criada com sucesso!",
-          description: `${data.name} foi adicionada.`,
-        });
-      },
-      onError: (error) => {
-        toast({
-          variant: "destructive",
-          title: "Erro ao criar fazenda",
-          description: error.message || "Verifique os dados e tente novamente."
-        });
-      }
-    });
+  const onSubmit = async (data: InsertFarm) => {
+    try {
+      await createFarm.mutateAsync(data);
+      setOpen(false);
+      toast({
+        title: "Fazenda criada com sucesso!",
+        description: `${data.name} foi adicionada.`,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao criar fazenda",
+        description: error instanceof Error ? error.message : "Verifique os dados e tente novamente."
+      });
+    }
   };
 
   return (
@@ -292,6 +365,7 @@ export function CreateFarmDialog() {
       <DialogContent className="sm:max-w-[700px] bg-card rounded-2xl border-border shadow-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-display">Registrar Nova Fazenda</DialogTitle>
+          <DialogDescription>Informe os dados da propriedade e, se desejar, adicione uma foto.</DialogDescription>
         </DialogHeader>
         <FarmForm onSubmit={onSubmit} isPending={createFarm.isPending} submitLabel="Criar Fazenda" />
       </DialogContent>
@@ -304,23 +378,21 @@ export function EditFarmDialog({ farm, trigger }: { farm: Farm, trigger?: React.
   const { toast } = useToast();
   const updateFarm = useUpdateFarm();
 
-  const onSubmit = (data: InsertFarm) => {
-    updateFarm.mutate({ id: farm.id, data }, {
-      onSuccess: () => {
-        setOpen(false);
-        toast({
-          title: "Fazenda atualizada",
-          description: "As alterações foram salvas com sucesso.",
-        });
-      },
-      onError: (error) => {
-        toast({
-          variant: "destructive",
-          title: "Erro ao atualizar",
-          description: error.message || "Ocorreu um erro ao tentar salvar."
-        });
-      }
-    });
+  const onSubmit = async (data: InsertFarm) => {
+    try {
+      await updateFarm.mutateAsync({ id: farm.id, data });
+      setOpen(false);
+      toast({
+        title: "Fazenda atualizada",
+        description: "As alterações foram salvas com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao atualizar",
+        description: error instanceof Error ? error.message : "Ocorreu um erro ao tentar salvar."
+      });
+    }
   };
 
   return (
@@ -335,6 +407,7 @@ export function EditFarmDialog({ farm, trigger }: { farm: Farm, trigger?: React.
       <DialogContent className="sm:max-w-[700px] bg-card rounded-2xl border-border shadow-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-display">Editar Fazenda</DialogTitle>
+          <DialogDescription>Atualize os dados da propriedade e salve as alterações.</DialogDescription>
         </DialogHeader>
         <FarmForm
           onSubmit={onSubmit}
@@ -348,6 +421,8 @@ export function EditFarmDialog({ farm, trigger }: { farm: Farm, trigger?: React.
             longitude: farm.longitude,
             clientId: farm.clientId,
             imageUrl: farm.imageUrl,
+            plantingDate: farm.plantingDate,
+            harvestDate: farm.harvestDate,
             polygon: farm.polygon as [number, number][] | null,
           }}
         />

@@ -8,6 +8,13 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { type Farm, type Reading, type InsertReading, insertFarmSchema, insertReadingSchema, insertReportSchema, insertUserSchema, insertClientSchema, insertTaskSchema } from "../shared/schema.js";
 import { sendEmail, buildAlertEmailHTML, buildWeeklyReportEmailHTML } from "./email.js";
 import { createClient } from "@supabase/supabase-js";
+import { randomUUID } from "node:crypto";
+import {
+  detectFarmImageContentType,
+  FARM_IMAGE_EXTENSIONS,
+  MAX_FARM_IMAGE_BYTES,
+  validateFarmImageMetadata,
+} from "../shared/farm-image.js";
 
 // Initialize Supabase Storage Client (Server-side ONLY)
 const supabaseUrl = process.env.SUPABASE_URL || "";
@@ -980,6 +987,92 @@ export async function registerRoutes(
     req.farm = farm as Farm;
     next();
   };
+
+  const farmImageUploadSchema = z.object({
+    fileName: z.string().min(1).max(255),
+    contentType: z.string(),
+    size: z.number(),
+  }).strict();
+
+  const farmImageConfirmSchema = z.object({
+    path: z.string().min(1).max(500),
+  }).strict();
+
+  app.post("/api/farm-images/upload-url", isAuthenticated, async (req: any, res) => {
+    if (!supabase) {
+      return res.status(503).json({ message: "O armazenamento de imagens não está configurado." });
+    }
+
+    const parsed = farmImageUploadSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Dados da imagem inválidos." });
+    }
+
+    const validationError = validateFarmImageMetadata(parsed.data);
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
+    }
+
+    const extension = FARM_IMAGE_EXTENSIONS[parsed.data.contentType];
+    const path = `farm-photos/${req.user.id}/${Date.now()}-${randomUUID()}.${extension}`;
+    const { data, error } = await supabase.storage
+      .from(supabaseBucket)
+      .createSignedUploadUrl(path);
+
+    if (error || !data) {
+      console.error("[FARM_IMAGE_SIGN_ERROR]", error);
+      return res.status(502).json({ message: "Não foi possível preparar o armazenamento da foto." });
+    }
+
+    return res.json({ path: data.path, signedUrl: data.signedUrl });
+  });
+
+  app.post("/api/farm-images/confirm", isAuthenticated, async (req: any, res) => {
+    if (!supabase) {
+      return res.status(503).json({ message: "O armazenamento de imagens não está configurado." });
+    }
+
+    const parsed = farmImageConfirmSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Caminho da imagem inválido." });
+    }
+
+    const ownerPrefix = `farm-photos/${req.user.id}/`;
+    if (!parsed.data.path.startsWith(ownerPrefix)) {
+      return res.status(403).json({ message: "Esta imagem não pertence ao usuário autenticado." });
+    }
+
+    const { data, error } = await supabase.storage.from(supabaseBucket).download(parsed.data.path);
+    if (error || !data) {
+      return res.status(404).json({ message: "A foto enviada não foi encontrada." });
+    }
+
+    const bytes = new Uint8Array(await data.arrayBuffer());
+    const detectedContentType = detectFarmImageContentType(bytes);
+    const validationError = validateFarmImageMetadata({
+      contentType: detectedContentType || "",
+      size: bytes.byteLength,
+    });
+
+    if (validationError) {
+      await supabase.storage.from(supabaseBucket).remove([parsed.data.path]);
+      return res.status(400).json({ message: validationError });
+    }
+
+    const expectedExtension = FARM_IMAGE_EXTENSIONS[detectedContentType!];
+    if (!parsed.data.path.endsWith(`.${expectedExtension}`)) {
+      await supabase.storage.from(supabaseBucket).remove([parsed.data.path]);
+      return res.status(400).json({ message: "O conteúdo da imagem não corresponde ao formato informado." });
+    }
+
+    if (bytes.byteLength > MAX_FARM_IMAGE_BYTES) {
+      await supabase.storage.from(supabaseBucket).remove([parsed.data.path]);
+      return res.status(400).json({ message: "A imagem deve ter no máximo 6 MB." });
+    }
+
+    const { data: publicData } = supabase.storage.from(supabaseBucket).getPublicUrl(parsed.data.path);
+    return res.json({ publicUrl: publicData.publicUrl });
+  });
 
   // === FARMS (Protected) ===
   app.get("/api/farms", isAuthenticated, async (req, res) => {
