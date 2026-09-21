@@ -19,16 +19,23 @@ interface ReportTemplateProps {
 
 export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplateProps>(({
     farm,
-    currentReading,
-    previousReading,
-    historyData,
+    currentReading: sourceReading,
+    previousReading: sourcePreviousReading,
+    historyData: sourceHistory,
     aiReport,
     consultantName,
-    readings,
+    readings: sourceReadings,
     zones
 }, ref) => {
 
-    const currentDate = currentReading ? new Date(currentReading.date) : new Date();
+    const isUsableReading = (r: Reading | null) => !!r && !r.isSimulated && !r.satelliteImage?.includes("images.unsplash.com");
+    const containsSimulation = [sourceReading, sourcePreviousReading, ...(sourceReadings || [])].some(r => r && !isUsableReading(r));
+    const currentReading = isUsableReading(sourceReading) ? sourceReading : null;
+    const previousReading = isUsableReading(sourcePreviousReading) ? sourcePreviousReading : null;
+    const readings = (sourceReadings || []).filter(isUsableReading);
+    const historyData = sourceHistory.filter(r => !r.isSimulated && !r.satelliteImage?.includes("images.unsplash.com"));
+    const readingDate = (date: string) => new Date(date.length === 10 ? date + "T12:00:00" : date);
+    const currentDate = currentReading ? readingDate(currentReading.date) : null;
 
     // Parse structural AI report if valid JSON, otherwise fallback to simple text
     // Handles markdown block injections from LLMs (```json / ```)
@@ -55,8 +62,8 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
     const isCritical = parsedReport?.status === 'Crítico' || ndviVal < 0.45;
     const isGood = parsedReport?.status === 'Bom' || ndviVal > 0.65;
 
-    const statusText = parsedReport?.status || (isCritical ? 'CRÍTICO' : isGood ? 'BOM' : 'MODERADO');
-    const impactoText = parsedReport?.impacto || (isCritical ? 'Alto (>30%)' : isGood ? 'Baixo (<5%)' : 'Médio (10-20%)');
+    const statusText = !currentReading ? 'SEM DADOS' : parsedReport?.status || (isCritical ? 'CRÍTICO' : isGood ? 'BOM' : 'MODERADO');
+    const impactoText = 'Não quantificado';
 
     // Fallbacks visuais corporativos
     const statusColor = isCritical ? 'text-red-700 bg-red-50 border-red-300' :
@@ -66,19 +73,11 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
     const StatusIcon = isCritical ? AlertTriangle :
         isGood ? CheckCircle : Info;
 
-    // Métricas Preditivas (Mock Determinístico como era antes)
-    const crp = farm?.cropType || "Soja";
-    let baseProd = 60;
-    if (crp.toLowerCase().includes("milho")) { baseProd = 120; }
-    if (crp.toLowerCase().includes("trigo")) { baseProd = 3; }
-
-    const tSeed = farm?.id || 1;
-    let mockMape = 0, mockMae = 0, mockR2 = 0;
     let rdsForTable: any[] = [];
 
     if (readings && readings.length > 0) {
         rdsForTable = readings.slice(0, 10).map(r => ({
-            date: format(new Date(r.date), "dd/MM/yyyy"),
+            date: format(readingDate(r.date), "dd/MM/yyyy"),
             ndvi: (r.ndvi || 0).toFixed(3),
             ndwi: (r.ndwi || 0).toFixed(3),
             temp: (r.temperature || 0).toFixed(1) + "°C",
@@ -86,27 +85,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
         }));
     }
 
-    const mockHist = Array.from({ length: 6 }).map((_, i) => {
-        const noiseReal = Math.sin((tSeed + i) * 1.3) * (baseProd * 0.15);
-        const noiseEst = Math.cos((tSeed + i) * 1.7) * (baseProd * 0.08);
-        const rl = baseProd + noiseReal;
-        const est = rl + noiseEst;
-        const ePerc = Math.abs((rl - est) / rl) * 100;
-        return { real: rl, est: est, erro: ePerc };
-    });
-
-    mockMae = mockHist.reduce((acc, h) => acc + Math.abs(h.real - h.est), 0) / mockHist.length;
-    mockMape = mockHist.reduce((acc, h) => acc + h.erro, 0) / mockHist.length;
-    const ssRes = mockHist.reduce((acc, h) => acc + Math.pow(h.real - h.est, 2), 0);
-    const meanR = mockHist.reduce((acc, h) => acc + h.real, 0) / mockHist.length;
-    const ssTot = mockHist.reduce((acc, h) => acc + Math.pow(h.real - meanR, 2), 0);
-    mockR2 = Math.max(0, 1 - (ssRes / ssTot));
-
-    const regMean = baseProd + 4;
-    const perfRelativa = ((mockMape / regMean) * 10).toFixed(1);
-    const perfClass = mockMape < 7 ? "Alta Precisão (Adeptos a Modelos de Crédito Seguros)" : mockMape <= 12 ? "Boa Precisão (Estabilidade Aceitável)" : "Modelo em Calibração (Volatilidade Alta)";
-
-    // Zonas de Risco Reais ou Fallback
+    // Only display zones supplied by the selected analysis.
     const znData = zones && zones.length > 0
         ? zones.map((z: any) => {
             const nv = parseFloat(z.ndvi_avg || z.ndviAvg || z.ndvi) || 0;
@@ -120,14 +99,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                 isRisk: nv < 0.45
             };
         })
-        : [
-            { zone: "Pivot 1 Central", ndvi: "0.71", area: "125.000", risk: "Baixo", isRisk: false },
-            { zone: "Área de Borda (N)", ndvi: "0.55", area: "80.000", risk: "Médio", isRisk: false },
-            { zone: "Várzea Leste", ndvi: "0.41", area: "224.000", risk: "ZONA CRÍTICA", isRisk: true },
-            { zone: "Talhão Leste", ndvi: "0.62", area: "151.000", risk: "Baixo", isRisk: false },
-        ];
-
-    const hashID = Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
+        : [];
 
     const getProxyUrl = (url?: string) => {
         if (!url) return undefined;
@@ -149,7 +121,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                     <h1 className="text-3xl tracking-tight text-white m-0 self-center uppercase" style={{ fontFamily: 'Arial, sans-serif', fontWeight: 'bold' }}>SYAZ <span className="opacity-80">AGRO</span></h1>
                 </div>
                 <div className="text-right">
-                    <h2 className="text-white text-lg mb-1" style={{ fontFamily: 'Arial, sans-serif', fontWeight: 'bold' }}>RELATÓRIO DE AUDITORIA TÉCNICA</h2>
+                    <h2 className="text-white text-lg mb-1" style={{ fontFamily: 'Arial, sans-serif', fontWeight: 'bold' }}>RELATÓRIO DE MONITORAMENTO</h2>
                     <p className="text-sm font-light text-gray-200">Consultor: <span className="font-bold">{consultantName || "Equipe SYAZ"}</span></p>
                 </div>
             </div>
@@ -157,6 +129,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
             {/* ====== PÁGINA 1: RESUMO EXECUTIVO ====== */}
             <div className="px-10 py-8 w-[210mm] h-[267mm] box-border relative border-b border-[#D0D0D0]">
 
+                {containsSimulation && <p className="text-xs text-amber-800 mb-2">Registros simulados ou com imagens ilustrativas foram excluídos desta exportação.</p>}
                 {/* Meta-Strip */}
                 <div className="flex bg-gray-50 rounded p-4 border border-[#D0D0D0] mb-8 justify-between items-center shadow-sm">
                     <div>
@@ -164,8 +137,8 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                         <p className="text-lg font-bold text-[#172649] pb-1 truncate max-w-[120mm]">{farm.name}</p>
                     </div>
                     <div>
-                        <p className="text-[10px] text-[#2F447F] uppercase font-bold tracking-wider">Data de Emissão</p>
-                        <p className="text-lg font-bold text-[#172649]">{format(currentDate, "dd/MM/yyyy")}</p>
+                        <p className="text-[10px] text-[#2F447F] uppercase font-bold tracking-wider">Data da Leitura</p>
+                        <p className="text-lg font-bold text-[#172649]">{currentDate ? format(currentDate, "dd/MM/yyyy") : "Sem leitura"}</p>
                     </div>
                     <div>
                         <p className="text-[10px] text-[#2F447F] uppercase font-bold tracking-wider">Safra / Cultura</p>
@@ -186,7 +159,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                         <p className="text-4xl font-black uppercase tracking-tighter" style={{ fontFamily: 'Arial, sans-serif' }}>{statusText}</p>
                         <div className="mt-8 border-t border-current w-full pt-4 opacity-75">
                             <p className="text-xs font-bold uppercase tracking-wider mb-1">Impacto Estimado</p>
-                            <p className="text-3xl font-bold">{impactoText}</p>
+                            <p className="text-lg font-bold">{impactoText}</p>
                         </div>
                     </div>
 
@@ -277,11 +250,11 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                     </div>
                     <div className="flex gap-4 items-center">
                         <div className="text-right">
-                            <p className="text-xs font-bold text-[#172649] uppercase">Autenticidade do Relatório</p>
-                            <p className="text-[9px] text-gray-500 max-w-[40mm] font-light">Valide o chassi virtual e registro público utilizando o QR Code ao lado.</p>
+                            <p className="text-xs font-bold text-[#172649] uppercase">Consultar Fazenda</p>
+                            <p className="text-[9px] text-gray-500 max-w-[40mm] font-light">Acesse a fazenda no sistema. O acesso pode exigir login.</p>
                         </div>
                         <div className="p-1.5 bg-white border-2 border-[#2F447F] rounded">
-                            <QRCode value={`https://yvy.system/report/verify?f=${farm.id}&d=${format(new Date(), "yyyyMMdd")}`} size={50} fgColor="#172649" />
+                            <QRCode value={`${typeof window === "undefined" ? "https://yvy-g8z9.vercel.app" : window.location.origin}/farms/${farm.id}`} size={50} fgColor="#172649" />
                         </div>
                     </div>
                 </div>
@@ -300,7 +273,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                     <div className="w-1/2 rounded shadow flex flex-col border border-[#D0D0D0]">
                         <div className="bg-gray-100 p-3 text-center border-b border-[#D0D0D0]">
                             <p className="font-bold text-xs text-[#2F447F] uppercase tracking-wider">Leitura Anterior</p>
-                            <p className="text-sm font-light text-gray-600">{previousReading ? format(new Date(previousReading.date), "dd/MM/yyyy") : "Sem registro anterior"}</p>
+                            <p className="text-sm font-light text-gray-600">{previousReading ? format(readingDate(previousReading.date), "dd/MM/yyyy") : "Sem registro anterior"}</p>
                         </div>
                         <div className="h-[75mm] w-full flex items-center justify-center bg-gray-200 relative">
                             {(() => {
@@ -329,7 +302,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                     <div className="w-1/2 rounded shadow flex flex-col border-2 border-[#2F447F]">
                         <div className="bg-[#2F447F] p-3 text-center">
                             <p className="font-bold text-xs text-white uppercase tracking-wider">Cenário Atual (Vigor Verde NDVI)</p>
-                            <p className="text-sm font-light text-gray-200">{currentReading ? format(new Date(currentReading.date), "dd/MM/yyyy") : "Hoje"}</p>
+                            <p className="text-sm font-light text-gray-200">{currentReading ? format(readingDate(currentReading.date), "dd/MM/yyyy") : "Sem leitura"}</p>
                         </div>
                         <div className="h-[75mm] w-full flex items-center justify-center bg-gray-100 relative">
                             {currentReading?.satelliteImage ? (
@@ -407,46 +380,18 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
 
                 <h3 className="text-xl text-[#172649] border-b-2 border-[#D0D0D0] pb-2 mb-4" style={{ fontFamily: 'Arial, sans-serif', fontWeight: 'bold' }}>V. Métricas de Acurácia do Modelo Preditivo</h3>
 
-                <div className="flex justify-between gap-4 mb-4">
-                    <div className="w-1/3 bg-gray-50 p-4 rounded border border-[#D0D0D0] shadow-sm text-center">
-                        <p className="text-[10px] text-[#2F447F] font-bold uppercase mb-1 tracking-wider">MAE (Erro Médio)</p>
-                        <p className="text-2xl font-bold text-[#172649]">{mockMae.toFixed(1)} t/ha</p>
-                    </div>
-                    <div className="w-1/3 bg-gray-50 p-4 rounded border border-[#D0D0D0] shadow-sm text-center">
-                        <p className="text-[10px] text-[#2F447F] font-bold uppercase mb-1 tracking-wider">MAPE (% Erro Médio)</p>
-                        <p className="text-2xl font-bold text-[#172649]">{mockMape.toFixed(1)}%</p>
-                    </div>
-                    <div className="w-1/3 bg-gray-50 p-4 rounded border border-[#D0D0D0] shadow-sm text-center">
-                        <p className="text-[10px] text-[#2F447F] font-bold uppercase mb-1 tracking-wider">R² (Coef. Determinação)</p>
-                        <p className="text-2xl font-bold text-[#172649]">{mockR2.toFixed(3)}</p>
-                    </div>
-                </div>
-                <p className="text-xs text-black font-light italic mb-10 border-l-4 border-[#2F447F] pl-3 py-1 bg-gray-50">
-                    <strong className="text-[#172649]">Análise Automática:</strong> O modelo preditivo para este polígono apresenta {perfClass}, baseada no teste retroativo R-Squared (R² = {mockR2.toFixed(3)}). Quanto menor o erro percentual (MAPE), maior a confiabilidade das projeções de safra para fins de crédito rural e seguro agrícola.
+                <p className="text-sm text-black mb-8">
+                    MAE, MAPE e R² indisponíveis. Essas métricas exigem previsões comparadas
+                    com medições reais de produtividade. Não há validação registrada para este relatório.
+                </p>
+                <p className="text-sm text-black mb-8">
+                    Comparação regional de produtividade indisponível: não há uma base validada
+                    para calcular média regional, desvio padrão ou desempenho relativo.
                 </p>
 
                 <div className="flex gap-6 mb-8">
-                    {/* Benchmark */}
-                    <div className="w-1/2">
-                        <h3 className="text-md font-bold text-[#172649] mb-3 uppercase tracking-wider" style={{ fontFamily: 'Arial, sans-serif' }}>Benchmark Regional</h3>
-                        <div className="bg-[#2F447F]/5 border border-[#2F447F]/20 p-5 rounded">
-                            <div className="flex justify-between mb-3 border-b border-[#D0D0D0] pb-2">
-                                <span className="text-sm text-black font-light">Média Regional (Raio 50km):</span>
-                                <span className="text-sm font-bold text-[#172649]">{regMean.toFixed(1)} t/ha</span>
-                            </div>
-                            <div className="flex justify-between mb-3 border-b border-[#D0D0D0] pb-2">
-                                <span className="text-sm text-black font-light">Desvio Padrão Regional:</span>
-                                <span className="text-sm font-bold text-[#172649]">± 3.2 t/ha</span>
-                            </div>
-                            <div className="flex justify-between mt-4">
-                                <span className="text-sm text-[#172649] font-bold">Performance do Polígono:</span>
-                                <span className="text-sm font-bold text-green-700">Superávit de +{perfRelativa}% da média</span>
-                            </div>
-                        </div>
-                    </div>
-
                     {/* Zonas */}
-                    <div className="w-1/2">
+                    <div className="w-full">
                         <h3 className="text-md font-bold text-[#172649] mb-3 uppercase tracking-wider" style={{ fontFamily: 'Arial, sans-serif' }}>Microambientes (Talhões)</h3>
                         <table className="w-full text-sm text-left border border-[#D0D0D0] shadow-sm rounded overflow-hidden">
                             <thead className="bg-[#172649] text-white">
@@ -458,6 +403,9 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                                 </tr>
                             </thead>
                             <tbody>
+                                {znData.length === 0 && (
+                                    <tr><td colSpan={4} className="p-3 text-gray-600">Não há zonas de manejo disponíveis para este relatório.</td></tr>
+                                )}
                                 {znData.map((z, idx) => (
                                     <tr key={idx} className="border-b border-[#D0D0D0] last:border-0 bg-white text-xs">
                                         <td className="py-1 px-3 font-light text-black">{z.zone}</td>
@@ -474,8 +422,8 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                 {/* Footer Técnico Pág 3 */}
                 <div className="absolute bottom-10 left-10 right-10 bg-[#172649] text-white p-5 rounded flex justify-between items-center shadow-md border-t-4 border-[#2F447F]">
                     <div className="text-[10px] text-gray-300 leading-relaxed font-light">
-                        <p className="mb-1"><strong className="text-white">HASH KEY (AUDIT ID):</strong> <span className="font-mono text-[#D0D0D0] tracking-widest">{hashID}</span></p>
-                        <p className="mb-1"><strong className="text-white">VAL TAMPER-EVIDENCE UTC:</strong> {new Date().toISOString()}</p>
+                        <p className="mb-1"><strong className="text-white">REFERÊNCIA DA LEITURA:</strong> Fazenda {farm.id} / Leitura {currentReading?.id ?? "indisponível"}</p>
+                        <p className="mb-1"><strong className="text-white">GERADO EM UTC:</strong> {new Date().toISOString()}</p>
                         <p className="mt-2 opacity-80 text-[9px] uppercase tracking-wide">A análise possui caráter técnico-preditivo da SYAZ e deve ser validada in loco para decisões exclusivas de crédito rural.</p>
                     </div>
                     <div className="text-right">

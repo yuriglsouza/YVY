@@ -37,6 +37,7 @@ function generateMockReadings(farmId: number, count = 10) {
 
     readings.push({
       farmId,
+      isSimulated: true,
       date: date.toISOString().split('T')[0],
       ndvi: (0.2 + Math.random() * 0.6) * OpticalBlock,
       ndwi: (-0.2 + Math.random() * 0.4) * OpticalBlock,
@@ -498,6 +499,9 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{
       const handleSuccess = async (result: any) => {
         try {
           if (result.error) throw new Error(result.error);
+          if (result.isSimulated || result.is_simulated || result.isMock || result.dataSource === "simulation") {
+            throw new Error("O serviço retornou dados simulados; nenhuma leitura foi salva.");
+          }
 
           const prevReadings = await storage.getReadings(farmId);
           const resultDateObj = new Date(result.date);
@@ -591,6 +595,7 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{
 
           const newReadingData: Partial<InsertReading> = {
             farmId,
+            isSimulated: false,
             date: resultDateObj.toISOString(), // Fix: Type string
             ndvi: result.ndvi,
             ndwi: result.ndwi,
@@ -643,42 +648,17 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{
             }
           });
         } catch (e: any) {
-          await fallbackToMock(e.message || "Error processing result");
+          await reportSyncFailure(e.message || "Error processing result");
         }
       };
 
-      const fallbackToMock = async (reason: string) => {
-        console.warn(`[Satellite Fallback] Reason: ${reason}`);
-        
-        // CHECK IF SIMULATION IS ALLOWED
-        const isSimulationAllowed = process.env.ALLOW_SIMULATED_SATELLITE_DATA === 'true';
-        if (!isSimulationAllowed) {
-            console.error(`[Satellite Fallback Blocked] GEE Failed and simulation is not allowed. Reason: ${reason}`);
-            resolve({
-                success: false,
-                code: "GEE_AUTH_ERROR",
-                message: "Google Earth Engine não autenticado ou indisponível. Configure as credenciais no Render antes de sincronizar dados reais.",
-                simulationUsed: false
-            });
-            return;
-        }
-
-        const [mockReading] = generateMockReadings(farmId, 1);
-        mockReading.date = new Date().toISOString().split('T')[0];
-        mockReading.satelliteImage = "https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80";
-        mockReading.thermalImage = "https://images.unsplash.com/photo-1577705998148-6da4f3963bc1?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80";
-        (mockReading as any).isSimulated = true;
-
-        await storage.createReading(mockReading as any);
-        checkAndSendAlerts(mockReading as Reading, farmId).catch(console.error);
-
+      const reportSyncFailure = async (reason: string) => {
+        console.error("[SATELLITE_SYNC_FAILED]", { farmId, reason });
         resolve({
-          message: "⚠️ Dados simulados usados porque o GEE está indisponível.",
-          reading: mockReading,
-          isMock: true,
-          simulationUsed: true,
-          dataSource: "simulation",
-          details: reason
+          success: false,
+          code: "SATELLITE_UNAVAILABLE",
+          message: "Não foi possível obter uma nova leitura real do satélite. O histórico foi preservado. Tente sincronizar novamente mais tarde.",
+          simulationUsed: false,
         });
       };
 
@@ -697,7 +677,7 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{
                });
                return;
              }
-             return fallbackToMock(`PYTHON_COLD_START_TIMEOUT: ${wakeupResult.details}`);
+             return reportSyncFailure(`PYTHON_COLD_START_TIMEOUT: ${wakeupResult.details}`);
           }
 
           // PHASE 2: Actual Sync with its own retry logic
@@ -745,7 +725,7 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{
           }
 
           if (syncSuccess) return;
-          console.warn("[SATELLITE_SYNC] All attempts failed, falling back to local script or mock...");
+          console.warn("[SATELLITE_SYNC] All attempts failed, trying the local satellite script...");
         } catch (e: any) {
           console.error("[SATELLITE_ERROR]", e);
         }
@@ -761,7 +741,7 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{
 
         exec(command, async (error, stdout, stderr) => {
           if (error && !stdout) {
-            await fallbackToMock(stderr || error.message);
+            await reportSyncFailure(stderr || error.message);
             return;
           }
           try {
@@ -769,11 +749,11 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{
             await handleSuccess(result);
           } catch (parseError) {
             console.error(`[Satellite Fallback] JSON Parse Error. STDOUT was: ${stdout}`);
-            await fallbackToMock("Valid JSON not returned by script");
+            await reportSyncFailure("Valid JSON not returned by script");
           }
         });
       } catch (e: any) {
-        await fallbackToMock("Local script execution failed");
+        await reportSyncFailure("Local script execution failed");
       }
     });
   } catch (error: any) {
@@ -1436,12 +1416,6 @@ export async function registerRoutes(
       const input = api.farms.create.input.parse(req.body);
       const farm = await storage.createFarm(input);
 
-      // Seed initial readings for this new farm
-      const mockReadings = generateMockReadings(farm.id);
-      for (const r of mockReadings) {
-        await storage.createReading(r);
-      }
-
       res.status(201).json(farm);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -1879,7 +1853,7 @@ export async function registerRoutes(
       let statusCode = 500;
       if (result.code === "PYTHON_WARMUP_UNAUTHORIZED") statusCode = 401;
       else if (result.code === "PYTHON_CONTRACT_INVALID") statusCode = 502;
-      else if (result.code === "GEE_AUTH_ERROR" || result.details?.includes("PYTHON_COLD_START_TIMEOUT")) statusCode = 503;
+      else if (result.code === "SATELLITE_UNAVAILABLE" || result.code === "GEE_AUTH_ERROR" || result.details?.includes("PYTHON_COLD_START_TIMEOUT")) statusCode = 503;
       
       return res.status(statusCode).json(result);
     }

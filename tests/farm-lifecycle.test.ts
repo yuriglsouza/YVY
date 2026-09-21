@@ -91,6 +91,7 @@ test("farm API creates, enforces the free limit, deletes, and allows creation ag
     assert.equal(createResponse.status, 201);
     const farm = await createResponse.json() as { id: number; userId: number };
     assert.equal(farm.userId, user.id);
+    assert.deepEqual(await appStorage.getReadings(farm.id), []);
 
     const limitedResponse = await fetch(`${baseUrl}/api/farms`, {
       method: "POST",
