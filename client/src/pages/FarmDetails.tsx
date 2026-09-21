@@ -22,6 +22,8 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { ReportConfigDialog, ReportConfig } from "@/components/report-config-dialog";
 import { FinancialAnalysisDialog } from "@/components/financial-analysis-dialog";
+import { LivestockFinancialDialog } from "@/components/livestock-financial-dialog";
+import { isPasture } from "@shared/livestock-financial";
 import { useUser } from "@/hooks/use-user";
 import { CropCycleCard } from "@/components/crop-cycle-card";
 import { formatAreaHa } from "@/lib/format";
@@ -343,7 +345,9 @@ export default function FarmDetails() {
             <div className="flex flex-wrap gap-2">
               {/*@ts-ignore*/}
               {(user?.role === 'admin' || user?.subscriptionStatus === 'active') ? (
-                <FinancialAnalysisDialog zones={zones} farmSizeHa={farm.sizeHa} />
+                isPasture(farm.cropType)
+                  ? <LivestockFinancialDialog key={farm.id} farmSizeHa={farm.sizeHa} />
+                  : <FinancialAnalysisDialog key={farm.id} zones={zones} farmSizeHa={farm.sizeHa} />
               ) : (
                 <Link href="/plans">
                   <Button variant="outline" className="border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 gap-2">
@@ -759,7 +763,7 @@ export default function FarmDetails() {
 
               <div className="lg:col-span-1 space-y-6">
                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}>
-                  <CropCycleCard plantingDate={farm.plantingDate} harvestDate={farm.harvestDate} />
+                  <CropCycleCard plantingDate={farm.plantingDate} harvestDate={farm.harvestDate} cropStage={farm.cropStage} />
                 </motion.div>
 
                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>

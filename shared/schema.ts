@@ -2,6 +2,7 @@ import { pgTable, text, serial, integer, boolean, timestamp, jsonb, real, date, 
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
+import { cropStageSchema, type CropStage } from "./crop-stage.js";
 
 // No external models to export for now
 
@@ -34,6 +35,7 @@ export const farms = pgTable("farms", {
   longitude: real("longitude").notNull(),
   sizeHa: real("size_ha").notNull(),
   cropType: text("crop_type").notNull(),
+  cropStage: jsonb("crop_stage").$type<CropStage>(),
   plantingDate: date("planting_date"),   // Início da safra
   harvestDate: date("harvest_date"),     // Fim da safra
   imageUrl: text("image_url"),
@@ -44,6 +46,7 @@ export const farms = pgTable("farms", {
 });
 
 export const insertFarmSchema = createInsertSchema(farms, {
+  cropStage: cropStageSchema.nullish(),
   plantingDate: z.string().nullish().transform(val => val === "" ? null : val),
   harvestDate: z.string().nullish().transform(val => val === "" ? null : val),
 }).omit({ id: true });

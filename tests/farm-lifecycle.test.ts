@@ -92,6 +92,25 @@ test("farm API creates, enforces the free limit, deletes, and allows creation ag
     const farm = await createResponse.json() as { id: number; userId: number };
     assert.equal(farm.userId, user.id);
     assert.deepEqual(await appStorage.getReadings(farm.id), []);
+    const stage = { stage: "V4", observedOn: "2026-09-01" };
+    const updatedResponse = await fetch(`${baseUrl}/api/farms/${farm.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cropStage: stage }),
+    });
+    assert.equal(updatedResponse.status, 200);
+    assert.deepEqual((await updatedResponse.json()).cropStage, stage);
+    assert.deepEqual((await appStorage.getFarm(farm.id))!.cropStage, stage);
+    const invalidStage = await fetch(`${baseUrl}/api/farms/${farm.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cropStage: { stage: "V4", observedOn: "2026-02-30" } }),
+    });
+    assert.equal(invalidStage.status, 400);
+    assert.deepEqual((await appStorage.getFarm(farm.id))!.cropStage, stage);
+    const clearedStage = await fetch(`${baseUrl}/api/farms/${farm.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cropStage: null }),
+    });
+    assert.equal(clearedStage.status, 200);
+    assert.equal((await clearedStage.json()).cropStage, null);
 
     const limitedResponse = await fetch(`${baseUrl}/api/farms`, {
       method: "POST",

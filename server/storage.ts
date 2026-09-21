@@ -401,6 +401,7 @@ export class MemStorage implements IStorage {
       clientId: insertFarm.clientId ?? null,
       isDeforested: insertFarm.isDeforested ?? null,
       plantingDate: insertFarm.plantingDate ?? null,
+      cropStage: insertFarm.cropStage ?? null,
       harvestDate: insertFarm.harvestDate ?? null,
       polygon: insertFarm.polygon ?? null,
       lastSyncAt: insertFarm.lastSyncAt ?? null,

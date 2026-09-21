@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { uploadFarmImage } from "@/lib/farm-image-upload";
 import { validateFarmImageMetadata } from "@shared/farm-image";
 import { formatAreaHa } from "@/lib/format";
+import { cropStageSchema } from "@shared/crop-stage";
 
 // Lazy load the map picker to avoid SSR issues & reduce bundle for non-map users
 const PolygonMapPicker = lazy(() =>
@@ -37,6 +38,8 @@ function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmi
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [stage, setStage] = useState(defaultValues?.cropStage?.stage || "");
+  const [observedOn, setObservedOn] = useState(defaultValues?.cropStage?.observedOn || "");
 
   const form = useForm<InsertFarm>({
     resolver: zodResolver(insertFarmSchema),
@@ -65,6 +68,11 @@ function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmi
   }, [imageFile]);
 
   const handleSubmit = async (data: InsertFarm) => {
+    const observation = stage.trim() || observedOn ? cropStageSchema.safeParse({ stage, observedOn }) : null;
+    if (observation && !observation.success) {
+      toast({ title: "Confira o estágio da cultura", description: observation.error.issues[0].message, variant: "destructive" });
+      return;
+    }
     let imageUrl = data.imageUrl;
 
     if (imageFile) {
@@ -83,7 +91,7 @@ function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmi
       setIsUploadingImage(false);
     }
 
-    await onSubmit({ ...data, imageUrl: imageUrl || null });
+    await onSubmit({ ...data, cropStage: observation?.success ? observation.data : null, imageUrl: imageUrl || null });
   };
 
   const handlePolygonChange = (data: {
@@ -278,6 +286,16 @@ function FarmForm({ onSubmit, defaultValues, isPending, submitLabel }: { onSubmi
       </div>
 
       <div className="grid gap-3 rounded-xl border border-border bg-muted/20 p-4">
+        <Label htmlFor="cropStage">Estágio observado em campo (opcional)</Label>
+        <Input id="cropStage" value={stage} maxLength={120} placeholder="Ex.: V4, florescimento ou rebrota"
+          onChange={event => setStage(event.target.value)} />
+        <Label htmlFor="observedOn">Data da observação</Label>
+        <Input id="observedOn" type="date" value={observedOn} max={new Date().toISOString().slice(0, 10)}
+          onChange={event => setObservedOn(event.target.value)} />
+        <p className="text-xs text-muted-foreground">Registre o estágio confirmado na vistoria. Para remover o registro, limpe os dois campos.</p>
+      </div>
+
+      <div className="grid gap-3 rounded-xl border border-border bg-muted/20 p-4">
         <div className="flex items-center gap-2">
           <ImagePlus className="h-4 w-4 text-primary" />
           <Label htmlFor="farmImage">Foto da fazenda ou talhão</Label>
@@ -417,6 +435,7 @@ export function EditFarmDialog({ farm, trigger }: { farm: Farm, trigger?: React.
           defaultValues={{
             name: farm.name,
             cropType: farm.cropType,
+            cropStage: farm.cropStage,
             sizeHa: farm.sizeHa,
             latitude: farm.latitude,
             longitude: farm.longitude,

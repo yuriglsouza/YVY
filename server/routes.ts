@@ -65,7 +65,8 @@ async function generateAgronomistReport(
   climateForecast?: {
     currentTemp: number;
     forecastSummary: string;
-  } | null
+  } | null,
+  cropStage?: Farm["cropStage"]
 ): Promise<{ content: string, formalContent: string }> {
   if (!process.env.GEMINI_API_KEY) {
     return {
@@ -122,6 +123,7 @@ async function generateAgronomistReport(
         }
 
       Dados Atuais da Fazenda (${cropType}):
+    - Última observação de campo (informada pelo usuário, não inferida pelo satélite): ${cropStage ? JSON.stringify(cropStage) : "Não registrada"}. Considere a data da observação; não presuma que ainda seja o estágio atual.
     - Data: ${reading.date}
     - NDVI(Vigor): ${reading.ndvi.toFixed(3)}
     - NDWI(Água): ${reading.ndwi.toFixed(3)}
@@ -1816,7 +1818,8 @@ export async function registerRoutes(
         reading,
         farm.cropType,
         predValue !== null ? { date: dateStr, value: predValue } : null,
-        climateForecast
+        climateForecast,
+        farm.cropStage
       );
 
       const report = await storage.createReport({
