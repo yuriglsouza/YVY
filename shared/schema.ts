@@ -53,6 +53,22 @@ export const insertFarmSchema = createInsertSchema(farms, {
 export type Farm = typeof farms.$inferSelect;
 export type InsertFarm = z.infer<typeof insertFarmSchema>;
 
+// Field visits are independent observations; never overwrite the farm or satellite history.
+export const farmVisits = pgTable('farm_visits', {
+  id: serial('id').primaryKey(),
+  farmId: integer('farm_id').notNull().references(() => farms.id, { onDelete: 'cascade' }),
+  authorId: integer('author_id').references(() => users.id, { onDelete: 'set null' }),
+  observedOn: date('observed_on').notNull(),
+  stage: text('stage').notNull().default(''),
+  observations: text('observations').notNull(),
+  management: text('management').notNull().default(''),
+  photoPaths: jsonb('photo_paths').$type<string[]>().notNull().default([]),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, table => ({ farmDateIdx: index('farm_visits_farm_date_idx').on(table.farmId, table.observedOn, table.id) }));
+export type FarmVisit = typeof farmVisits.$inferSelect;
+export type InsertFarmVisit = typeof farmVisits.$inferInsert;
+export type FarmVisitView = FarmVisit & { photoUrls: string[] };
+
 // === READINGS (Satellite Data) ===
 export const readings = pgTable("readings", {
   id: serial("id").primaryKey(),

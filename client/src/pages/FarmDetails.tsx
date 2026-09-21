@@ -27,6 +27,7 @@ import { isPasture } from "@shared/livestock-financial";
 import { useUser } from "@/hooks/use-user";
 import { CropCycleCard } from "@/components/crop-cycle-card";
 import { formatAreaHa } from "@/lib/format";
+import { FarmVisits } from '@/components/farm-visits';
 
 import L from "leaflet";
 import icon from "leaflet/dist/images/marker-icon.png";
@@ -468,6 +469,7 @@ export default function FarmDetails() {
               <Activity className="w-4 h-4" />
               Monitoramento
             </TabsTrigger>
+            <TabsTrigger value="visits">Vistorias</TabsTrigger>
             {(farm?.cropType.toLowerCase().includes('pasto') || farm?.cropType.toLowerCase().includes('pastagem')) && (
               <TabsTrigger value="livestock" className="gap-2 bg-amber-500/10 text-amber-600 data-[state=active]:bg-amber-600 data-[state=active]:text-white">
                 <Beef className="w-4 h-4" />
@@ -476,6 +478,7 @@ export default function FarmDetails() {
             )}
           </TabsList>
 
+          <TabsContent value="visits"><FarmVisits key={farm.id} farmId={farm.id} /></TabsContent>
           <TabsContent value="monitoring">
             <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
               {latestReading ? (

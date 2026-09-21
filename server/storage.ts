@@ -1,7 +1,7 @@
 import { db } from "./db.js";
 import {
-  farms, readings, reports, users, alerts, clients, zones,
-  type Farm, type InsertFarm,
+  farms, readings, reports, users, alerts, clients, zones, farmVisits, type FarmVisit, type InsertFarmVisit,
+  type Farm, type InsertFarm, type Alert,
   type Reading, type InsertReading,
   type Report, type InsertReport,
   type User, type InsertUser,
@@ -15,6 +15,8 @@ import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
 // We can mix them or keep them separate. I'll keep them separate but ensure this file doesn't conflict.
 
 export interface IStorage {
+  getVisits(farmId: number, limit?: number, offset?: number): Promise<FarmVisit[]>;
+  createVisit(visit: InsertFarmVisit): Promise<FarmVisit>;
   // Farms
   getFarms(): Promise<Farm[]>;
   getFarmsWithOwners(): Promise<(Farm & { ownerName: string | null; ownerEmail: string | null })[]>; // Added
@@ -47,6 +49,7 @@ export interface IStorage {
   logAlert(farmId: number, type: string, message: string, sentTo: string): Promise<void>;
   getAlerts(limit?: number): Promise<{ id: number; farmId: number; date: Date | null; type: string; message: string; sentTo: string | null; read: boolean }[]>;
   markAlertRead(id: number): Promise<void>;
+  getAlert(id: number): Promise<Alert | undefined>;
 
   // Clients
   getClients(): Promise<Client[]>;
@@ -60,6 +63,7 @@ export interface IStorage {
 
   // Tasks
   getTasks(farmId: number): Promise<Task[]>;
+  getTask(id: number): Promise<Task | undefined>;
   createTask(task: InsertTask): Promise<Task>;
   updateTask(id: number, task: Partial<InsertTask>): Promise<Task>;
   deleteTask(id: number): Promise<void>;
@@ -70,6 +74,15 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  async getVisits(farmId: number, limit = 20, offset = 0): Promise<FarmVisit[]> {
+    return db.select().from(farmVisits).where(eq(farmVisits.farmId, farmId))
+      .orderBy(desc(farmVisits.observedOn), desc(farmVisits.id)).limit(limit).offset(offset);
+  }
+
+  async createVisit(visit: InsertFarmVisit): Promise<FarmVisit> {
+    const [created] = await db.insert(farmVisits).values(visit).returning();
+    return created;
+  }
   async getFarms(): Promise<Farm[]> {
     const farmsList = await db!.select().from(farms);
     return await Promise.all(farmsList.map(async (farm) => {
@@ -242,6 +255,16 @@ export class DatabaseStorage implements IStorage {
     await db!.update(alerts).set({ read: true }).where(eq(alerts.id, id));
   }
 
+  async getAlert(id: number): Promise<Alert | undefined> {
+    const [alert] = await db.select().from(alerts).where(eq(alerts.id, id));
+    return alert;
+  }
+
+  async getTask(id: number): Promise<Task | undefined> {
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
+    return task;
+  }
+
   async getTasks(farmId: number): Promise<Task[]> {
     return await db!
       .select()
@@ -345,6 +368,20 @@ export class DatabaseStorage implements IStorage {
 }
 
 export class MemStorage implements IStorage {
+  private visits = new Map<number, FarmVisit>();
+  private visitIdCounter = 1;
+
+  async getVisits(farmId: number, limit = 20, offset = 0): Promise<FarmVisit[]> {
+    return Array.from(this.visits.values()).filter(v => v.farmId === farmId)
+      .sort((a, b) => b.observedOn.localeCompare(a.observedOn) || b.id - a.id).slice(offset, offset + limit);
+  }
+
+  async createVisit(visit: InsertFarmVisit): Promise<FarmVisit> {
+    const created: FarmVisit = { ...visit, id: this.visitIdCounter++, authorId: visit.authorId ?? null,
+      stage: visit.stage ?? '', management: visit.management ?? '', photoPaths: visit.photoPaths ?? [], createdAt: new Date() };
+    this.visits.set(created.id, created);
+    return created;
+  }
   private farms: Map<number, Farm>;
   private readings: Map<number, Reading>;
   private reports: Map<number, Report>;
@@ -420,6 +457,7 @@ export class MemStorage implements IStorage {
 
   async deleteFarm(id: number): Promise<void> {
     this.farms.delete(id);
+    this.visits.forEach((visit, key) => { if (visit.farmId === id) this.visits.delete(key); });
 
     // Cleanup readings
     const readingsToDelete: number[] = [];
@@ -530,6 +568,14 @@ export class MemStorage implements IStorage {
     if (alert) {
       alert.read = true;
     }
+  }
+
+  async getAlert(id: number): Promise<Alert | undefined> {
+    return this.alertsLog.find(a => a.id === id);
+  }
+
+  async getTask(id: number): Promise<Task | undefined> {
+    return this.tasks.get(id);
   }
 
   async getReading(id: number): Promise<Reading | undefined> {
