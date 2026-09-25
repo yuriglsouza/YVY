@@ -2,8 +2,17 @@ name: Heartbeat Python Service
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    # Render Free sleeps after 15 minutes without inbound traffic. Avoid minute 0,
+    # when scheduled GitHub Actions are more likely to be delayed.
+    - cron: "3-59/5 * * * *"
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-service-heartbeat
+  cancel-in-progress: false
 
 jobs:
   heartbeat:
@@ -16,37 +25,28 @@ jobs:
           PYTHON_SERVICE_URL: ${{ secrets.PYTHON_SERVICE_URL }}
           HEARTBEAT_SECRET: ${{ secrets.HEARTBEAT_SECRET }}
         run: |
-          # Remove trailing slash if present to avoid //warmup
-          CLEAN_URL=$(echo "${PYTHON_SERVICE_URL}" | sed 's/\/$//')
-          
-          echo "PYTHON_SERVICE_URL configured: $(if [ -n "$PYTHON_SERVICE_URL" ]; then echo "true"; else echo "false"; fi)"
-          echo "HEARTBEAT_SECRET configured: $(if [ -n "$HEARTBEAT_SECRET" ]; then echo "true"; else echo "false"; fi)"
-          echo "Calling /warmup..."
+          set -euo pipefail
+          if [ -z "$PYTHON_SERVICE_URL" ] || [ -z "$HEARTBEAT_SECRET" ]; then
+            echo "PYTHON_SERVICE_URL e HEARTBEAT_SECRET precisam estar configurados."
+            exit 1
+          fi
 
+          CLEAN_URL="${PYTHON_SERVICE_URL%/}"
           HTTP_STATUS=$(curl \
             --silent \
             --show-error \
-            --output /tmp/warmup_response.json \
+            --retry 1 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            --output "$RUNNER_TEMP/warmup_response.json" \
             --write-out "%{http_code}" \
-            --max-time 120 \
+            --max-time 90 \
             -H "x-heartbeat-secret: $HEARTBEAT_SECRET" \
             "${CLEAN_URL}/warmup")
 
           echo "HTTP status: $HTTP_STATUS"
-
-          if [ "$HTTP_STATUS" = "200" ]; then
-            echo "Python service heartbeat completed successfully."
-            exit 0
-          elif [ "$HTTP_STATUS" = "401" ]; then
-            echo "erro: HEARTBEAT_SECRET está ausente ou diferente entre GitHub Actions e Render Python."
-            exit 1
-          elif [ "$HTTP_STATUS" = "404" ]; then
-            echo "erro: PYTHON_SERVICE_URL errado ou /warmup inexistente."
-            exit 1
-          elif [ "$HTTP_STATUS" = "000" ]; then
-            echo "erro: curl não conseguiu conectar."
-            exit 1
-          else
-            echo "erro inesperado. Status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ] || ! jq -e '.status == "ok" and .earthEngineReady == true' "$RUNNER_TEMP/warmup_response.json" > /dev/null; then
+            echo "O Python respondeu, mas o processamento de satélite não está pronto."
             exit 1
           fi
+          echo "Python e Earth Engine prontos."
