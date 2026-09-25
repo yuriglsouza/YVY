@@ -805,7 +805,7 @@ export function CreateFarmDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 rounded-xl">
+        <Button className="bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm rounded-xl">
           <Plus className="w-4 h-4 mr-2" />
           Adicionar Nova Fazenda
         </Button>
