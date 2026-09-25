@@ -327,7 +327,7 @@ export const ReportTemplate = React.forwardRef<HTMLDivElement, ReportTemplatePro
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={historyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#D0D0D0" />
-                                <XAxis dataKey="date" tickFormatter={(val) => format(new Date(val), "dd/MM")} tick={{ fontSize: 10 }} stroke="#172649" />
+                                <XAxis dataKey="date" tickFormatter={(val) => format(readingDate(val), "dd/MM")} tick={{ fontSize: 10 }} stroke="#172649" />
                                 <YAxis domain={[0, 1]} tick={{ fontSize: 10 }} stroke="#172649" />
                                 <Line type="monotone" dataKey="ndvi" name="NDVI Medido" stroke="#2F447F" strokeWidth={3} dot={{ fill: '#172649', r: 4 }} />
                                 {historyData.some(d => d.predictedNdvi !== undefined) && (
