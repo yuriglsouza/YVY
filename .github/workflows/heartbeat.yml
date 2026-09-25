@@ -10,10 +10,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: python-service-heartbeat
-  cancel-in-progress: false
-
 jobs:
   heartbeat:
     runs-on: ubuntu-latest
