@@ -34,6 +34,12 @@ export function registerVisitRoutes(app: Express, storage: IStorage, supabase: S
     })().catch(error => { ready = undefined; throw error; });
   };
 
+  app.get('/api/farms/:id/visits/latest', authenticated, farmAccess, async (req, res) => {
+    const [latest] = await storage.getVisits(Number(req.params.id), 1, 0);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.json(latest ? { observedOn: latest.observedOn, stage: latest.stage } : null);
+  });
+
   app.get('/api/farms/:id/visits', authenticated, farmAccess, async (req, res) => {
     const offset = Number(req.query.offset ?? 0);
     if (!Number.isSafeInteger(offset) || offset < 0) return res.status(400).json({ message: 'Página inválida.' });

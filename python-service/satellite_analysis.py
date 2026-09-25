@@ -256,15 +256,15 @@ def analyze_farm(roi, start_date, end_date, size_ha):
         s2_cloud = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
             .filterDate(start_date_str, end_date_str) \
             .filterBounds(roi)
-        cloud_cover = 0.0
+        cloud_cover = None
         try:
             cloud_stats = s2_cloud.aggregate_mean('CLOUDY_PIXEL_PERCENTAGE').getInfo()
-            cloud_cover = (cloud_stats or 0) / 100.0  # Normalizar para 0-1
+            cloud_cover = cloud_stats / 100.0 if cloud_stats is not None else None
         except Exception:
-            cloud_cover = 0.0
+            cloud_cover = None
 
         # Regional NDVI (5km context)
-        regional_ndvi = 0.0
+        regional_ndvi = None
         try:
             stats_regional = ndvi_img.reduceRegion(
                 reducer=ee.Reducer.mean(),
@@ -273,7 +273,7 @@ def analyze_farm(roi, start_date, end_date, size_ha):
                 maxPixels=1e9
             )
             val_regional = stats_regional.getInfo()
-            regional_ndvi = val_regional.get('ndvi', 0) or 0
+            regional_ndvi = val_regional.get('ndvi')
         except Exception as e:
             sys.stderr.write(f"Warning: Regional NDVI calc failed: {e}\n")
 

@@ -11,6 +11,7 @@ import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import { registerVisitRoutes } from './visit-routes.js';
 import { visitReportContext } from '../shared/farm-visit.js';
+import { summarizeRegionalNdvi } from '../shared/benchmark.js';
 import {
   detectFarmImageContentType,
   FARM_IMAGE_EXTENSIONS,
@@ -355,8 +356,8 @@ async function checkAndSendAlerts(reading: Reading, farmId: number) {
   // 5. Satellite SAR (Radar fallback) due to clouds
   if (reading.cloudCover !== undefined && reading.cloudCover !== null && reading.cloudCover > 0.6) {
     alerts.push({
-      type: "☁️ ALERTA SAR (RADAR ATIVO)",
-      msg: `Cobertura de nuvens severa (${(reading.cloudCover * 100).toFixed(0)}%). O satélite Sentinel-2 foi obstruído. O algoritmo acionou o Sentinel-1 (Radar SAR) usando RVI para manter seu monitoramento operante.`
+      type: "☁️ COBERTURA DE NUVENS ELEVADA",
+      msg: `Cobertura de nuvens elevada (${(reading.cloudCover * 100).toFixed(0)}%). A interpretação óptica exige cautela; confira os índices de radar e a vistoria de campo.`
     });
   }
 
@@ -610,7 +611,7 @@ export async function syncFarmSatelliteData(farmId: number): Promise<{
             rvi: result.rvi,
             otci: result.otci,
             temperature: result.temperature,
-            cloudCover: result.cloud_cover ?? 0,
+            cloudCover: result.cloud_cover ?? null,
             satelliteImage: finalSatelliteUrl || null,
             thermalImage: finalThermalUrl || null,
             imageBounds: result.bounds,
@@ -1273,35 +1274,8 @@ export async function registerRoutes(
     const farmId = Number(req.params.id);
     const reading = await storage.getLatestReading(farmId);
 
-    if (!reading) {
-      return res.status(404).json({ message: "No data available for benchmark" });
-    }
-
-    // Use Real Regional Data if available, fallback to mock if 0 or null
-    // If we have history, we could average it, but let's use the latest reading's regional data
-    let regionalNdvi = reading.regionalNdvi || 0.65; // Default fallback
-
-    // Calculate Percentile
-    const diff = reading.ndvi - regionalNdvi;
-    let percentile = 50;
-    let rank = "Na Média";
-
-    if (diff > 0.1) { percentile = 90; rank = "Top 10% 🏆"; }
-    else if (diff > 0.05) { percentile = 75; rank = "Acima da Média"; }
-    else if (diff < -0.1) { percentile = 10; rank = "Abaixo da Média ⚠️"; }
-    else if (diff < -0.05) { percentile = 25; rank = "Abaixo da Média"; }
-
-    res.json({
-      farmNdvi: reading.ndvi,
-      regionalNdvi,
-      percentile,
-      rank,
-      history: [
-        { year: "2023", ndvi: reading.ndvi - 0.05 }, // Mock last year
-        { year: "2024", ndvi: reading.ndvi + 0.02 }, // Mock this year
-        { year: "2025", ndvi: reading.ndvi }         // Current
-      ]
-    });
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.json(summarizeRegionalNdvi(reading));
   });
 
   // Management Zones

@@ -57,6 +57,7 @@ export function FarmVisits({ farmId }: { farmId: number }) {
     onSuccess: async () => {
       setStage(''); setObservations(''); setManagement(''); setPhotos([]); setFileKey(key => key + 1); setOpen(false);
       await queryClient.invalidateQueries({ queryKey });
+      await queryClient.invalidateQueries({ queryKey: ['farm-visit-latest', farmId] });
       toast({ title: 'Vistoria salva', description: 'Registro adicionado ao histórico desta fazenda.' });
     },
     onError: (error: Error) => toast({ title: 'Não foi possível salvar', description: error.message, variant: 'destructive' }),

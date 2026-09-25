@@ -2,18 +2,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, TrendingUp, Trophy, AlertTriangle } from "lucide-react";
-
-interface BenchmarkData {
-    farmNdvi: number;
-    regionalNdvi: number;
-    percentile: number;
-    rank: string;
-    history: Array<{ year: string; ndvi: number }>;
-}
+import { Loader2, TrendingUp, AlertTriangle } from "lucide-react";
+import type { BenchmarkResult } from "@shared/benchmark";
 
 export function BenchmarkChart({ farmId }: { farmId: number }) {
-    const { data, isLoading } = useQuery<BenchmarkData>({
+    const { data, isLoading, isError } = useQuery<BenchmarkResult>({
         queryKey: ["benchmark", farmId],
         queryFn: async () => {
             const res = await fetch(`/api/farms/${farmId}/benchmark`);
@@ -30,12 +23,12 @@ export function BenchmarkChart({ farmId }: { farmId: number }) {
         );
     }
 
-    if (!data) {
+    if (isError || !data || data.status === 'unavailable') {
         return (
             <Card className="h-full flex flex-col items-center justify-center min-h-[300px] p-6 text-center">
                 <AlertTriangle className="w-8 h-8 text-yellow-500 mb-2" />
-                <p className="text-muted-foreground font-medium">Dados de benchmark indisponíveis</p>
-                <p className="text-xs text-muted-foreground mt-1">Verifique se o servidor foi reiniciado para ativar este recurso.</p>
+                <p className="text-foreground font-medium">Comparação regional indisponível</p>
+                <p className="text-sm text-muted-foreground mt-1">{data?.status === 'unavailable' ? data.reason : 'Não foi possível carregar os dados. Tente novamente mais tarde.'}</p>
             </Card>
         );
     }
@@ -52,9 +45,7 @@ export function BenchmarkChart({ farmId }: { farmId: number }) {
                     <CardTitle className="text-lg font-display flex items-center gap-2">
                         <TrendingUp className="w-5 h-5 text-primary" /> Análise Comparativa de Saúde
                     </CardTitle>
-                    <div className="flex items-center gap-2 bg-yellow-500/10 text-yellow-500 px-3 py-1 rounded-full text-xs font-bold border border-yellow-500/20">
-                        <Trophy className="w-3 h-3" /> {data.rank}
-                    </div>
+                    <span className="text-xs text-muted-foreground">Leitura de {data.readingDate.split('-').reverse().join('/')}</span>
                 </div>
             </CardHeader>
             <CardContent>
@@ -100,6 +91,7 @@ export function BenchmarkChart({ farmId }: { farmId: number }) {
                         <span className="text-xs text-slate-300/80">Média da Região</span>
                         <span className="text-xl font-bold text-slate-500">{data.regionalNdvi.toFixed(2)}</span>
                     </div>
+                    <p className="text-xs text-muted-foreground text-left px-2">Diferença de NDVI: {data.difference > 0 ? '+' : ''}{data.difference.toFixed(2)}. Esta é uma comparação pontual; não representa percentil ou ranking regional.</p>
                 </div>
             </CardContent>
         </Card>

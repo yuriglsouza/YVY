@@ -134,12 +134,22 @@ export default function FarmDetails() {
   const { data: readings } = useReadings(farmId);
   const { data: latestReading } = useLatestReading(farmId);
   const { data: reports } = useReports(farmId);
+  const { data: latestVisit, isPending: isLoadingLatestVisit, isError: isLatestVisitError } = useQuery<{ observedOn: string; stage: string } | null>({
+    queryKey: ['farm-visit-latest', farmId],
+    queryFn: async () => {
+      const response = await fetch(`/api/farms/${farmId}/visits/latest`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Não foi possível consultar a última vistoria.');
+      return response.json();
+    },
+    enabled: farmId > 0,
+  });
 
   const refreshReadings = useRefreshReadings();
   const generateReport = useGenerateReport();
   const [showThermal, setShowThermal] = React.useState(false);
   const [selectedReadingIdx, setSelectedReadingIdx] = React.useState<number | null>(null);
   const [latestSyncedReadingId, setLatestSyncedReadingId] = React.useState<number | null>(null);
+  const [activeTab, setActiveTab] = React.useState('monitoring');
   const reportRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -319,27 +329,34 @@ export default function FarmDetails() {
               </div>
               <div className="flex flex-col gap-1 mt-4 sm:mt-0">
                 <p className="text-sm text-muted-foreground flex items-center gap-2">
-                  <Calendar className="w-4 h-4" /> Última Sincronização
+                  <Calendar className="w-4 h-4" /> {farm.lastSyncAt ? 'Última sincronização' : 'Última leitura disponível'}
                 </p>
                 <div className="flex flex-col gap-2">
                   <p className="font-semibold text-lg">
-                    {farm.lastSyncAt ? format(new Date(farm.lastSyncAt), "dd 'de' MMMM, yyyy 'às' HH:mm", { locale: ptBR }) : (latestReading ? format(new Date(latestReading.date), "dd 'de' MMMM, yyyy", { locale: ptBR }) : "Sem dados")}
+                    {farm.lastSyncAt ? format(new Date(farm.lastSyncAt), "dd 'de' MMMM, yyyy 'às' HH:mm", { locale: ptBR }) : (latestReading ? latestReading.date.split('-').reverse().join('/') : "Sem dados")}
                   </p>
-                  {latestReading?.cloudCover !== undefined && latestReading.cloudCover !== null && latestReading.cloudCover > 0.6 && (
-                    <Badge variant="secondary" className="w-fit bg-slate-800 text-slate-100 hover:bg-slate-700 flex items-center gap-1.5 shadow-sm">
-                      <Cloud className="w-3 h-3 text-slate-400" />
-                      Nuvens ({(latestReading.cloudCover * 100).toFixed(0)}%)
-                      <span className="text-emerald-400 mx-1">•</span>
-                      <Radio className="w-3 h-3 text-emerald-400" />
-                      Radar SAR Ativo
+                  {latestReading && <p className="text-sm text-muted-foreground">Leitura de satélite: {latestReading.date.split('-').reverse().join('/')}</p>}
+                  {latestReading?.cloudCover !== undefined && latestReading.cloudCover !== null && (
+                    <Badge variant="secondary" className="w-fit flex items-center gap-1.5">
+                      <Cloud className="w-3 h-3" /> Nuvens estimadas no período: {(latestReading.cloudCover * 100).toFixed(0)}%
                     </Badge>
                   )}
+                  {latestReading && !latestReading.isSimulated && <p className="text-xs text-muted-foreground">Leitura registrada. Consulte a data e a cobertura de nuvens, quando disponível, antes de interpretar os índices.</p>}
                   {latestReading?.isSimulated && (
                     <Badge variant="destructive" className="w-fit bg-red-600 text-white hover:bg-red-700 flex items-center gap-1.5 shadow-sm">
                       <Radio className="w-3 h-3" />
                       Dados Simulados (Satélite real indisponível)
                     </Badge>
                   )}
+                  <div className="pt-2 text-sm" aria-live="polite">
+                    {latestVisit ? (
+                      <>
+                        <p>Última vistoria: <strong>{latestVisit.observedOn.split('-').reverse().join('/')}</strong>{latestVisit.stage ? ` · ${latestVisit.stage}` : ''}</p>
+                        {latestReading && latestVisit.observedOn > latestReading.date && <p className="text-amber-600">A vistoria é mais recente que a leitura de satélite. Confira as observações de campo.</p>}
+                        <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setActiveTab('visits')}>Ver histórico de vistorias</Button>
+                      </>
+                    ) : <p className="text-muted-foreground">{isLoadingLatestVisit ? 'Consultando vistorias…' : isLatestVisitError ? 'Última vistoria indisponível no momento.' : 'Nenhuma vistoria registrada nesta fazenda.'}</p>}
+                  </div>
                 </div>
               </div>
             </div>
@@ -412,27 +429,13 @@ export default function FarmDetails() {
                         setLatestSyncedReadingId(data.readingId);
                       }
                       
-                      if (data.isMock) {
-                        const isColdStart = data.details?.includes("PYTHON_COLD_START_TIMEOUT");
-                        toast({
-                          title: isColdStart ? "Serviço Inicializando" : "Simulação Ativada",
-                          description: isColdStart 
-                            ? "O serviço de satélite estava inativo e está acordando. Tentamos gerar dados simulados para não interromper seu fluxo. Tente sincronizar novamente em 30 segundos."
-                            : (data.message || "Dados simulados gerados devido à falha na conexão."),
-                          variant: isColdStart ? "default" : "default",
-                          className: isColdStart ? "border-l-4 border-blue-500" : "border-l-4 border-yellow-500"
-                        });
-                      } else {
-                        toast({ 
-                          title: "Sincronização Concluída", 
-                          description: "Dados reais do Sentinel-2 e Landsat processados com sucesso!" 
-                        });
-                      }
+                      toast({ title: "Sincronização concluída", description: "Nova leitura de satélite registrada. Confira a data e as condições da coleta." });
 
                       // Invalidate all related queries to ensure UI is fresh
                       queryClient.invalidateQueries({ queryKey: [api.readings.list.path, farmId] });
                       queryClient.invalidateQueries({ queryKey: [api.readings.latest.path, farmId] });
                       queryClient.invalidateQueries({ queryKey: [api.farms.get.path, farmId] });
+                      queryClient.invalidateQueries({ queryKey: ['benchmark', farmId] });
                     },
                     onError: (err: any) => {
                       toast({ 
@@ -463,7 +466,7 @@ export default function FarmDetails() {
           </div>
         </div>
 
-        <Tabs defaultValue="monitoring" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-6 flex-wrap h-auto justify-start">
             <TabsTrigger value="monitoring" className="gap-2">
               <Activity className="w-4 h-4" />
@@ -483,16 +486,6 @@ export default function FarmDetails() {
             <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
               {latestReading ? (
                 <>
-                  {(() => {
-                    console.log("[SATELLITE_UI_DEBUG]", {
-                      readingId: latestReading.id,
-                      isSimulated: latestReading.isSimulated,
-                      satelliteImage: latestReading.satelliteImage,
-                      thermalImage: latestReading.thermalImage,
-                      bounds: latestReading.imageBounds
-                    });
-                    return null;
-                  })()}
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card p-6 rounded-2xl border border-border shadow-sm">
                     <Gauge value={latestReading.ndvi} label={(latestReading.cloudCover ?? 0) > 0.6 ? "NDVI (Obstruído ☁️)" : "NDVI"} {...getGaugeStatus(latestReading.ndvi, 'NDVI')} />
                   </motion.div>
@@ -503,15 +496,19 @@ export default function FarmDetails() {
                     <Gauge value={latestReading.ndre} label="NDRE" {...getGaugeStatus(latestReading.ndre, 'NDRE')} />
                   </motion.div>
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-                    <Gauge value={latestReading.otci || 0} label="OTCI (Clorofila)" max={4} {...getGaugeStatus(latestReading.otci || 0, 'OTCI')} />
+                    {latestReading.otci !== null && Number.isFinite(latestReading.otci)
+                      ? <Gauge value={latestReading.otci} label="OTCI (Clorofila)" max={4} {...getGaugeStatus(latestReading.otci, 'OTCI')} />
+                      : <p className="text-sm text-muted-foreground text-center">OTCI (Clorofila)<br /><strong>Indisponível nesta leitura</strong></p>}
                   </motion.div>
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-                    <div className={cn("relative", (latestReading.cloudCover ?? 0) > 0.6 ? "ring-2 ring-emerald-500 rounded-full" : "")}>
-                      <Gauge value={latestReading.rvi} label={(latestReading.cloudCover ?? 0) > 0.6 ? "RVI (Alerta SAR📡)" : "RVI (Radar)"} max={3} {...getGaugeStatus(latestReading.rvi, 'RVI')} />
+                    <div className="relative">
+                      <Gauge value={latestReading.rvi} label="RVI (Radar)" max={3} {...getGaugeStatus(latestReading.rvi, 'RVI')} />
                     </div>
                   </motion.div>
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-                    <Gauge value={latestReading.temperature || 0} label="Temp. (LST)" min={0} max={60} {...getGaugeStatus(latestReading.temperature || 0, 'TEMP')} />
+                    {latestReading.temperature !== null && Number.isFinite(latestReading.temperature)
+                      ? <Gauge value={latestReading.temperature} label="Temp. (LST)" min={0} max={60} {...getGaugeStatus(latestReading.temperature, 'TEMP')} />
+                      : <p className="text-sm text-muted-foreground text-center">Temp. (LST)<br /><strong>Indisponível nesta leitura</strong></p>}
                   </motion.div>
                 </>
               ) : (

@@ -49,6 +49,8 @@ test('farm access matrix: owner/admin allowed; other user/anonymous blocked; vis
       for (const [path, method, body] of [
         [`/farms/${farm.id}`, 'GET'], [`/farms/${farm.id}`, 'PUT', { name: 'Hacked' }], [`/farms/${farm.id}`, 'DELETE'],
         [`/farms/${farm.id}/visits`, 'GET'], [`/farms/${farm.id}/visits`, 'POST', { observedOn: '2026-09-01', observations: 'Hacked' }],
+        [`/farms/${farm.id}/visits/latest`, 'GET'],
+        [`/farms/${farm.id}/benchmark`, 'GET'],
         [`/farms/${farm.id}/visits/upload-url`, 'POST', { contentType: 'image/png', size: 10 }],
         [`/farms/${farm.id}/tasks`, 'GET'], [`/farms/${farm.id}/tasks`, 'POST', { title: 'Hacked' }],
         [`/tasks/${task.id}`, 'PATCH', { title: 'Hacked' }], [`/tasks/${task.id}`, 'DELETE'], [`/alerts/${alert.id}/read`, 'POST'],
@@ -65,12 +67,22 @@ test('farm access matrix: owner/admin allowed; other user/anonymous blocked; vis
       assert.equal((await request(role, `/tasks/${task.id}`, 'PATCH', { title: 'Authorized' })).status, 200);
       assert.equal((await request(role, `/alerts/${alert.id}/read`, 'POST')).status, 200);
       assert.equal((await request(role, `/farms/${farm.id}/visits`)).status, 200);
+      assert.equal((await request(role, `/farms/${farm.id}/visits/latest`)).status, 200);
     }
     assert.equal((await request('owner', `/tasks/${task.id}`, 'PATCH', { farmId: 999 })).status, 400);
     for (const method of ['GET', 'POST', 'PUT', 'DELETE']) {
       assert.equal((await request('owner', method === 'PUT' || method === 'DELETE' ? '/clients/1' : '/clients', method, method === 'POST' || method === 'PUT' ? { name: 'No' } : undefined)).status, 403);
     }
     assert.equal((await request('admin', '/clients')).status, 200);
+    assert.equal((await (await request('owner', `/farms/${farm.id}/benchmark`)).json()).status, 'unavailable');
+    await storage.createReading({ farmId: farm.id, date: '2026-09-11', ndvi: 0.7, ndwi: 0.2, ndre: 0.4, rvi: 1, regionalNdvi: 0, isSimulated: false });
+    assert.equal((await (await request('owner', `/farms/${farm.id}/benchmark`)).json()).status, 'unavailable');
+    await storage.createReading({ farmId: farm.id, date: '2026-09-12', ndvi: 0.7, ndwi: 0.2, ndre: 0.4, rvi: 1, regionalNdvi: 0.6, isSimulated: false });
+    const benchmark = await (await request('owner', `/farms/${farm.id}/benchmark`)).json();
+    assert.equal(benchmark.status, 'available');
+    assert.equal(benchmark.regionalNdvi, 0.6);
+    assert.equal('rank' in benchmark, false);
+    assert.equal('history' in benchmark, false);
     const body = { observedOn: '2026-09-10', stage: 'Rebrota', observations: 'Visita mais recente', management: 'Inspeção visual' };
     const created = await request('owner', `/farms/${farm.id}/visits`, 'POST', body);
     assert.equal(created.status, 201);
@@ -79,6 +91,7 @@ test('farm access matrix: owner/admin allowed; other user/anonymous blocked; vis
     const page = await (await request('owner', `/farms/${farm.id}/visits`)).json();
     assert.equal(page.visits.length, 2); assert.equal(page.hasMore, false);
     assert.equal(page.visits[0].observedOn, '2026-09-10');
+    assert.deepEqual(await (await request('owner', `/farms/${farm.id}/visits/latest`)).json(), { observedOn: '2026-09-10', stage: 'Rebrota' });
     assert.equal((await storage.getFarm(farm.id))!.cropStage, null);
     assert.equal((await request('owner', `/farms/${farm.id}/visits`, 'POST', { ...body, authorId: admin.id })).status, 400);
     assert.equal((await request('owner', `/farms/${farm.id}/visits`, 'POST', { ...body, photoPaths: ['1/999/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.jpg'] })).status, 403);
