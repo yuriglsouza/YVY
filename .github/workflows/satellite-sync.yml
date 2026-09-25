@@ -1,0 +1,39 @@
+name: Sincronização automática do satélite
+
+on:
+  schedule:
+    # Segunda, quarta e sexta às 03:17 no horário de Brasília (UTC-3).
+    - cron: "17 6 * * 1,3,5"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Somente validar autenticação e listar fazendas, sem sincronizar"
+        type: boolean
+        default: true
+      farm_id:
+        description: "Opcional: sincronizar somente uma fazenda (ID)"
+        type: string
+        required: false
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: satellite-sync-production
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Sincronizar as fazendas em sequência
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+          FARM_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.farm_id || '' }}
+        run: node scripts/satellite-batch.mjs

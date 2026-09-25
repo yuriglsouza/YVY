@@ -22,11 +22,5 @@
     },
     "env": {
         "PYTHON_SERVICE_URL": "https://yvy.onrender.com"
-    },
-    "crons": [
-        {
-            "path": "/api/cron/sync",
-            "schedule": "0 6 * * 1,4"
-        }
-    ]
+    }
 }

@@ -9,6 +9,7 @@ import { type Farm, type Reading, type InsertReading, insertFarmSchema, insertRe
 import { sendEmail, buildAlertEmailHTML, buildWeeklyReportEmailHTML } from "./email.js";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
+import { verifySatelliteWorkflowAuthorization } from "./github-actions-auth.js";
 import { registerVisitRoutes } from './visit-routes.js';
 import { visitReportContext } from '../shared/farm-visit.js';
 import { summarizeRegionalNdvi } from '../shared/benchmark.js';
@@ -779,146 +780,42 @@ export async function registerRoutes(
     res.json({ status: "ok", service: "yvy-backend", timestamp: new Date().toISOString() });
   });
 
-  // TEMPORARY MANUAL CRON TRIGGER
-  app.get("/api/force-cron", async (req: any, res: any) => {
-    console.log("[Test Root] Forcing Cron Sync...");
-    const farms = await storage.getFarms();
-    const adminEmail = process.env.ADMIN_EMAIL || "yuriglsouza@gmail.com";
+  const requireSatelliteWorkflow = async (req: any, res: any, next: any) => {
+    if (await verifySatelliteWorkflowAuthorization(req.headers.authorization)) return next();
+    return res.status(401).json({ message: "Não autorizado" });
+  };
 
-    // Fire and forget so we don't timeout the HTTP request immediately
-    (async () => {
-      for (const farm of farms) {
-        try {
-          const result = await syncFarmSatelliteData(farm.id);
-
-          if (result && !result.error && result.reading) {
-            const { ndvi, cloudCover, date } = result.reading;
-            const status = result.isMock ? "Simulação (Offline)" : "Satélite Sincronizado";
-            let ownerEmail = null;
-            if (farm.userId) {
-              const user = await storage.getUser(farm.userId);
-              if (user) ownerEmail = user.email;
-            }
-            const adminEmails = (process.env.ADMIN_EMAIL || "yuriglsouza@gmail.com").split(",").map(e => e.trim());
-            const emailsToNotify = Array.from(new Set([...adminEmails, ownerEmail].filter(Boolean) as string[]));
-            for (const email of emailsToNotify) {
-              await sendEmail({
-                to: email,
-                subject: `Relatório de Satélite TESTE: ${farm.name}`,
-                text: `Sync Manual: ${farm.name}. NDVI: ${ndvi}`,
-                html: buildWeeklyReportEmailHTML(farm.name, date, { ndvi, cloudCover, status })
-              }).catch(console.error);
-            }
-          }
-        } catch (e) {
-          console.error("Error on manual cron", e);
-        }
-        await new Promise(r => setTimeout(r, 2000));
-      }
-    })();
-
-    res.json({ message: "Sincronização iniciada em background. Verifique o console ou a caixa de e-mail em instantes." });
+  app.get("/api/cron/farms", requireSatelliteWorkflow, async (_req, res) => {
+    try {
+      const farms = await storage.getFarms();
+      res.set("Cache-Control", "private, no-store");
+      return res.json({ farmIds: farms.map(farm => farm.id).sort((a, b) => a - b) });
+    } catch (error) {
+      console.error("[Satellite Batch] Falha ao listar fazendas", error);
+      return res.status(500).json({ message: "Falha ao listar fazendas" });
+    }
   });
 
-  // Vercel Cron Integration (Fan-Out Trigger)
-  app.get("/api/cron/sync", async (req: any, res: any) => {
-    // Check for Vercel Cron Authorization
-    const authHeader = req.headers.authorization;
-    if (
-      process.env.CRON_SECRET &&
-      authHeader !== `Bearer ${process.env.CRON_SECRET}`
-    ) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
-    console.log("[Vercel Cron] Iniciando trigger Fan-Out para as Fazendas...");
-    const farms = await storage.getFarms();
-
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-
-    let delayMs = 0;
-    // Dispara requisições individuais assíncronas para fugir do timeout
-    for (const farm of farms) {
-      const workerUrl = `${baseUrl}/api/cron/sync-single?farmId=${farm.id}&delay=${delayMs}`;
-      // Usando fetch "fire and forget" para não bloquear a resposta local
-      fetch(workerUrl, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.CRON_SECRET || ""}`
-        }
-      }).catch(err => console.error(`[Fan-Out] Falha ao acionar farm ${farm.id}:`, err.message));
-
-      // Incrementamos o delay em 2 segundos a cada fazenda. O Worker vai respeitar esse delay
-      // antes de iniciar seu processamento pesado, diluindo as chamadas na API.
-      delayMs += 2000;
-    }
-
-    // Responde ao Vercel instantaneamente (< 1 segundo)
-    res.json({ message: "Cron acionado com sucesso. Processamento assíncrono em andamento." });
-  });
-
-  // Vercel Cron Worker (Processa 1 fazenda por vez)
-  app.post("/api/cron/sync-single", async (req: any, res: any) => {
-    // Mesma validação de segurança
-    const authHeader = req.headers.authorization;
-    if (
-      process.env.CRON_SECRET &&
-      authHeader !== `Bearer ${process.env.CRON_SECRET}`
-    ) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
-    const farmId = Number(req.query.farmId);
-    if (!farmId || isNaN(farmId)) {
-      return res.status(400).json({ message: "farmId is required" });
-    }
-
-    const startDelay = Number(req.query.delay) || 0;
-    if (startDelay > 0) {
-      console.log(`[Vercel Worker ${farmId}] Stagger Delay: dormindo por ${startDelay}ms para balancear APIs...`);
-      await new Promise(r => setTimeout(r, startDelay));
+  app.post("/api/cron/farms/:id/sync", requireSatelliteWorkflow, async (req, res) => {
+    const farmId = Number(req.params.id);
+    if (!Number.isSafeInteger(farmId) || farmId <= 0) {
+      return res.status(400).json({ message: "ID de fazenda inválido" });
     }
 
     try {
-      const farm = await storage.getFarm(farmId);
-      if (!farm) return res.status(404).json({ message: "Farm not found" });
-
-      const adminEmail = process.env.ADMIN_EMAIL || "yuriglsouza@gmail.com";
-      console.log(`[Vercel Worker] Iniciando processamento para Fazenda ${farm.id}...`);
-
+      if (!await storage.getFarm(farmId)) return res.status(404).json({ message: "Fazenda não encontrada" });
+      console.log(`[Satellite Batch] Iniciando fazenda ${farmId}`);
       const result = await syncFarmSatelliteData(farmId);
-
-      if (result && !result.error && result.reading) {
-        const { ndvi, cloudCover, date } = result.reading;
-        const status = result.isMock ? "Simulação (Offline)" : "Satélite Sincronizado";
-        let ownerEmail = null;
-
-        if (farm.userId) {
-          const user = await storage.getUser(farm.userId);
-          if (user) ownerEmail = user.email;
-        }
-
-        const adminEmails = (process.env.ADMIN_EMAIL || "yuriglsouza@gmail.com").split(",").map(e => e.trim());
-        const emailsToNotify = Array.from(new Set([...adminEmails, ownerEmail].filter(Boolean) as string[]));
-        for (const email of emailsToNotify) {
-          await sendEmail({
-            to: email,
-            subject: `Relatório de Satélite: ${farm.name}`,
-            text: `Sincronização concluída para ${farm.name}. NDVI: ${ndvi}`,
-            html: buildWeeklyReportEmailHTML(farm.name, date, { ndvi, cloudCover, status })
-          }).catch(e => console.error(`[Vercel Worker] Erro email ${email}`, e));
-        }
-
-        console.log(`[Vercel Worker] Sucesso Fazenda ${farm.id}`);
-        await storage.updateFarm(farmId, { lastSyncAt: new Date() });
-        return res.json({ success: true, farmId });
-      } else {
-        console.error(`[Vercel Worker] Erro lógico Fazenda ${farmId}:`, result?.error);
-        return res.status(500).json({ error: result?.error || "Unknown logic error" });
+      if (result.success !== true || result.error || result.simulationUsed) {
+        console.error(`[Satellite Batch] Falha na fazenda ${farmId}`, result.code || result.error || result.message);
+        return res.status(503).json({ success: false, farmId, code: result.code || "SATELLITE_SYNC_FAILED" });
       }
-    } catch (e: any) {
-      console.error(`[Vercel Worker] Erro fatal Fazenda ${farmId}:`, e);
-      return res.status(500).json({ error: e.message });
+      await storage.updateFarm(farmId, { lastSyncAt: new Date() });
+      console.log(`[Satellite Batch] Fazenda ${farmId} sincronizada`);
+      return res.json({ success: true, farmId, readingId: result.readingId, date: result.date });
+    } catch (error) {
+      console.error(`[Satellite Batch] Erro na fazenda ${farmId}`, error);
+      return res.status(500).json({ success: false, farmId, code: "SATELLITE_SYNC_ERROR" });
     }
   });
 
