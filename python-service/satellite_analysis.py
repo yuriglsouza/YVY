@@ -7,6 +7,35 @@ import argparse
 import os
 import requests
 import base64
+from concurrent.futures import ThreadPoolExecutor
+
+
+def download_thumbnail(url, label):
+    """Download one optional image; a failed image must not discard the indices."""
+    if not url:
+        return None, None
+    try:
+        response = requests.get(url, timeout=60)
+        try:
+            if response.status_code == 200 and response.content:
+                return (base64.b64encode(response.content).decode('utf-8'),
+                        response.headers.get('content-type', 'image/png'))
+            sys.stderr.write(f"Warning: {label} thumbnail HTTP {response.status_code}\n")
+        finally:
+            response.close()
+    except Exception as exc:
+        sys.stderr.write(f"Warning: Failed to download {label} thumbnail: {exc}\n")
+    return None, None
+
+
+def download_thumbnails(rgb_url, thermal_url):
+    # Only the independent HTTP downloads run concurrently, not Earth Engine calls.
+    if not rgb_url or not thermal_url:
+        return download_thumbnail(rgb_url, 'RGB'), download_thumbnail(thermal_url, 'Thermal')
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        rgb = pool.submit(download_thumbnail, rgb_url, 'RGB')
+        thermal = pool.submit(download_thumbnail, thermal_url, 'Thermal')
+        return rgb.result(), thermal.result()
 
 # Inicializa o Earth Engine (Lazy Loading)
 def init_earth_engine(project_id=None, credentials=None):
@@ -65,7 +94,8 @@ def get_sentinel2_indices(roi, start_date, end_date):
     if count == 0:
         print(f"Warning: Sentinel-2 collection empty for {start_date} to {end_date}. Expanding to 90 days.", file=sys.stderr)
         # Tenta buscar nos últimos 90 dias para garantir uma imagem base
-        fallback_start = ee.Date(end_date).advance(-90, 'day').format('YYYY-MM-dd').getInfo()
+        fallback_start = (datetime.datetime.strptime(end_date, '%Y-%m-%d')
+                          - datetime.timedelta(days=90)).strftime('%Y-%m-%d')
         s2 = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
             .filterDate(fallback_start, end_date) \
             .filterBounds(roi) \
@@ -118,9 +148,6 @@ def get_sentinel1_indices(roi, start_date, end_date):
     # RVI approximation: 4 * VH / (VV + VH)
     rvi = vh.multiply(4).divide(vv.add(vh)).rename('rvi')
     
-    return rvi
-
-
     return rvi
 
 
@@ -195,16 +222,6 @@ def analyze_farm(roi, start_date, end_date, size_ha):
     end_date_str = end_date.strftime('%Y-%m-%d')
     start_date_str = start_date.strftime('%Y-%m-%d')
 
-    # Definir Contexto Visual (Zoom Out)
-    # Raio aproximado da fazenda
-    radius_approx = math.sqrt(size_ha * 10000) / math.sqrt(math.pi)
-    
-    # Para visualização MODIS (1km pixel), precisamos de uma área muuuito maior para ver algo.
-    # Para Sentinel-2, um contexto local é bom.
-    # Vamos usar um raio mínimo de 5000m (5km) para garantir contexto térmico, 
-    # mas mantendo a proporção para fazendas gigantes.
-    visual_radius = max(radius_approx * 2, 5000) 
-    
     # Definir Contexto Visual (Zoom Out)
     
     # 1. ROI para RGB (O "Perfeito"): Baseado no tamanho da fazenda + margem
@@ -335,6 +352,7 @@ def analyze_farm(roi, start_date, end_date, size_ha):
         # Melhor: Tentar mostrar nuvens reais seria ideal, mas exige reutilizar a s2_collection.
         # Vamos apenas garantir que não fique "quebrado" (preto/transparente).
         
+        thermal_url = None
         try:
             # Usar rgb_roi (Contexto Local) para RGB - o "Perfeito"
             
@@ -345,24 +363,6 @@ def analyze_farm(roi, start_date, end_date, size_ha):
                 'region': rgb_roi      # CRÍTICO: Define o bounding box com contexto local
             })
             
-            # Gerar URL ANTERIOR (buscar no intervalo de 30 a 60 dias atrás) para o PDF
-            prev_thumb_url = None
-            try:
-                prev_end_date = start_date # today - 30
-                prev_start_date = prev_end_date - datetime.timedelta(days=30) # today - 60
-                
-                _, _, _, prev_composite = get_sentinel2_indices(rgb_roi, start_date=prev_start_date.strftime('%Y-%m-%d'), end_date=prev_end_date.strftime('%Y-%m-%d'))
-                prev_visual_rgb = prev_composite.select(['B4', 'B3', 'B2']).visualize(min=0, max=0.3)
-                
-                prev_thumb_url = prev_visual_rgb.getThumbURL({
-                    'dimensions': 600, 
-                    'format': 'png',   # PNG suporta transparência (evita tela preta se houver buraco sem dados)
-                    'region': rgb_roi      
-                })
-            except Exception as e:
-                sys.stderr.write(f"Warning: Failed to generate PREVIOUS thumb URL: {e}\n")
-                prev_thumb_url = None
-
             # Gerar URL Térmica (LST)
             # Paleta: Azul (Frio) -> Verde -> Amarelo -> Vermelho (Quente)
             # Range: 20°C a 50°C (ajustável)
@@ -391,12 +391,10 @@ def analyze_farm(roi, start_date, end_date, size_ha):
         except Exception as e:
             sys.stderr.write(f"Warning: Failed to generate thumb URL: {e}\n")
             thumb_url = None
-            prev_thumb_url = None
         print(json.dumps({
             "__debug_type": "SATELLITE_IMAGE_DEBUG",
             "has_rgb_url": bool(thumb_url),
-            "has_thermal_url": bool(thermal_url),
-            "has_prev_url": bool(prev_thumb_url)
+            "has_thermal_url": bool(thermal_url)
         }), file=sys.stderr)
         
 
@@ -413,33 +411,9 @@ def analyze_farm(roi, start_date, end_date, size_ha):
         co2_equivalent = carbon_stock * 3.67
 
         # Converter URLs em Base64 para não enviar URLs temporárias ao Frontend
-        satellite_image_base64 = None
-        satellite_content_type = None
-        if thumb_url:
-            try:
-                sys.stderr.write(f"Downloading RGB thumbnail from GEE...\n")
-                r = requests.get(thumb_url, timeout=60)
-                if r.status_code == 200 and len(r.content) > 0:
-                    satellite_image_base64 = base64.b64encode(r.content).decode('utf-8')
-                    satellite_content_type = r.headers.get("content-type", "image/png")
-                else:
-                    sys.stderr.write(f"Warning: RGB thumbnail HTTP {r.status_code}\n")
-            except Exception as e:
-                sys.stderr.write(f"Warning: Failed to download RGB thumbnail: {e}\n")
-
-        thermal_image_base64 = None
-        thermal_content_type = None
-        if thermal_url:
-            try:
-                sys.stderr.write(f"Downloading Thermal thumbnail from GEE...\n")
-                rt = requests.get(thermal_url, timeout=60)
-                if rt.status_code == 200 and len(rt.content) > 0:
-                    thermal_image_base64 = base64.b64encode(rt.content).decode('utf-8')
-                    thermal_content_type = rt.headers.get("content-type", "image/png")
-                else:
-                    sys.stderr.write(f"Warning: Thermal thumbnail HTTP {rt.status_code}\n")
-            except Exception as e:
-                sys.stderr.write(f"Warning: Failed to download Thermal thumbnail: {e}\n")
+        rgb_download, thermal_download = download_thumbnails(thumb_url, thermal_url)
+        satellite_image_base64, satellite_content_type = rgb_download
+        thermal_image_base64, thermal_content_type = thermal_download
 
         # Tratar casos onde não há imagem (valores None/Null)
         result = {
@@ -461,10 +435,10 @@ def analyze_farm(roi, start_date, end_date, size_ha):
             "co2_equivalent": co2_equivalent
         }
         
-        print(json.dumps(result))
+        return result
 
     except Exception as e:
-        print(json.dumps({"error": str(e)}))
+        return {"error": str(e)}
 
 def get_landsat_lst(roi, start_date, end_date):
     """Calcula Temperatura da Superfície (LST) usando Landsat 8/9 (100m resolution)."""
@@ -519,7 +493,7 @@ if __name__ == "__main__":
     end_date = datetime.datetime.now()
     start_date = end_date - datetime.timedelta(days=30)
 
-    analyze_farm(roi, start_date, end_date, args.size)
+    print(json.dumps(analyze_farm(roi, start_date, end_date, args.size)))
 
 def get_sentinel2_pixels(roi, start_date, end_date, scale=20):
     """

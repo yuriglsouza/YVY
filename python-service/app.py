@@ -194,6 +194,14 @@ earth_engine_ready = False
 def ensure_earth_engine_ready():
     global earth_engine_ready
     print("[WARMUP_GEE_CHECK_START]")
+    if earth_engine_ready:
+        try:
+            # Probe the existing authenticated client instead of recreating its
+            # credentials on every heartbeat. Failures still use full recovery.
+            ee.Number(1).getInfo()
+            return {"ready": True, "error": None}
+        except Exception:
+            earth_engine_ready = False
     try:
         import os
         import json
@@ -287,7 +295,7 @@ def health_check():
         "status": "ok", 
         "service": "yvy-python-microservice",
         "earthEngineReady": earth_engine_ready,
-        "version": "1.1.0"
+        "version": "1.1.1"
     }
 
 @app.get("/warmup")
@@ -327,53 +335,28 @@ async def warmup(request: Request):
 @app.post("/satellite")
 def analyze_satellite(req: SatelliteRequest):
     try:
-        # We need to capture stdout from the script or modify the script to return data
-        # modifying the script to be importable is better, but it prints to stdout/stderr.
-        # For now, let's capture stdout if we call the function directly.
-        # Actually satellite_analysis.analyze_farm prints JSON to stdout.
-        
-        # We will redirect stdout to capture the output
-        from io import StringIO
-        import contextlib
+        # Return structured data directly; redirect_stdout is process-global and
+        # can mix results when FastAPI handles simultaneous sync requests.
+        if req.polygon and len(req.polygon) >= 3:
+            roi = ee.Geometry.Polygon([req.polygon])
+        else:
+            point = ee.Geometry.Point([req.lon, req.lat])
+            radius_m = math.sqrt(req.size * 10000 / math.pi)
+            roi = point.buffer(radius_m)
 
-        f = StringIO()
-        with contextlib.redirect_stdout(f):
-            # Setup ROI: use polygon if available, otherwise circular buffer
-            if req.polygon and len(req.polygon) >= 3:
-                roi = ee.Geometry.Polygon([req.polygon])
-                print(f"Using polygon ROI with {len(req.polygon)} vertices")
-            else:
-                point = ee.Geometry.Point([req.lon, req.lat])
-                area_m2 = req.size * 10000
-                radius_m = math.sqrt(area_m2 / math.pi)
-                roi = point.buffer(radius_m)
-                print(f"Using circular ROI with radius {radius_m:.0f}m")
-            
-            if req.date:
-                try:
-                    requested_date = datetime.datetime.strptime(req.date, "%Y-%m-%d")
-                    # Use ±15 days window as requested for backfill
-                    start_date = (requested_date - datetime.timedelta(days=15)).strftime("%Y-%m-%d")
-                    end_date = (requested_date + datetime.timedelta(days=15)).strftime("%Y-%m-%d")
-                    print(f"Using requested centered window: {start_date} to {end_date}")
-                except ValueError:
-                    end_date = datetime.datetime.now().strftime("%Y-%m-%d")
-                    start_date = (datetime.datetime.now() - datetime.timedelta(days=30)).strftime("%Y-%m-%d")
-                    print(f"Invalid date format: {req.date}, using default 30-day window from now")
-            else:
-                end_date = datetime.datetime.now().strftime("%Y-%m-%d")
-                start_date = (datetime.datetime.now() - datetime.timedelta(days=30)).strftime("%Y-%m-%d")
-            
-            satellite_analysis.analyze_farm(roi, start_date, end_date, req.size)
-            
-        output = f.getvalue()
-        try:
-            # Parse the last line which should be the JSON result
-            lines = output.strip().split('\n')
-            result = json.loads(lines[-1])
-            return result
-        except json.JSONDecodeError:
-            return {"error": "Failed to parse script output", "raw": output}
+        end = datetime.datetime.now()
+        start = end - datetime.timedelta(days=30)
+        if req.date:
+            try:
+                requested = datetime.datetime.strptime(req.date, "%Y-%m-%d")
+                start = requested - datetime.timedelta(days=15)
+                end = requested + datetime.timedelta(days=15)
+            except ValueError:
+                pass  # Preserve the default window for invalid backfill dates.
+
+        return satellite_analysis.analyze_farm(
+            roi, start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"), req.size
+        )
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
