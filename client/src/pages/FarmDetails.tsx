@@ -72,8 +72,6 @@ import L from "leaflet";
 import icon from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
 
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 import { ReportTemplate } from "@/components/ReportTemplate";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -325,6 +323,10 @@ export default function FarmDetails() {
     try {
       if (!reportRef.current)
         throw new Error("Template de relatório não encontrado no DOM");
+      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+        import("jspdf"),
+        import("html2canvas"),
+      ]);
       const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
       toast({
         title: "Iniciando captura",
