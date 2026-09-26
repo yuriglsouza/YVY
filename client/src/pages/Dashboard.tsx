@@ -1,323 +1,438 @@
+import { useState } from "react";
 import { useFarms } from "@/hooks/use-farms";
-import { useUser } from "@/hooks/use-user"; // Added import
+import { useUser } from "@/hooks/use-user";
 import { Sidebar, MobileNav } from "@/components/Sidebar";
 import { CreateFarmDialog } from "@/components/CreateFarmDialog";
 import { PredictiveChartWrapper } from "@/components/predictive-chart-wrapper";
 import { Link } from "wouter";
-import { Loader2, Sprout, AlertTriangle, Droplets, Activity } from "lucide-react";
-import { motion } from "framer-motion";
+import {
+  Loader2,
+  Sprout,
+  ArrowUpRight,
+  Search,
+  Satellite,
+  Info,
+  MapPin,
+  ScanLine,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  Cell,
-} from "recharts";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useState } from "react";
 import { formatDecimal } from "@/lib/format";
+import { readingDateLabel } from "@/lib/farm-reading-context";
+import {
+  summarizeDashboard,
+  type DashboardFarm,
+  type ReadingKind,
+} from "@/lib/dashboard-summary";
 
-import { type Farm, type Reading } from "@shared/schema";
-
-type FarmWithReading = Farm & { latestReading?: Reading };
-type HealthStatus = 'Ótimo' | 'Atenção' | 'Crítico' | 'Sem dados';
-
-const getHealthStatus = (reading?: Reading): HealthStatus => {
-  if (!reading) return 'Sem dados';
-  if (reading.ndvi > 0.6) return 'Ótimo';
-  if (reading.ndvi > 0.3) return 'Atenção';
-  return 'Crítico';
+const tones: Record<ReadingKind, string> = {
+  high: "text-emerald-300 bg-emerald-400/10",
+  medium: "text-amber-200 bg-amber-400/10",
+  low: "text-orange-300 bg-orange-400/10",
+  cloudy: "text-sky-300 bg-sky-400/10",
+  missing: "text-slate-300 bg-slate-400/10",
+  invalid: "text-slate-300 bg-slate-400/10",
+  simulated: "text-violet-300 bg-violet-400/10",
 };
-
-const getHealthFill = (status: HealthStatus) => {
-  if (status === 'Ótimo') return 'url(#gradOptimal)';
-  if (status === 'Atenção') return 'url(#gradWarning)';
-  if (status === 'Crítico') return 'url(#gradCritical)';
-  return '#64748B';
-};
-
-const formatFarmName = (name: string) => name.length > 14 ? `${name.slice(0, 12)}…` : name;
+const normalize = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+const pageSize = 6;
 
 export default function Dashboard() {
   const { data: user } = useUser();
-  const { data: allFarms, isLoading, error } = useFarms() as { data: (FarmWithReading & { ownerEmail?: string })[], isLoading: boolean, error: any };
-  const [selectedOwner, setSelectedOwner] = useState<string | null>(null);
-
-  const farms = selectedOwner
-    ? allFarms?.filter(f => f.ownerEmail === selectedOwner)
-    : allFarms;
-
-  // Extract unique owners for the filter
-  const uniqueOwners = Array.from(new Set(allFarms?.map(f => f.ownerEmail).filter(Boolean) as string[]));
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background pl-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background pl-64">
-        <p className="text-destructive font-medium">Falha ao carregar dados. Por favor, tente novamente.</p>
-      </div>
-    );
-  }
-
-  // Aggregated Data Calculation
-  const totalFarms = farms?.length || 0;
-  const totalArea = farms?.reduce((acc, f) => acc + f.sizeHa, 0) || 0;
-
-  const ndviData = farms?.map(f => ({
-    id: f.id,
-    name: f.name,
-    ndvi: f.latestReading?.ndvi ?? 0,
-    status: getHealthStatus(f.latestReading),
-  })) || [];
-
-  const alertFarms = ndviData.filter(farm => farm.status !== 'Ótimo');
-  const chartMinWidth = Math.max(720, ndviData.length * 84);
-
-  const alertsData = [
-    { name: 'Saudável', value: ndviData.filter(d => d.status === 'Ótimo').length },
-    { name: 'Atenção', value: ndviData.filter(d => d.status === 'Atenção').length },
-    { name: 'Crítico', value: ndviData.filter(d => d.status === 'Crítico').length },
-  ].filter(d => d.value > 0);
+  const { data, isLoading, error, refetch } = useFarms();
+  const allFarms = (data || []) as DashboardFarm[];
+  const [owner, setOwner] = useState("all");
+  const [search, setSearch] = useState("");
+  const [order, setOrder] = useState("priority");
+  const [page, setPage] = useState(0);
+  const [reviewLimit, setReviewLimit] = useState(4);
+  const owners = Array.from(
+    new Set(
+      allFarms
+        .map((f) => f.ownerEmail)
+        .filter((email): email is string => !!email),
+    ),
+  ).sort();
+  const farms =
+    user?.role === "admin" && owner !== "all"
+      ? allFarms.filter((f) => f.ownerEmail === owner)
+      : allFarms;
+  const summary = summarizeDashboard(farms);
+  const rows = summary.rows
+    .filter((row) =>
+      normalize(row.farm.name).includes(normalize(search.trim())),
+    )
+    .sort((a, b) => {
+      if (order === "name")
+        return a.farm.name.localeCompare(b.farm.name, "pt-BR");
+      if (order === "ndvi")
+        return (
+          (a.measured ? a.value! : Infinity) -
+            (b.measured ? b.value! : Infinity) ||
+          a.farm.name.localeCompare(b.farm.name, "pt-BR")
+        );
+      return (
+        a.priority - b.priority ||
+        a.farm.name.localeCompare(b.farm.name, "pt-BR")
+      );
+    });
+  const pages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const currentPage = Math.min(page, pages - 1);
+  const premium =
+    user?.role === "admin" || user?.subscriptionStatus === "active";
 
   return (
-    <div className="min-h-screen flex">
+    <div className="relative flex min-h-screen bg-background [&_.text-muted-foreground]:text-slate-400">
       <Sidebar />
       <MobileNav />
-      <main className="flex-1 ml-0 lg:ml-64 p-4 lg:p-12 overflow-y-auto pt-16 lg:pt-12">
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8">
+      <main className="min-w-0 flex-1 p-4 pt-16 lg:ml-64 lg:p-8">
+        <header className="mb-7 flex flex-wrap items-end justify-between gap-5">
           <div>
-            <h1 className="text-4xl font-display font-bold text-foreground">CENTRO DE COMANDO</h1>
-            <p className="text-muted-foreground mt-2 text-lg font-light tracking-wide">
-              Visão global de operações e integridade da frota.
+            <p className="mb-2 text-xs font-medium uppercase tracking-[.18em] text-emerald-400">
+              Monitoramento das propriedades
+            </p>
+            <h1 className="text-3xl font-bold tracking-tight">Visão geral</h1>
+            <p className="mt-2 text-sm text-slate-400">
+              Leituras, histórico e pontos para acompanhar nas suas fazendas.
             </p>
           </div>
-          <div className="flex gap-4">
-            {/* Admin Filter */}
-            {user?.role === 'admin' && (
-              <Select
-                value={selectedOwner || "all"}
-                onValueChange={(val) => setSelectedOwner(val === "all" ? null : val)}
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            {user?.role === "admin" && (
+              <select
+                aria-label="Filtrar por proprietário"
+                value={owner}
+                onChange={(e) => {
+                  setOwner(e.target.value);
+                  setPage(0);
+                  setReviewLimit(4);
+                }}
+                className="h-10 max-w-full rounded-xl border border-border bg-card px-3 text-sm sm:max-w-60"
               >
-                <SelectTrigger className="w-[200px] bg-background border-input">
-                  <SelectValue placeholder="Filtrar por Dono" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os Donos</SelectItem>
-                  {uniqueOwners.map((owner) => (
-                    <SelectItem key={owner} value={owner}>
-                      {owner}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <option value="all">Todos os proprietários</option>
+                {owners.map((email) => (
+                  <option key={email} value={email}>
+                    {email}
+                  </option>
+                ))}
+              </select>
             )}
             <CreateFarmDialog />
           </div>
         </header>
-
-        {/* KPIs Row */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="orbital-card p-6 rounded-lg bg-card/60 backdrop-blur-sm relative overflow-hidden">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-primary/20 rounded-full">
-                <Activity className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total Fazendas</p>
-                <p className="text-2xl font-mono font-bold text-foreground">{totalFarms}</p>
-              </div>
-            </div>
+        {isLoading ? (
+          <div
+            role="status"
+            className="flex items-center gap-3 py-20 text-slate-400"
+          >
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Carregando fazendas...
           </div>
-          <div className="orbital-card p-6 rounded-lg bg-card/60 backdrop-blur-sm">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-accent/20 rounded-full">
-                <Sprout className="w-6 h-6 text-accent" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Área Monitorada</p>
-                <p className="flex items-baseline gap-1 whitespace-nowrap text-2xl font-mono font-bold text-foreground">
-                  {formatDecimal(totalArea)}<span className="text-sm">ha</span>
-                </p>
-              </div>
-            </div>
+        ) : error ? (
+          <div
+            role="alert"
+            className="rounded-2xl border border-border bg-card p-6"
+          >
+            <p>Não foi possível carregar o painel.</p>
+            <Button
+              className="mt-4"
+              variant="outline"
+              onClick={() => refetch()}
+            >
+              Tentar novamente
+            </Button>
           </div>
-          <div className="orbital-card p-6 rounded-lg bg-card/60 backdrop-blur-sm">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-500/20 rounded-full">
-                <Droplets className="w-6 h-6 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Média Hídrica</p>
-                <p className="text-2xl font-mono font-bold text-foreground">Normal</p>
-              </div>
-            </div>
-          </div>
-          <div className="orbital-card p-6 rounded-lg bg-card/60 backdrop-blur-sm">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-destructive/20 rounded-full">
-                <AlertTriangle className="w-6 h-6 text-destructive" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Alertas Críticos</p>
-                <p className="text-2xl font-mono font-bold text-destructive">{alertsData.find(d => d.name === 'Crítico')?.value || 0}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Charts Grid */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="grid grid-cols-1 lg:grid-cols-4 gap-8"
-        >
-          {/* Main Chart: Health by Farm (3/4 width) */}
-          <div className="orbital-card p-6 rounded-lg col-span-1 lg:col-span-3 bg-card h-[420px] overflow-hidden flex flex-col">
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-lg font-bold font-display uppercase tracking-wider flex items-center gap-2">
-                <Activity className="w-5 h-5 text-primary" /> Análise de Saúde (NDVI) por Unidade
-              </h3>
-              <span className="text-xs text-muted-foreground font-mono">
-                {ndviData.length} {ndviData.length === 1 ? 'unidade' : 'unidades'}
-              </span>
-            </div>
-            <div className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden pb-2">
-              <div className="h-full" style={{ minWidth: `${chartMinWidth}px` }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={ndviData} margin={{ top: 8, right: 12, left: -8, bottom: 18 }} barCategoryGap="24%">
-                  <defs>
-                    <linearGradient id="gradOptimal" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#10B981" stopOpacity={1} />
-                      <stop offset="100%" stopColor="#10B981" stopOpacity={0.3} />
-                    </linearGradient>
-                    <linearGradient id="gradWarning" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#EAB308" stopOpacity={1} />
-                      <stop offset="100%" stopColor="#EAB308" stopOpacity={0.3} />
-                    </linearGradient>
-                    <linearGradient id="gradCritical" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#EF4444" stopOpacity={1} />
-                      <stop offset="100%" stopColor="#EF4444" stopOpacity={0.3} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                  <XAxis
-                    dataKey="name"
-                    interval={0}
-                    height={46}
-                    tickFormatter={formatFarmName}
-                    tick={{ fontSize: 11, fill: '#A1A1AA' }}
-                    axisLine={false}
-                    tickLine={false}
-                    dy={10}
-                  />
-                  <YAxis domain={[0, 1]} ticks={[0, 0.25, 0.5, 0.75, 1]} tick={{ fontSize: 11, fill: '#A1A1AA' }} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                    contentStyle={{ backgroundColor: '#18181B', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}
-                    itemStyle={{ color: '#F8FAFC' }}
-                    labelStyle={{ color: '#94A3B8' }}
-                  />
-                  <Bar dataKey="ndvi" radius={[4, 4, 0, 0]} maxBarSize={50}>
-                    {ndviData.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={getHealthFill(entry.status)}
-                      />
-                    ))}
-                  </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-
-          {/* Secondary Chart: Priority Alerts (1/4 width) */}
-          <div className="orbital-card p-6 rounded-lg col-span-1 lg:col-span-1 bg-card flex flex-col h-[420px] overflow-hidden">
-            <h3 className="text-lg font-bold font-display uppercase tracking-wider mb-6 flex items-center gap-2 text-destructive">
-              <AlertTriangle className="w-5 h-5" /> Alertas
-            </h3>
-            <div className="flex-1 overflow-y-auto pr-2 space-y-3 min-h-[200px]">
-              {alertFarms.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center opacity-70">
-                  <div className="p-4 bg-emerald-500/10 rounded-full mb-3">
-                    <Sprout className="w-8 h-8 text-emerald-500" />
+        ) : (
+          <>
+            <section
+              aria-label="Resumo das fazendas"
+              className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4"
+            >
+              {[
+                {
+                  label: "Fazendas",
+                  value: String(summary.total),
+                  detail: "No filtro de proprietário",
+                  icon: MapPin,
+                },
+                {
+                  label: "Área cadastrada",
+                  value: formatDecimal(summary.area),
+                  detail: "Hectares no filtro",
+                  icon: Sprout,
+                },
+                {
+                  label: "Com leitura de NDVI",
+                  value: String(summary.measured),
+                  detail: "Não simulada · confira a data",
+                  icon: Satellite,
+                },
+                {
+                  label: "Para conferir",
+                  value: String(summary.review.length),
+                  detail: "Índice ou qualidade da leitura",
+                  icon: ScanLine,
+                },
+              ].map(({ label, value, detail, icon: Icon }) => (
+                <article
+                  key={label}
+                  className="min-w-0 rounded-2xl border border-border bg-card p-4 sm:p-5"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm text-slate-300">{label}</p>
+                    <Icon className="h-4 w-4 shrink-0 text-emerald-400" />
                   </div>
-                  <p className="text-sm font-display font-semibold text-emerald-500">Nominal</p>
-                </div>
-              ) : (
-                alertFarms.map((farm) => (
-                  <div key={farm.id} className="flex items-center justify-between p-3 rounded-md bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-1.5 h-8 rounded-full ${farm.status === 'Crítico' ? 'bg-destructive' : farm.status === 'Atenção' ? 'bg-yellow-500' : 'bg-slate-500'}`} />
-                      <div className="overflow-hidden">
-                        <p className="font-bold text-foreground text-xs uppercase tracking-wide truncate max-w-[80px]">{farm.name}</p>
-                        <p className={`text-[10px] font-mono font-medium ${farm.status === 'Crítico' ? 'text-destructive' : farm.status === 'Atenção' ? 'text-yellow-500' : 'text-slate-400'}`}>
-                          {farm.status === 'Sem dados' ? 'Sem leitura' : `NDVI: ${farm.ndvi.toFixed(2)}`}
+                  <p className="mt-3 break-words text-3xl font-semibold tracking-tight">
+                    {value}
+                  </p>
+                  <p className="mt-2 text-xs text-slate-400">{detail}</p>
+                </article>
+              ))}
+            </section>
+            {farms.length === 0 ? (
+              <section className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
+                <Sprout className="mx-auto mb-4 h-8 w-8 text-emerald-400" />
+                <h2 className="text-xl font-semibold">
+                  Nenhuma fazenda neste filtro
+                </h2>
+                <p className="mt-2 text-sm text-slate-400">
+                  Cadastre uma propriedade ou selecione outro proprietário para
+                  começar.
+                </p>
+              </section>
+            ) : (
+              <>
+                <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,1fr)]">
+                  <section
+                    className="min-w-0 rounded-2xl border border-border bg-card p-4 sm:p-6"
+                    aria-label="Comparação entre fazendas"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h2 className="text-xl font-semibold">
+                          NDVI por fazenda
+                        </h2>
+                        <p className="mt-1 text-sm text-slate-400">
+                          Última leitura de cada propriedade.
                         </p>
                       </div>
+                      <Link
+                        href="/farms"
+                        className="inline-flex items-center gap-1 text-sm text-emerald-300 hover:underline"
+                      >
+                        Todas as fazendas <ArrowUpRight className="h-4 w-4" />
+                      </Link>
                     </div>
-                    <Link href={`/farms/${farm.id}`}>
-                      <button className="text-[10px] bg-white/5 hover:bg-white/10 text-foreground px-2 py-1 rounded uppercase font-bold tracking-wider transition-colors cursor-pointer">
-                        Ver
-                      </button>
-                    </Link>
-                  </div>
-                ))
-              )}
-            </div>
-            {/* Footer summary */}
-            <div className="mt-auto pt-4 border-t border-white/10 flex justify-between items-center text-xs text-muted-foreground uppercase tracking-wider font-mono">
-              <span>Total:</span>
-              <span className="text-foreground font-bold">{alertFarms.length}</span>
-            </div>
-          </div>
-
-          {/* Predictive Model Chart */}
-
-          {/* Predictive Model Chart - Premium Only */}
-          {farms && farms.length > 0 && (
-            <div className="relative col-span-1 lg:col-span-4">
-              <PredictiveChartWrapper farms={farms} />
-              {/* Premium Lock Overlay */}
-              {/*@ts-ignore*/}
-              {user?.role !== 'admin' && user?.subscriptionStatus !== 'active' && (
-                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center border border-white/10 rounded-xl">
-                  <div className="p-4 rounded-full bg-emerald-500/20 mb-4">
-                    <Sprout className="w-8 h-8 text-emerald-500" />
-                  </div>
-                  <h3 className="text-xl font-bold mb-2">Análise Preditiva Avançada (IA)</h3>
-                  <p className="text-muted-foreground mb-6 max-w-md text-center">
-                    Preveja a produtividade da safra com nossa Inteligência Artificial exclusiva.
-                  </p>
-                  <Link href="/plans">
-                    <Button variant="default" className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold">
-                      Desbloquear Premium
-                    </Button>
-                  </Link>
+                    <div className="my-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                      <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-border bg-background px-3">
+                        <Search className="h-4 w-4 shrink-0 text-slate-400" />
+                        <input
+                          aria-label="Buscar fazenda no comparativo"
+                          placeholder="Buscar fazenda..."
+                          value={search}
+                          onChange={(e) => {
+                            setSearch(e.target.value);
+                            setPage(0);
+                          }}
+                          className="h-10 w-full min-w-0 bg-transparent text-sm outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                        />
+                      </label>
+                      <select
+                        aria-label="Ordenar comparação"
+                        value={order}
+                        onChange={(e) => {
+                          setOrder(e.target.value);
+                          setPage(0);
+                        }}
+                        className="h-10 max-w-full rounded-xl border border-border bg-background px-3 text-sm"
+                      >
+                        <option value="priority">Pontos para conferir</option>
+                        <option value="name">Nome da fazenda</option>
+                        <option value="ndvi">Menor NDVI primeiro</option>
+                      </select>
+                    </div>
+                    <div className="divide-y divide-border">
+                      {rows
+                        .slice(
+                          currentPage * pageSize,
+                          (currentPage + 1) * pageSize,
+                        )
+                        .map((row) => (
+                          <Link
+                            key={row.farm.id}
+                            href={`/farms/${row.farm.id}`}
+                            className="group block rounded-lg py-4 transition-colors hover:bg-white/[.025] focus-visible:outline focus-visible:outline-emerald-500"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <h3 className="break-words font-medium group-hover:text-emerald-300">
+                                  {row.farm.name}
+                                </h3>
+                                <p className="mt-1 text-xs text-slate-400">
+                                  {row.farm.cropType || "Cultura não informada"}{" "}
+                                  ·{" "}
+                                  {row.farm.latestReading
+                                    ? readingDateLabel(
+                                        row.farm.latestReading.date,
+                                      )
+                                    : "Sem data de leitura"}
+                                </p>
+                              </div>
+                              <span className="shrink-0 text-lg font-semibold tabular-nums">
+                                {row.measured ? formatDecimal(row.value!) : "—"}
+                              </span>
+                            </div>
+                            <div className="mt-3 flex flex-wrap items-center gap-3">
+                              <div
+                                aria-hidden="true"
+                                className="relative h-2 min-w-20 flex-1 overflow-hidden rounded-full bg-slate-700/60"
+                              >
+                                <span className="absolute inset-y-0 left-1/2 w-px bg-slate-400/60" />
+                                {row.measured && (
+                                  <span
+                                    className={`absolute inset-y-0 rounded-full ${row.kind === "cloudy" ? "bg-sky-400/60" : row.kind === "low" ? "bg-orange-400" : row.kind === "medium" ? "bg-amber-400" : "bg-emerald-400"}`}
+                                    style={{
+                                      left: `${row.value! < 0 ? (row.value! + 1) * 50 : 50}%`,
+                                      width: `${Math.abs(row.value!) * 50}%`,
+                                    }}
+                                  />
+                                )}
+                              </div>
+                              <span
+                                className={`rounded-md px-2 py-1 text-xs ${tones[row.kind]}`}
+                              >
+                                {row.label}
+                              </span>
+                              <ArrowUpRight className="h-4 w-4 text-slate-500 group-hover:text-emerald-300" />
+                            </div>
+                          </Link>
+                        ))}
+                      {!rows.length && (
+                        <p className="py-10 text-center text-sm text-slate-400">
+                          Nenhuma fazenda encontrada para esta busca.
+                        </p>
+                      )}
+                    </div>
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+                      <p className="text-xs text-slate-400" aria-live="polite">
+                        {rows.length
+                          ? `${currentPage * pageSize + 1}–${Math.min((currentPage + 1) * pageSize, rows.length)} de ${rows.length} fazendas`
+                          : "0 fazendas"}
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={currentPage === 0}
+                          onClick={() => setPage(currentPage - 1)}
+                        >
+                          Anterior
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={currentPage + 1 >= pages}
+                          onClick={() => setPage(currentPage + 1)}
+                        >
+                          Próxima
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="mt-4 flex gap-2 text-xs leading-relaxed text-slate-400">
+                      <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                      Escala de −1 a 1, com zero no centro. As datas podem
+                      variar. NDVI baixo não confirma, isoladamente, um problema
+                      na lavoura.
+                    </p>
+                  </section>
+                  <aside
+                    className="rounded-2xl border border-border bg-card p-4 sm:p-6"
+                    aria-label="Pontos para conferir"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <h2 className="text-xl font-semibold">Para conferir</h2>
+                      <span className="rounded-full bg-amber-400/10 px-3 py-1 text-sm text-amber-200">
+                        {summary.review.length}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-400">
+                      Abra a fazenda para avaliar a leitura no contexto do
+                      histórico e da vistoria.
+                    </p>
+                    <div className="mt-5 space-y-3">
+                      {summary.review.slice(0, reviewLimit).map((row) => (
+                        <Link
+                          key={row.farm.id}
+                          href={`/farms/${row.farm.id}`}
+                          className="block rounded-xl border border-border p-4 hover:border-slate-500 focus-visible:outline focus-visible:outline-emerald-500"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <h3 className="min-w-0 break-words text-sm font-medium">
+                              {row.farm.name}
+                            </h3>
+                            <ArrowUpRight className="h-4 w-4 shrink-0 text-slate-400" />
+                          </div>
+                          <span
+                            className={`mt-2 inline-block rounded-md px-2 py-1 text-xs ${tones[row.kind]}`}
+                          >
+                            {row.label}
+                          </span>
+                          <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                            {row.reason}
+                          </p>
+                          <p className="mt-2 text-xs text-slate-400">
+                            {row.farm.latestReading
+                              ? readingDateLabel(row.farm.latestReading.date)
+                              : "Sem leitura registrada"}
+                          </p>
+                        </Link>
+                      ))}
+                    </div>
+                    {!summary.review.length && (
+                      <p className="py-8 text-sm text-slate-300">
+                        Nenhum ponto sinalizado por estes critérios. Continue
+                        acompanhando as datas e as vistorias.
+                      </p>
+                    )}
+                    {summary.review.length > reviewLimit && (
+                      <Button
+                        variant="outline"
+                        className="mt-4 w-full"
+                        onClick={() => setReviewLimit((limit) => limit + 4)}
+                      >
+                        Mostrar mais ({summary.review.length - reviewLimit})
+                      </Button>
+                    )}
+                  </aside>
                 </div>
-              )}
-            </div>
-          )}
-
-        </motion.div>
+                <section className="mt-6" aria-label="Projeção de vigor">
+                  {premium ? (
+                    <PredictiveChartWrapper farms={farms} />
+                  ) : (
+                    <div className="rounded-2xl border border-border bg-card p-6">
+                      <h2 className="text-xl font-semibold">
+                        Projeção de vigor
+                      </h2>
+                      <p className="my-3 text-sm text-slate-400">
+                        Explore cenários estimados pelo modelo no plano Premium.
+                      </p>
+                      <Link href="/plans">
+                        <Button variant="outline">Conhecer o Premium</Button>
+                      </Link>
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
+            <p className="mt-6 text-xs leading-relaxed text-slate-500">
+              As informações resumem as últimas leituras registradas, não
+              necessariamente as condições de hoje. O painel não substitui a
+              avaliação em campo.
+            </p>
+          </>
+        )}
       </main>
     </div>
   );
